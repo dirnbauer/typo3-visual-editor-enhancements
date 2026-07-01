@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en">
+  <file id="visual_editor_setup" original="EXT:visual_editor_enhancements/Resources/Private/Language/locallang_setup.xlf">
+    <unit id="tab">
+      <segment>
+        <source>Visual editor</source>
+      </segment>
+    </unit>
+    <unit id="showLibrary">
+      <segment>
+        <source>Show the "Add content" button</source>
+      </segment>
+    </unit>
+    <unit id="showLibrary.description">
+      <segment>
+        <source>Shows the floating button that opens the element library while editing a page in the visual editor.</source>
+      </segment>
+    </unit>
+    <unit id="showLinks">
+      <segment>
+        <source>Show link edit buttons</source>
+      </segment>
+    </unit>
+    <unit id="showLinks.description">
+      <segment>
+        <source>Shows a link icon next to editable link fields so the TYPO3 link browser can be opened directly in the visual editor.</source>
+      </segment>
+    </unit>
+    <unit id="showFieldChooser">
+      <segment>
+        <source>Show the "Field settings" button</source>
+      </segment>
+    </unit>
+    <unit id="showFieldChooser.description">
+      <segment>
+        <source>Shows a button in the element toolbar that opens the field settings panel for select and category fields while editing a page in the visual editor.</source>
+      </segment>
+    </unit>
+    <unit id="panelColumns">
+      <segment>
+        <source>Element library size</source>
+      </segment>
+    </unit>
+    <unit id="panelColumns.description">
+      <segment>
+        <source>Small shows one full-width preview column; wide shows three columns.</source>
+      </segment>
+    </unit>
+    <unit id="panelColumns.small">
+      <segment>
+        <source>Small (1 column)</source>
+      </segment>
+    </unit>
+    <unit id="panelColumns.wide">
+      <segment>
+        <source>Wide (3 columns)</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

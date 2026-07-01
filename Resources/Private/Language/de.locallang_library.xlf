@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="de">
+  <file id="visual_editor_library" original="EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf">
+    <unit id="frontend.editLink">
+      <segment state="final">
+        <source>Edit link</source>
+        <target>Link bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.title">
+      <segment state="final">
+        <source>Add content</source>
+        <target>Inhalt hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.open">
+      <segment state="final">
+        <source>Add content from library</source>
+        <target>Inhalt aus der Bibliothek hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.close">
+      <segment state="final">
+        <source>Close</source>
+        <target>Schließen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.search">
+      <segment state="final">
+        <source>Search elements …</source>
+        <target>Elemente durchsuchen …</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.label">
+      <segment state="final">
+        <source>Insert with example content</source>
+        <target>Mit Beispielinhalt einfügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.short">
+      <segment state="final">
+        <source>Demo content</source>
+        <target>Demo-Inhalt</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.pill.on">
+      <segment state="final">
+        <source>With demo content</source>
+        <target>Mit Demo-Inhalt</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.pill.off">
+      <segment state="final">
+        <source>Without demo content</source>
+        <target>Ohne Demo-Inhalt</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.hint.on">
+      <segment state="final">
+        <source>Ready-made demo text &amp; images.</source>
+        <target>Fertige Demo-Texte &amp; Bilder.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.includeDemo.hint.off">
+      <segment state="final">
+        <source>Empty element to fill yourself.</source>
+        <target>Leeres Element zum selbst Befüllen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.loading">
+      <segment state="final">
+        <source>Loading …</source>
+        <target>Wird geladen …</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.empty">
+      <segment state="final">
+        <source>No elements match the current filter.</source>
+        <target>Keine Elemente passen zum aktuellen Filter.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.fromLibrary">
+      <segment state="final">
+        <source>Add from library</source>
+        <target>Aus Bibliothek hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.allCategories">
+      <segment state="final">
+        <source>All</source>
+        <target>Alle</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.dragHint">
+      <segment state="final">
+        <source>Drag onto the page</source>
+        <target>Auf die Seite ziehen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.dragGhost.move">
+      <segment state="final">
+        <source>Move to a highlighted drop zone</source>
+        <target>Zur markierten Position ziehen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.dragGhost.drop">
+      <segment state="final">
+        <source>Release to insert</source>
+        <target>Loslassen zum Einfügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.zoom">
+      <segment state="final">
+        <source>Enlarge preview</source>
+        <target>Vorschau vergrößern</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.preview">
+      <segment state="final">
+        <source>Preview</source>
+        <target>Vorschau</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.recentlyUsed">
+      <segment state="final">
+        <source>Recently used</source>
+        <target>Zuletzt verwendet</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.allElements">
+      <segment state="final">
+        <source>All elements</source>
+        <target>Alle Elemente</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.closePreview">
+      <segment state="final">
+        <source>Close preview</source>
+        <target>Vorschau schließen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.previewHint">
+      <segment state="final">
+        <source>Hover an element to preview it here.</source>
+        <target>Element überfahren, um es hier in der Vorschau zu sehen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.layout">
+      <segment state="final">
+        <source>Layout</source>
+        <target>Layout</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.layout.single">
+      <segment state="final">
+        <source>Single column with preview</source>
+        <target>Eine Spalte mit Vorschau</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.layout.grid">
+      <segment state="final">
+        <source>Grid with overlay preview</source>
+        <target>Raster mit Vorschau-Overlay</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.contentAdded.title">
+      <segment state="final">
+        <source>Content added</source>
+        <target>Inhalt hinzugefügt</target>
+      </segment>
+    </unit>
+    <unit id="frontend.library.contentAdded.message">
+      <segment state="final">
+        <source>{workspace, select, live {The content was added and is now visible on the live website.} other {The content was added to this workspace. It is not visible on the live website yet. Publish this workspace to make it live.}}</source>
+        <target>{workspace, select, live {Der Inhalt wurde hinzugefügt und ist jetzt auf der Live-Website sichtbar.} other {Der Inhalt wurde in dieser Arbeitsumgebung hinzugefügt. Er ist noch nicht auf der Live-Website sichtbar. Veröffentlichen Sie diese Arbeitsumgebung, damit er live sichtbar wird.}}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.open">
+      <segment state="final">
+        <source>Edit field settings</source>
+        <target>Feld-Einstellungen bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.title">
+      <segment state="final">
+        <source>Field settings</source>
+        <target>Feld-Einstellungen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.close">
+      <segment state="final">
+        <source>Close</source>
+        <target>Schließen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.empty">
+      <segment state="final">
+        <source>No editable choice fields for this element.</source>
+        <target>Keine bearbeitbaren Auswahlfelder für dieses Element.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.loading">
+      <segment state="final">
+        <source>Loading…</source>
+        <target>Wird geladen…</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.error">
+      <segment state="final">
+        <source>Could not load field options.</source>
+        <target>Feld-Optionen konnten nicht geladen werden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.pendingHint">
+      <segment state="final">
+        <source>Applied with the next save.</source>
+        <target>Wird mit dem nächsten Speichern übernommen.</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

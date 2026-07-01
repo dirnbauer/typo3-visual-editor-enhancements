@@ -1,0 +1,38 @@
+{
+  "name": "webconsulting/visual-editor-enhancements",
+  "type": "typo3-cms-extension",
+  "description": "Visual Editor enhancements: element library, editable link helper, select/category field chooser, and editor UI bridges.",
+  "keywords": ["TYPO3", "visual-editor", "frontend-editing", "content-elements"],
+  "homepage": "https://webconsulting.at",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "webconsulting GmbH",
+      "email": "office@webconsulting.at",
+      "homepage": "https://webconsulting.at"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/dirnbauer/typo3-visual-editor-enhancements/issues",
+    "source": "https://github.com/dirnbauer/typo3-visual-editor-enhancements"
+  },
+  "require": {
+    "php": "^8.3",
+    "friendsoftypo3/visual-editor": "^1.8",
+    "typo3/cms-backend": "^14.3",
+    "typo3/cms-core": "^14.3",
+    "typo3/cms-frontend": "^14.3",
+    "typo3/cms-fluid": "^14.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Webconsulting\\VisualEditorEnhancements\\": "Classes/",
+      "TYPO3\\CMS\\VisualEditor\\ViewHelpers\\Render\\": "Classes/VisualEditor/ViewHelpers/Render/"
+    }
+  },
+  "extra": {
+    "typo3/cms": {
+      "extension-key": "visual_editor_enhancements"
+    }
+  }
+}

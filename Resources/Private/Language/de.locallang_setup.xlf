@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="de">
+  <file id="visual_editor_setup" original="EXT:visual_editor_enhancements/Resources/Private/Language/locallang_setup.xlf">
+    <unit id="tab">
+      <segment state="final">
+        <source>Visual editor</source>
+        <target>Visueller Editor</target>
+      </segment>
+    </unit>
+    <unit id="showLibrary">
+      <segment state="final">
+        <source>Show the "Add content" button</source>
+        <target>Schaltfläche „Inhalt hinzufügen“ anzeigen</target>
+      </segment>
+    </unit>
+    <unit id="showLibrary.description">
+      <segment state="final">
+        <source>Shows the floating button that opens the element library while editing a page in the visual editor.</source>
+        <target>Zeigt die schwebende Schaltfläche, die im visuellen Editor die Element-Bibliothek öffnet.</target>
+      </segment>
+    </unit>
+    <unit id="showLinks">
+      <segment state="final">
+        <source>Show link edit buttons</source>
+        <target>Link-Bearbeitungsschaltflächen anzeigen</target>
+      </segment>
+    </unit>
+    <unit id="showLinks.description">
+      <segment state="final">
+        <source>Shows a link icon next to editable link fields so the TYPO3 link browser can be opened directly in the visual editor.</source>
+        <target>Zeigt neben bearbeitbaren Linkfeldern ein Link-Symbol, über das der TYPO3-Linkbrowser direkt im visuellen Editor geöffnet werden kann.</target>
+      </segment>
+    </unit>
+    <unit id="showFieldChooser">
+      <segment state="final">
+        <source>Show the "Field settings" button</source>
+        <target>Schaltfläche „Feld-Einstellungen“ anzeigen</target>
+      </segment>
+    </unit>
+    <unit id="showFieldChooser.description">
+      <segment state="final">
+        <source>Shows a button in the element toolbar that opens the field settings panel for select and category fields while editing a page in the visual editor.</source>
+        <target>Zeigt in der Element-Werkzeugleiste eine Schaltfläche, die beim Bearbeiten einer Seite im visuellen Editor das Feld-Einstellungen-Panel für Auswahl- und Kategoriefelder öffnet.</target>
+      </segment>
+    </unit>
+    <unit id="panelColumns">
+      <segment state="final">
+        <source>Element library size</source>
+        <target>Größe der Element-Bibliothek</target>
+      </segment>
+    </unit>
+    <unit id="panelColumns.description">
+      <segment state="final">
+        <source>Small shows one full-width preview column; wide shows three columns.</source>
+        <target>Schmal zeigt eine Vorschauspalte über die volle Breite; breit zeigt drei Spalten.</target>
+      </segment>
+    </unit>
+    <unit id="panelColumns.small">
+      <segment state="final">
+        <source>Small (1 column)</source>
+        <target>Schmal (1 Spalte)</target>
+      </segment>
+    </unit>
+    <unit id="panelColumns.wide">
+      <segment state="final">
+        <source>Wide (3 columns)</source>
+        <target>Breit (3 Spalten)</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

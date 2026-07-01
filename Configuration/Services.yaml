@@ -1,0 +1,13 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Webconsulting\VisualEditorEnhancements\:
+    resource: '../Classes/*'
+    exclude:
+      - '../Classes/VisualEditor/*'
+
+  TYPO3\CMS\VisualEditor\ViewHelpers\Render\:
+    resource: '../Classes/VisualEditor/ViewHelpers/Render/*'
