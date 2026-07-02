@@ -217,5 +217,11 @@
         <target>Wird mit dem nächsten Speichern übernommen.</target>
       </segment>
     </unit>
+    <unit id="frontend.fieldChooser.truncated">
+      <segment state="final">
+        <source>{count, plural, one {# more category is hidden} other {# more categories are hidden}}</source>
+        <target>{count, plural, one {# weitere Kategorie ist ausgeblendet} other {# weitere Kategorien sind ausgeblendet}}</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

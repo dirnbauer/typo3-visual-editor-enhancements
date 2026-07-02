@@ -97,7 +97,7 @@ final readonly class FieldOptionsService
             if ($field instanceof StaticSelectFieldType) {
                 $fields[] = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
             } elseif ($field instanceof CategoryFieldType) {
-                $fields[] = $this->buildCategoryField($table, $field, $label, $row);
+                $fields[] = $this->buildCategoryField($table, $field, $label, $row, $languageService);
             }
         }
 
@@ -243,9 +243,14 @@ final readonly class FieldOptionsService
      *
      * @return array<string, mixed>
      */
-    private function buildCategoryField(string $table, CategoryFieldType $field, string $label, array $row): array
-    {
-        [$items, $truncated] = $this->getCategoryItems($field);
+    private function buildCategoryField(
+        string $table,
+        CategoryFieldType $field,
+        string $label,
+        array $row,
+        LanguageService $languageService,
+    ): array {
+        [$items, $hiddenCount] = $this->getCategoryItems($field);
 
         $result = [
             'name' => $field->getName(),
@@ -254,8 +259,15 @@ final readonly class FieldOptionsService
             'value' => $this->getOrderedCategoryUids($table, $field, $row),
             'items' => $items,
         ];
-        if ($truncated) {
+        if ($hiddenCount > 0) {
             $result['truncated'] = true;
+            // ICU plural message, resolved server-side so the client receives
+            // the already-formatted text in the backend user's language.
+            $result['truncatedNote'] = (string)($languageService->translate(
+                'frontend.fieldChooser.truncated',
+                'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf',
+                ['count' => $hiddenCount],
+            ) ?? '');
         }
 
         return $result;
@@ -275,7 +287,7 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @return array{0: list<array{value: string, label: string, depth: int}>, 1: bool}
+     * @return array{0: list<array{value: string, label: string, depth: int}>, 1: int}
      */
     private function getCategoryItems(CategoryFieldType $field): array
     {
@@ -302,12 +314,12 @@ final readonly class FieldOptionsService
 
         $items = [];
         $visited = [];
-        $truncated = false;
+        $hiddenCount = 0;
         foreach ($this->getCategoryRootUids($field, $childrenByParent) as $rootUid) {
-            $this->appendCategorySubtree($rootUid, 0, $titlesByUid, $childrenByParent, $items, $visited, $truncated);
+            $this->appendCategorySubtree($rootUid, 0, $titlesByUid, $childrenByParent, $items, $visited, $hiddenCount);
         }
 
-        return [$items, $truncated];
+        return [$items, $hiddenCount];
     }
 
     /**
@@ -342,6 +354,9 @@ final readonly class FieldOptionsService
     }
 
     /**
+     * Past the item limit the traversal keeps running without appending, so
+     * the exact number of hidden categories is known for the truncation note.
+     *
      * @param array<int, string> $titlesByUid
      * @param array<int, list<int>> $childrenByParent
      * @param list<array{value: string, label: string, depth: int}> $items
@@ -354,23 +369,23 @@ final readonly class FieldOptionsService
         array $childrenByParent,
         array &$items,
         array &$visited,
-        bool &$truncated,
+        int &$hiddenCount,
     ): void {
-        if (!isset($titlesByUid[$categoryUid]) || isset($visited[$categoryUid]) || $truncated) {
-            return;
-        }
-        if (count($items) >= self::CATEGORY_ITEM_LIMIT) {
-            $truncated = true;
+        if (!isset($titlesByUid[$categoryUid]) || isset($visited[$categoryUid])) {
             return;
         }
         $visited[$categoryUid] = true;
-        $items[] = [
-            'value' => (string)$categoryUid,
-            'label' => $titlesByUid[$categoryUid],
-            'depth' => $depth,
-        ];
+        if (count($items) >= self::CATEGORY_ITEM_LIMIT) {
+            $hiddenCount++;
+        } else {
+            $items[] = [
+                'value' => (string)$categoryUid,
+                'label' => $titlesByUid[$categoryUid],
+                'depth' => $depth,
+            ];
+        }
         foreach ($childrenByParent[$categoryUid] ?? [] as $childUid) {
-            $this->appendCategorySubtree($childUid, $depth + 1, $titlesByUid, $childrenByParent, $items, $visited, $truncated);
+            $this->appendCategorySubtree($childUid, $depth + 1, $titlesByUid, $childrenByParent, $items, $visited, $hiddenCount);
         }
     }
 

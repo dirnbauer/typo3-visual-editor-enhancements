@@ -288,7 +288,7 @@ export class VeFieldChooser extends LitElement {
             <span class="categoryLabel" title="${item.label}">${item.label}</span>
           </label>
         `)}
-        ${field.truncated ? html`<span class="truncatedNote" aria-hidden="true">&hellip;</span>` : ''}
+        ${field.truncated ? html`<span class="truncatedNote">${field.truncatedNote || '…'}</span>` : ''}
       </div>
     `;
   }

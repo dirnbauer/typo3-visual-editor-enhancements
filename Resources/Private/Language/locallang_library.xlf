@@ -181,5 +181,10 @@
         <source>Applied with the next save.</source>
       </segment>
     </unit>
+    <unit id="frontend.fieldChooser.truncated">
+      <segment>
+        <source>{count, plural, one {# more category is hidden} other {# more categories are hidden}}</source>
+      </segment>
+    </unit>
   </file>
 </xliff>
