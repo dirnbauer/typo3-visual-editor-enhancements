@@ -39,6 +39,7 @@ use function is_string;
 use function str_ends_with;
 use function strval;
 use function trim;
+use function usort;
 
 final readonly class FieldOptionsService
 {
@@ -88,6 +89,7 @@ final readonly class FieldOptionsService
         $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
         $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
 
+        $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
         $fields = [];
         foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId) as $fieldName) {
             if (!$fieldSchema->hasField($fieldName) || !$this->editModeService->canEditField($record, $fieldName, $request)) {
@@ -97,11 +99,24 @@ final readonly class FieldOptionsService
             $field = $fieldSchema->getField($fieldName);
             $label = $languageService->sL(trim($field->getLabel()));
             if ($field instanceof StaticSelectFieldType) {
-                $fields[] = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
+                $payload = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
             } elseif ($field instanceof CategoryFieldType) {
-                $fields[] = $this->buildCategoryField($table, $field, $label, $row, $languageService);
+                $payload = $this->buildCategoryField($table, $field, $label, $row, $languageService);
+            } else {
+                continue;
             }
+            $payload['group'] = $fieldGroups[$fieldName]['label'] ?? '';
+            $payload['position'] = $fieldGroups[$fieldName]['position'] ?? PHP_INT_MAX;
+            $fields[] = $payload;
         }
+
+        // Mirror the backend form: fields in showitem order, so group headings
+        // come out in the same sequence as the FormEngine tabs and palettes.
+        usort($fields, static fn(array $a, array $b): int => $a['position'] <=> $b['position']);
+        $fields = array_map(static function (array $field): array {
+            unset($field['position']);
+            return $field;
+        }, $fields);
 
         return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fields' => $fields];
     }
@@ -238,6 +253,53 @@ final readonly class FieldOptionsService
         }
 
         return $fieldTsConfig;
+    }
+
+    /**
+     * Maps each field of the record type to the heading it sits under in the
+     * backend edit form, parsed from the TCA showitem/palette structure the
+     * same way FormEngine builds the form: a labeled palette wins, otherwise
+     * the surrounding tab (fields before the first --div-- belong to the
+     * implicit "General" tab). Position preserves the showitem order.
+     *
+     * @return array<string, array{label: string, position: int}>
+     */
+    private function getFieldGroups(string $table, string $recordType, LanguageService $languageService): array
+    {
+        $typeConfiguration = $GLOBALS['TCA'][$table]['types'][$recordType]
+            ?? $GLOBALS['TCA'][$table]['types']['0']
+            ?? [];
+        $palettes = $GLOBALS['TCA'][$table]['palettes'] ?? [];
+        $tabLabel = $languageService->sL('core.form.tabs:general');
+        $position = 0;
+        $groups = [];
+        foreach (GeneralUtility::trimExplode(',', (string)($typeConfiguration['showitem'] ?? ''), true) as $item) {
+            $parts = GeneralUtility::trimExplode(';', $item);
+            $name = $parts[0] ?? '';
+            if ($name === '--div--') {
+                $tabLabel = $languageService->sL(trim($parts[1] ?? ''));
+                continue;
+            }
+            if ($name === '--palette--') {
+                $paletteName = $parts[2] ?? '';
+                $label = trim($parts[1] ?? '') !== ''
+                    ? trim($parts[1])
+                    : trim((string)($palettes[$paletteName]['label'] ?? ''));
+                $groupLabel = $label !== '' ? $languageService->sL($label) : $tabLabel;
+                foreach (GeneralUtility::trimExplode(',', (string)($palettes[$paletteName]['showitem'] ?? ''), true) as $paletteItem) {
+                    $fieldName = GeneralUtility::trimExplode(';', $paletteItem)[0] ?? '';
+                    if ($fieldName !== '' && $fieldName !== '--linebreak--' && !isset($groups[$fieldName])) {
+                        $groups[$fieldName] = ['label' => $groupLabel, 'position' => $position++];
+                    }
+                }
+                continue;
+            }
+            if ($name !== '' && !isset($groups[$name])) {
+                $groups[$name] = ['label' => $tabLabel, 'position' => $position++];
+            }
+        }
+
+        return $groups;
     }
 
     /**

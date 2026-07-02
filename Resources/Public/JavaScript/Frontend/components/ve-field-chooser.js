@@ -250,7 +250,19 @@ export class VeFieldChooser extends LitElement {
     if (this.fields.length === 0) {
       return html`<p class="status">${translate('frontend.fieldChooser.empty', 'No editable choice fields for this element.')}</p>`;
     }
-    return html`${this.fields.map((field) => this.#renderField(field))}`;
+    // Same headings as the backend edit form: a heading is emitted whenever
+    // the group (tab/palette label resolved server-side) changes.
+    const rendered = [];
+    let lastGroup = null;
+    for (const field of this.fields) {
+      const group = field.group || '';
+      if (group !== '' && group !== lastGroup) {
+        rendered.push(html`<h3 class="groupLabel">${group}</h3>`);
+      }
+      lastGroup = group;
+      rendered.push(this.#renderField(field));
+    }
+    return html`${rendered}`;
   }
 
   #renderField(field) {
@@ -445,6 +457,23 @@ export class VeFieldChooser extends LitElement {
 
     .status.isError {
       color: #b3261e;
+    }
+
+    .groupLabel {
+      margin: 6px 0 -6px;
+      padding-top: 8px;
+      border-top: 1px solid #ececf1;
+      color: #8a8a94;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .groupLabel:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
     }
 
     .field {
