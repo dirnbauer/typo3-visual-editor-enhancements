@@ -36,6 +36,9 @@ export class VeFieldChooser extends LitElement {
     this.table = '';
     this.uid = 0;
     this.listening = false;
+    // Collapsed category nodes (uids); collapsing is purely visual - checked
+    // categories inside a collapsed subtree stay part of the staged value.
+    this.collapsedCategories = new Set();
     // Out-of-order guard: bumping it invalidates the response of any fetch
     // still in flight (another element was opened or the popover was closed).
     this.loadSeq = 0;
@@ -143,6 +146,7 @@ export class VeFieldChooser extends LitElement {
     this.loading = true;
     this.error = false;
     this.fields = [];
+    this.collapsedCategories = new Set();
     try {
       const response = await fetch(
         window.location.pathname
@@ -277,18 +281,69 @@ export class VeFieldChooser extends LitElement {
     const selected = new Set(this.#currentValues(field));
     return html`
       <div class="categoryList" role="group" aria-label="${field.label}">
-        ${field.items.map((item) => html`
-          <label class="categoryItem" style="padding-left:${(item.depth ?? 0) * 14}px">
+        ${this.#buildCategoryTree(field.items).map((node) => this.#renderCategoryNode(field, node, selected))}
+        ${field.truncated ? html`<span class="truncatedNote">${field.truncatedNote || '…'}</span>` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * Rebuilds the nested tree from the endpoint's depth-first flat item list:
+   * an item is a child of the nearest preceding item with a smaller depth.
+   * @param {Array<{value: string, label: string, depth?: number}>} items
+   * @return {Array<{item: object, children: Array}>}
+   */
+  #buildCategoryTree(items) {
+    const roots = [];
+    const stack = [];
+    for (const item of items) {
+      const node = {item, children: []};
+      const depth = item.depth ?? 0;
+      while (stack.length > 0 && stack[stack.length - 1].depth >= depth) {
+        stack.pop();
+      }
+      (stack.length === 0 ? roots : stack[stack.length - 1].node.children).push(node);
+      stack.push({node, depth});
+    }
+    return roots;
+  }
+
+  #toggleCategoryNode(value) {
+    this.collapsedCategories.has(value) ? this.collapsedCategories.delete(value) : this.collapsedCategories.add(value);
+    this.requestUpdate();
+  }
+
+  #renderCategoryNode(field, node, selected) {
+    const value = String(node.item.value);
+    const hasChildren = node.children.length > 0;
+    const isOpen = hasChildren && !this.collapsedCategories.has(value);
+    return html`
+      <div class="treeNode">
+        <div class="treeRow">
+          ${hasChildren ? html`
+            <button
+              type="button"
+              class="treeToggle ${isOpen ? 'isOpen' : ''}"
+              aria-expanded="${isOpen}"
+              aria-label="${node.item.label}"
+              @click="${() => this.#toggleCategoryNode(value)}"
+            ><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3l5 5-5 5"/></svg></button>
+          ` : html`<span class="treeSpacer"></span>`}
+          <label class="categoryItem">
             <input
               type="checkbox"
               class="checkbox"
-              .checked="${selected.has(String(item.value))}"
-              @change="${(event) => this.#stageCategory(field, item, event.target.checked)}"
+              .checked="${selected.has(value)}"
+              @change="${(event) => this.#stageCategory(field, node.item, event.target.checked)}"
             >
-            <span class="categoryLabel" title="${item.label}">${item.label}</span>
+            <span class="categoryLabel" title="${node.item.label}">${node.item.label}</span>
           </label>
-        `)}
-        ${field.truncated ? html`<span class="truncatedNote">${field.truncatedNote || '…'}</span>` : ''}
+        </div>
+        ${isOpen ? html`
+          <div class="treeChildren">
+            ${node.children.map((child) => this.#renderCategoryNode(field, child, selected))}
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -434,18 +489,70 @@ export class VeFieldChooser extends LitElement {
     .categoryList {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      max-height: 200px;
+      gap: 1px;
+      max-height: 280px;
       overflow: auto;
       padding: 4px 6px;
       border: 1px solid #ececf1;
       border-radius: 6px;
     }
 
-    .categoryItem {
+    .treeRow {
       display: flex;
       align-items: center;
+      gap: 1px;
+    }
+
+    .treeToggle {
+      display: flex;
+      flex: none;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: #55555f;
+      cursor: pointer;
+    }
+
+    .treeToggle svg {
+      transition: transform 0.12s ease;
+    }
+
+    .treeToggle.isOpen svg {
+      transform: rotate(90deg);
+    }
+
+    .treeToggle:hover {
+      background: #f0f0f4;
+      color: #1a1a20;
+    }
+
+    .treeToggle:focus-visible {
+      outline: 2px solid var(--ve-chooser-accent);
+      outline-offset: 1px;
+    }
+
+    .treeSpacer {
+      flex: none;
+      width: 18px;
+    }
+
+    .treeChildren {
+      margin-left: 8px;
+      padding-left: 8px;
+      border-left: 1px solid #e3e3e8;
+    }
+
+    .categoryItem {
+      display: flex;
+      flex: 1;
+      align-items: center;
       gap: 7px;
+      min-width: 0;
       padding: 3px 6px;
       border-radius: 4px;
       cursor: pointer;

@@ -42,7 +42,9 @@ use function trim;
 
 final readonly class FieldOptionsService
 {
-    private const CATEGORY_ITEM_LIMIT = 500;
+    // Guard against pathological installs only — like the backend category
+    // tree, the chooser is expected to deliver the complete category tree.
+    private const CATEGORY_ITEM_LIMIT = 10000;
 
     public function __construct(
         private TcaSchemaFactory $tcaSchema,
