@@ -64,7 +64,7 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @return array{table: string, uid: int, recordType: string, fields: list<array<string, mixed>>}|null
+     * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fields: list<array<string, mixed>>}|null
      */
     public function buildFieldOptions(string $table, int $uid, ServerRequestInterface $request): ?array
     {
@@ -83,7 +83,7 @@ final readonly class FieldOptionsService
         if ($schema->supportsSubSchema() && !$schema->getSubSchemaTypeInformation()->isPointerToForeignFieldInForeignSchema()) {
             $recordType = (string)($row[$schema->getSubSchemaTypeInformation()->getFieldName()] ?? '');
             if (!$schema->hasSubSchema($recordType)) {
-                return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fields' => []];
+                return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => [], 'fields' => []];
             }
             $fieldSchema = $schema->getSubSchema($recordType);
         }
@@ -94,6 +94,15 @@ final readonly class FieldOptionsService
         $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
 
         $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
+        // Every showitem field mapped to its localized group label, so the
+        // client can resolve the form section of any editable output — not
+        // just the fields the chooser itself renders.
+        $fieldGroupLabels = [];
+        foreach ($fieldGroups as $groupFieldName => $group) {
+            if ($group['label'] !== '') {
+                $fieldGroupLabels[$groupFieldName] = $group['label'];
+            }
+        }
         $fields = [];
         foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId) as $fieldName) {
             if (!$fieldSchema->hasField($fieldName) || !$this->editModeService->canEditField($record, $fieldName, $request)) {
@@ -129,7 +138,7 @@ final readonly class FieldOptionsService
             return $field;
         }, $fields);
 
-        return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fields' => $fields];
+        return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => $fieldGroupLabels, 'fields' => $fields];
     }
 
     /**

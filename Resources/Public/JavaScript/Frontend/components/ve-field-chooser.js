@@ -1,6 +1,7 @@
 import {css, html, LitElement, nothing} from 'lit';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
@@ -8,14 +9,16 @@ const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
 /**
  * Singleton popover listing the editable "settings" fields of one content
  * record - static single-value selects, category trees, links, checkboxes and
- * colors - as reported by the ?veFieldOptions=1 endpoint. Depending on the
- * per-user field chooser mode the fields render as one sectioned list or
- * grouped into the backend form's tabs. Every change is staged on the shared
- * dataHandlerStore and written to the database only with the next explicit
- * save, exactly like an inline text edit; reverting a field to the value it
- * had when the options loaded clears the pending change again. Opened via
- * openFieldChooser() from the per-element action-bar button injected in
- * Frontend/index.js and from the hover chip's context button.
+ * colors - as reported by the ?veFieldOptions=1 endpoint (loaded through the
+ * shared field-options cache). Depending on the per-user field chooser mode
+ * the fields render as one sectioned list or grouped into the backend form's
+ * tabs. Every change is staged on the shared dataHandlerStore and written to
+ * the database only with the next explicit save, exactly like an inline text
+ * edit; reverting a field to the value it had when the options loaded clears
+ * the pending change again. Opened via openFieldChooser() from the
+ * per-element action-bar button injected in Frontend/index.js (full view) and
+ * from the per-output context buttons (scoped to one form group via the
+ * scopeGroup option, with a "show all" escape hatch back to the full view).
  *
  * @extends {HTMLElement}
  */
@@ -29,6 +32,7 @@ export class VeFieldChooser extends LitElement {
     popoverStyle: {type: String, state: true, attribute: false},
     activeTab: {type: Number, state: true, attribute: false},
     bodyMinHeight: {type: Number, state: true, attribute: false},
+    scopeGroup: {type: String, state: true, attribute: false},
   };
 
   constructor() {
@@ -41,6 +45,7 @@ export class VeFieldChooser extends LitElement {
     this.popoverStyle = '';
     this.activeTab = 0;
     this.bodyMinHeight = 0;
+    this.scopeGroup = null;
     this.table = '';
     this.uid = 0;
     this.listening = false;
@@ -79,23 +84,35 @@ export class VeFieldChooser extends LitElement {
 
   /**
    * Opens the popover for one content element and loads its field options, or
-   * toggles it closed when it is already showing exactly that element.
-   * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect}} options
+   * toggles it closed when it is already showing exactly that element with
+   * exactly that scope. With scopeGroup set only the fields of that backend
+   * form group are shown (flat, never tabs). Re-anchoring the OPEN popover to
+   * another scope of the same element only re-filters the already loaded
+   * fields - it never refetches.
+   * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
    */
-  openFor({table, uid, elementName, anchorRect}) {
-    if (this.open && this.table === table && this.uid === uid) {
+  openFor({table, uid, elementName, anchorRect, scopeGroup = null}) {
+    const sameRecord = this.table === table && this.uid === uid;
+    if (this.open && sameRecord && this.scopeGroup === scopeGroup) {
       this.close();
       return;
     }
+    // Re-filtering an already loaded element must not refetch - but after a
+    // failed load there is nothing to keep, so an error state always retries
+    // (the shared cache evicted the failed promise).
+    const reload = !(this.open && sameRecord) || this.error;
     this.table = table;
     this.uid = uid;
     this.elementName = elementName ?? '';
+    this.scopeGroup = scopeGroup;
     this.open = true;
     this.activeTab = 0;
     this.bodyMinHeight = 0;
     this.#position(anchorRect);
     this.#startListening();
-    this.#load();
+    if (reload) {
+      this.#load();
+    }
   }
 
   close() {
@@ -157,10 +174,12 @@ export class VeFieldChooser extends LitElement {
    * the popover jump smaller. Measured only when the active tab or the field
    * list changed - never on the render the ratchet itself causes - and capped
    * so min-height can never push the popover past its positioned max-height
-   * (the max-height clamp plus the body's overflow:auto always win).
+   * (the max-height clamp plus the body's overflow:auto always win). Scoped
+   * mode never renders the tab bar, so the ratchet never runs there; leaving
+   * scoped mode via "show all" is a scopeGroup change and re-measures.
    */
   updated(changedProperties) {
-    if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields'))) {
+    if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields') || changedProperties.has('scopeGroup'))) {
       return;
     }
     if (fieldChooserMode() !== 'tabs' || this.renderRoot.querySelector('.tabBar') === null) {
@@ -191,17 +210,9 @@ export class VeFieldChooser extends LitElement {
     this.activeTab = 0;
     this.bodyMinHeight = 0;
     try {
-      const response = await fetch(
-        window.location.pathname
-          + '?veFieldOptions=1&editMode=1&table=' + encodeURIComponent(this.table) + '&uid=' + this.uid,
-        {headers: {'X-Request-Token': window.veInfo?.token ?? ''}},
-      );
-      const data = await response.json();
+      const data = await fetchFieldOptions(this.table, this.uid);
       if (seq !== this.loadSeq) {
         return; // superseded: another element was opened or the popover closed
-      }
-      if (!response.ok || data.error) {
-        throw new Error(data.error || ('HTTP ' + response.status));
       }
       this.fields = data.fields || [];
       // Baseline for the pending-change diff: reverting a field to this value
@@ -280,12 +291,16 @@ export class VeFieldChooser extends LitElement {
     if (!this.open) {
       return html``;
     }
-    const title = translate('frontend.fieldChooser.title', 'Field settings');
+    // Scoped mode (per-output context button): only the anchor field's form
+    // group, flat and titled with the group's label - never the tab bar, even
+    // in tabs mode. The footer's "show all" button leads to the full view.
+    const scoped = !!this.scopeGroup;
+    const title = scoped ? this.scopeGroup : translate('frontend.fieldChooser.title', 'Field settings');
     const closeLabel = translate('frontend.fieldChooser.close', 'Close');
     // Tabs mode replicates the backend form's tab bar; with a single (or no)
     // tab it falls back to the plain sectioned list, exactly like 'sections'
     // mode. While loading there are no fields, hence no tabs, hence no bar.
-    const tabs = fieldChooserMode() === 'tabs' ? this.#tabs() : [];
+    const tabs = !scoped && fieldChooserMode() === 'tabs' ? this.#tabs() : [];
     const useTabs = tabs.length > 1;
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
@@ -305,9 +320,27 @@ export class VeFieldChooser extends LitElement {
           aria-labelledby="${useTabs ? `ve-tab-${activeTab}` : nothing}"
           style="${this.bodyMinHeight > 0 ? `min-height:${this.bodyMinHeight}px;` : nothing}"
         >${useTabs ? this.#renderTabFields(tabs[activeTab]) : this.#renderBody()}</div>
-        <footer class="footer">${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</footer>
+        <footer class="footer">
+          <span class="footerHint">${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</span>
+          ${scoped ? html`
+            <button type="button" class="showAllButton" @click="${() => this.#showAll()}">
+              ${translate('frontend.fieldChooser.showAll', 'Show all field settings')}
+            </button>
+          ` : ''}
+        </footer>
       </div>
     `;
+  }
+
+  /**
+   * "Show all" in the scoped footer: re-opens the SAME element un-scoped at
+   * the same anchor position, without refetching - the full view then renders
+   * exactly as an action-bar open would (tabs when configured).
+   */
+  #showAll() {
+    this.scopeGroup = null;
+    this.activeTab = 0;
+    this.bodyMinHeight = 0;
   }
 
   /**
@@ -428,14 +461,22 @@ export class VeFieldChooser extends LitElement {
     if (this.error) {
       return html`<p class="status isError">${translate('frontend.fieldChooser.error', 'Could not load field options.')}</p>`;
     }
-    if (this.fields.length === 0) {
+    // Scoped mode: only the anchor group's fields, flat - the popover title
+    // already names the group, so headings would only repeat it.
+    const fields = this.scopeGroup
+      ? this.fields.filter((field) => field.group === this.scopeGroup)
+      : this.fields;
+    if (fields.length === 0) {
       return html`<p class="status">${translate('frontend.fieldChooser.empty', 'No editable choice fields for this element.')}</p>`;
+    }
+    if (this.scopeGroup) {
+      return html`${fields.map((field) => this.#renderField(field))}`;
     }
     // Same headings as the backend edit form: a heading is emitted whenever
     // the group (tab/palette label resolved server-side) changes.
     const rendered = [];
     let lastGroup = null;
-    for (const field of this.fields) {
+    for (const field of fields) {
       const group = field.group || '';
       if (group !== '' && group !== lastGroup) {
         rendered.push(html`<h3 class="groupLabel">${group}</h3>`);
@@ -1112,10 +1153,40 @@ export class VeFieldChooser extends LitElement {
     }
 
     .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       padding: 8px 12px;
       border-top: 1px solid #ececf1;
       color: #6d6d78;
       font-size: 11px;
+    }
+
+    .footerHint {
+      min-width: 0;
+    }
+
+    .showAllButton {
+      flex: none;
+      padding: 0;
+      border: none;
+      border-radius: 3px;
+      background: none;
+      color: var(--ve-chooser-accent);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .showAllButton:hover {
+      text-decoration: underline;
+    }
+
+    .showAllButton:focus-visible {
+      outline: 2px solid var(--ve-chooser-accent);
+      outline-offset: 2px;
     }
   `;
 }
@@ -1125,8 +1196,9 @@ let fieldChooser = null;
 
 /**
  * Lazily creates the singleton popover, appends it to the document body and
- * opens (or toggles) it for the given content element.
- * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect}} options
+ * opens (or toggles) it for the given content element. With scopeGroup set
+ * only the fields of that backend form group are shown (see openFor()).
+ * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
  */
 export function openFieldChooser(options) {
   if (fieldChooser === null) {

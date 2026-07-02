@@ -6,9 +6,9 @@
         <source>Edit link</source>
       </segment>
     </unit>
-    <unit id="frontend.contextChip.open">
+    <unit id="frontend.contextButton.open">
       <segment>
-        <source>Edit element settings</source>
+        <source>Edit related field settings</source>
       </segment>
     </unit>
     <unit id="frontend.library.title">
@@ -194,6 +194,11 @@
     <unit id="frontend.fieldChooser.tabs">
       <segment>
         <source>Form sections</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.showAll">
+      <segment>
+        <source>Show all field settings</source>
       </segment>
     </unit>
     <unit id="frontend.fieldChooser.linkEmpty">

@@ -7,10 +7,10 @@
         <target>Link bearbeiten</target>
       </segment>
     </unit>
-    <unit id="frontend.contextChip.open">
+    <unit id="frontend.contextButton.open">
       <segment state="final">
-        <source>Edit element settings</source>
-        <target>Element-Einstellungen bearbeiten</target>
+        <source>Edit related field settings</source>
+        <target>Zugehörige Feld-Einstellungen bearbeiten</target>
       </segment>
     </unit>
     <unit id="frontend.library.title">
@@ -233,6 +233,12 @@
       <segment state="final">
         <source>Form sections</source>
         <target>Formularbereiche</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.showAll">
+      <segment state="final">
+        <source>Show all field settings</source>
+        <target>Alle Feld-Einstellungen anzeigen</target>
       </segment>
     </unit>
     <unit id="frontend.fieldChooser.linkEmpty">

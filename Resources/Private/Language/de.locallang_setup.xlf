@@ -27,8 +27,8 @@
     </unit>
     <unit id="showContextButtons.description">
       <segment state="final">
-        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the element settings chip.</source>
-        <target>Zeigt kontextabhängige schwebende Schaltflächen beim Überfahren oder Fokussieren von Inhalten im visuellen Editor: Link-Bearbeitung und den Element-Einstellungen-Chip.</target>
+        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the per-output field settings buttons.</source>
+        <target>Zeigt kontextabhängige schwebende Schaltflächen beim Überfahren oder Fokussieren von Inhalten im visuellen Editor: Link-Bearbeitung und die Feld-Einstellungen-Schaltflächen an bearbeitbaren Ausgaben.</target>
       </segment>
     </unit>
     <unit id="fieldChooserMode">

@@ -23,7 +23,7 @@
     </unit>
     <unit id="showContextButtons.description">
       <segment>
-        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the element settings chip.</source>
+        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the per-output field settings buttons.</source>
       </segment>
     </unit>
     <unit id="fieldChooserMode">

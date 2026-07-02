@@ -3,12 +3,15 @@ import {css, html, LitElement} from 'lit';
 const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
 
 /**
- * Singleton floating chip button shown near the top-right corner of the
- * hovered (or focused) content element; clicking it opens the field chooser
- * for exactly that element without a trip through the action bar. It follows
- * its element on scroll/resize while visible and hides after a short grace
- * period once the pointer leaves - moving onto the chip itself cancels the
- * hide, so it stays clickable. Driven via showFor()/scheduleHide() from
+ * Singleton floating chip button shown next to the hovered (or focused)
+ * editable output (<ve-editable-text> / <ve-editable-rich-text>); clicking it
+ * opens the field chooser scoped to that output's backend form group, without
+ * a trip through the action bar. It sits right of the output's rect (falling
+ * back to the left side, then inside the top-right corner, when there is no
+ * space - mirroring ve-editable-link's side fallback), follows its output on
+ * scroll/resize while visible and hides after a short grace period once the
+ * pointer leaves - moving onto the chip itself cancels the hide, so it stays
+ * clickable. Driven via showFor()/scheduleHide() from
  * Frontend/element-context-affordance.js.
  *
  * @extends {HTMLElement}
@@ -24,9 +27,9 @@ export class VeContextChip extends LitElement {
     super();
     this.visible = false;
     this.chipStyle = '';
-    /** @type {Element|null} the content element the chip currently belongs to */
+    /** @type {Element|null} the editable output the chip currently belongs to */
     this.target = null;
-    /** @type {((contentElement: Element, anchorRect: DOMRect) => void)|null} */
+    /** @type {((outputElement: Element, anchorRect: DOMRect) => void)|null} */
     this.activate = null;
     this.hideTimer = 0;
     this.tracking = false;
@@ -43,11 +46,11 @@ export class VeContextChip extends LitElement {
   }
 
   /**
-   * Shows the chip for one content element; a newer call simply retargets the
+   * Shows the chip for one editable output; a newer call simply retargets the
    * shared chip. The activate callback receives (target, buttonRect) when the
    * chip is clicked.
    * @param {Element} target
-   * @param {(contentElement: Element, anchorRect: DOMRect) => void} activate
+   * @param {(outputElement: Element, anchorRect: DOMRect) => void} activate
    */
   showFor(target, activate) {
     this.#cancelHide();
@@ -85,14 +88,18 @@ export class VeContextChip extends LitElement {
   }
 
   /**
-   * Anchors the chip inside the target's top-right corner, clamped to the
-   * viewport so it stays reachable for tall or partially scrolled-out
-   * elements. Returns false (and hides) when the target left the viewport.
+   * Anchors the chip next to the target output's rect: preferred right of it,
+   * top-aligned; falls back to the left side, then inside the rect's top-right
+   * corner, when neither side has space (mirroring ve-editable-link's side
+   * fallback). Clamped to an 8px viewport margin so it stays reachable for
+   * partially scrolled-out outputs. Returns false (and hides) when the target
+   * left the viewport.
    * @return {boolean}
    */
   #position() {
     const rect = this.target.getBoundingClientRect();
-    const size = 32;
+    const size = 28;
+    const gap = 8;
     const edge = 8;
     const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || size);
     const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || size);
@@ -101,8 +108,20 @@ export class VeContextChip extends LitElement {
       return false;
     }
     const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
-    const left = clamp(rect.right - size - edge, edge, viewportWidth - size - edge);
-    const top = clamp(rect.top + edge, edge, Math.max(edge, rect.bottom - size - edge));
+    let left = rect.right + gap;
+    let top = rect.top;
+    if (left + size + edge > viewportWidth) {
+      const leftSide = rect.left - size - gap;
+      if (leftSide >= edge) {
+        left = leftSide;
+      } else {
+        // Neither side fits: sit inside the output's top-right corner.
+        left = rect.right - size - edge;
+        top = rect.top + edge;
+      }
+    }
+    left = clamp(left, edge, viewportWidth - size - edge);
+    top = clamp(top, edge, viewportHeight - size - edge);
     this.chipStyle = `left:${Math.round(left)}px;top:${Math.round(top)}px;`;
     return true;
   }
@@ -157,9 +176,9 @@ export class VeContextChip extends LitElement {
   }
 
   render() {
-    const label = translate('frontend.contextChip.open', 'Edit element settings');
+    const label = translate('frontend.contextButton.open', 'Edit related field settings');
     // Same sliders/options glyph as the action-bar button injected in
-    // Frontend/index.js, sized like <ve-icon> (16x16).
+    // Frontend/index.js, at 14x14 to fit the compact 28px chip.
     return html`
       <button
         type="button"
@@ -173,7 +192,7 @@ export class VeContextChip extends LitElement {
         @pointerleave="${this.#handlePointerLeave}"
         @click="${this.#handleClick}"
       >
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
           <path d="M2 4.5h4.25M12.25 4.5H14M2 11.5h1.75M9.75 11.5H14"/>
           <circle cx="8.25" cy="4.5" r="2"/>
           <circle cx="5.75" cy="11.5" r="2"/>
@@ -203,8 +222,8 @@ export class VeContextChip extends LitElement {
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       margin: 0;
       padding: 0;
       border: none;

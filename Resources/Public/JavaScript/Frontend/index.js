@@ -33,11 +33,14 @@ async function initializeElementLibrary() {
 /**
  * One shared injection pass (initial sweep + MutationObserver + wrapped
  * VeContentElement.updated) feeds every per-element enhancement - the
- * action-bar buttons and the hover context affordance; it is set up only when
- * at least one of them is enabled, and the prototype wrap is installed once
- * no matter which features are on. The hover affordance needs no extra gate
- * here: it only applies when the field chooser is enabled, which the early
- * return below already covers.
+ * action-bar buttons and the per-output context buttons (hover buttons on the
+ * editable outputs inside an element that open the field chooser scoped to
+ * the output's form group, while the action-bar button keeps opening the full
+ * popover); it is set up only when at least one of them is enabled, and the
+ * prototype wrap is installed once no matter which features are on. The
+ * per-output affordance needs no extra gate here: it only applies when the
+ * field chooser is enabled, which the early return below already covers, and
+ * the repeated sweeps let it pick up late-rendered outputs.
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
