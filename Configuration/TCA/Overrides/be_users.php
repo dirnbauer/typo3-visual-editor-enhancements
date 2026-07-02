@@ -33,10 +33,10 @@ ExtensionManagementUtility::addUserSetting(
 );
 
 ExtensionManagementUtility::addUserSetting(
-    'tx_visualeditor_showLinks',
+    'tx_visualeditor_showContextButtons',
     [
-        'label' => $visualEditorSetupLabels . 'showLinks',
-        'description' => $visualEditorSetupLabels . 'showLinks.description',
+        'label' => $visualEditorSetupLabels . 'showContextButtons',
+        'description' => $visualEditorSetupLabels . 'showContextButtons.description',
         'config' => [
             'type' => 'check',
             'renderType' => 'checkboxToggle',
@@ -47,17 +47,22 @@ ExtensionManagementUtility::addUserSetting(
 );
 
 ExtensionManagementUtility::addUserSetting(
-    'tx_visualeditor_showFieldChooser',
+    'tx_visualeditor_fieldChooserMode',
     [
-        'label' => $visualEditorSetupLabels . 'showFieldChooser',
-        'description' => $visualEditorSetupLabels . 'showFieldChooser.description',
+        'label' => $visualEditorSetupLabels . 'fieldChooserMode',
+        'description' => $visualEditorSetupLabels . 'fieldChooserMode.description',
         'config' => [
-            'type' => 'check',
-            'renderType' => 'checkboxToggle',
-            'default' => 1,
+            'type' => 'select',
+            'renderType' => 'selectSingle',
+            'default' => 'tabs',
+            'items' => [
+                ['label' => $visualEditorSetupLabels . 'fieldChooserMode.tabs', 'value' => 'tabs'],
+                ['label' => $visualEditorSetupLabels . 'fieldChooserMode.sections', 'value' => 'sections'],
+                ['label' => $visualEditorSetupLabels . 'fieldChooserMode.disabled', 'value' => 'disabled'],
+            ],
         ],
     ],
-    'after:tx_visualeditor_showLinks'
+    'after:tx_visualeditor_showContextButtons'
 );
 
 ExtensionManagementUtility::addUserSetting(
@@ -75,5 +80,5 @@ ExtensionManagementUtility::addUserSetting(
             ],
         ],
     ],
-    'after:tx_visualeditor_showFieldChooser'
+    'after:tx_visualeditor_fieldChooserMode'
 );

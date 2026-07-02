@@ -1,6 +1,7 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores';
 import {fieldChooserTables, isEditableLinksEnabled, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance';
 import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link';
 
@@ -31,9 +32,12 @@ async function initializeElementLibrary() {
 
 /**
  * One shared injection pass (initial sweep + MutationObserver + wrapped
- * VeContentElement.updated) feeds every action-bar enhancement; it is set up
- * only when at least one of them is enabled, and the prototype wrap is
- * installed once no matter which features are on.
+ * VeContentElement.updated) feeds every per-element enhancement - the
+ * action-bar buttons and the hover context affordance; it is set up only when
+ * at least one of them is enabled, and the prototype wrap is installed once
+ * no matter which features are on. The hover affordance needs no extra gate
+ * here: it only applies when the field chooser is enabled, which the early
+ * return below already covers.
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
@@ -45,6 +49,7 @@ async function initializeContentElementActions() {
       injectLibraryAction(contentElement, libraryModule);
     }
     injectFieldChooserAction(contentElement);
+    attachElementContextAffordance(contentElement);
   };
   const injectAll = () => document.querySelectorAll('ve-content-element').forEach(injectActions);
   injectAll();

@@ -1,16 +1,17 @@
 import {css, html, LitElement} from 'lit';
 import {lll} from '@typo3/core/lit-helper.js';
-import {sendMessage, onMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {isEditableLinksEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 /**
  * Inline editor for pure TCA type=link fields: renders a floating link icon
  * near the (separately editable or derived) link text. Clicking it asks the
  * backend frame to open the TYPO3 link browser; the chosen typolink value
- * travels back via the linkBrowserSetLink message and is staged on the
- * editor's pending change list (written with the next explicit save, like an
- * inline text edit) - never saved to the database on its own.
+ * travels back via the shared link-edit bridge (Shared/link-edit-request) and
+ * is staged on the editor's pending change list (written with the next
+ * explicit save, like an inline text edit) - never saved to the database on
+ * its own.
  *
  * Rendered by the ve:render.link ViewHelper in edit mode only.
  *
@@ -321,11 +322,10 @@ export class VeEditableLink extends LitElement {
   #openLinkBrowser() {
     const currentValue = dataHandlerStore.data?.[this.table]?.[this.uid]?.[this.field] ?? this.value;
     const src = this.linkBrowserUrl + '&P%5BcurrentValue%5D=' + encodeURIComponent(currentValue);
-    pendingLinkEdit = this;
-    sendMessage('openLinkBrowser', {
-      src,
-      title: lll('frontend.editLink') || 'Edit link',
-    });
+    requestLinkEdit(
+      {src, title: lll('frontend.editLink') || 'Edit link'},
+      (value) => this.applyLink(value),
+    );
   }
 
   /**
@@ -452,15 +452,5 @@ export class VeEditableLink extends LitElement {
     }
   `;
 }
-
-/** @type {VeEditableLink|null} */
-let pendingLinkEdit = null;
-
-onMessage('linkBrowserSetLink', (detail) => {
-  if (pendingLinkEdit && detail) {
-    pendingLinkEdit.applyLink(detail.value);
-    pendingLinkEdit = null;
-  }
-});
 
 customElements.define('ve-editable-link', VeEditableLink);

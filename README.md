@@ -4,8 +4,10 @@ TYPO3 extension that enhances the [friendsoftypo3/visual-editor](https://github.
 frontend editing experience:
 
 - **Element library** — a searchable, drag-and-drop library of content elements with live previews.
-- **Editable links** — inline link icons that open the TYPO3 link browser for pure TCA `type=link` fields.
-- **Field chooser** — a per-element "Field settings" popover for select and category fields.
+- **Context buttons** — floating affordances that appear on hover/focus: inline link-edit
+  icons for TCA `type=link` fields, and an element settings chip on every content element.
+- **Field chooser** — a per-element "Field settings" popover for select, category, link,
+  checkbox and color fields, grouped like the backend edit form (list or tabs).
 - Editor UI bridges (accent color, RTE toolbar and drop-zone patches).
 
 ## Requirements
@@ -23,22 +25,39 @@ composer require webconsulting/visual-editor-enhancements
 ## Field chooser
 
 While editing a page in the visual editor, every content element whose table is enabled
-gets an extra "Edit field settings" button in its action bar. It opens a small popover
-listing the record's *choice* fields — static single-value selects (e.g. `layout`,
-`frame_class`) and category trees — as reported by the
-`?veFieldOptions=1&editMode=1&table=<table>&uid=<uid>` JSON endpoint. Changes are staged
+gets an "Edit field settings" button in its action bar and an element settings chip on
+hover. Either opens a small popover listing the record's editable fields — static
+single-value selects (e.g. `layout`, `frame_class`), category trees, `type=link` fields
+(with the TYPO3 link browser), single checkboxes and non-opacity color fields — as
+reported by the `?veFieldOptions=1&editMode=1&table=<table>&uid=<uid>` JSON endpoint.
+Fields are grouped under the same headings as the backend edit form. Changes are staged
 on the visual editor's pending change list and written only with the next explicit save;
 reverting a field to its original value clears the pending change again.
 
+### Presentation modes
+
+The popover has three modes, chosen per backend user under *User settings → Visual
+editor → Field settings panel* (`tx_visualeditor_fieldChooserMode`, default `tabs`):
+
+- **`tabs`** — fields split into tabs mirroring the backend form (Allgemein, Bilder,
+  Erscheinungsbild, …); the default.
+- **`sections`** — one scrolling list with the group headings.
+- **`disabled`** — the field chooser (button and chip) is turned off.
+
+Up to 0.2.x this was the on/off checkbox `tx_visualeditor_showFieldChooser`; an existing
+"off" value is honored as `disabled` until the user saves the new select once.
+
 ### Enabling / disabling
 
-Three independent switches, all enabled by default:
+Independent switches, all enabled by default:
 
 1. **Extension configuration**: `fieldChooserEnabled` (also `elementLibraryEnabled`,
    `editableLinksEnabled`).
-2. **User settings**: the "Show the ‘Field settings’ button" toggle
-   (`tx_visualeditor_showFieldChooser`) on the *Visual editor* tab of the backend
-   user setup module.
+2. **User settings**: the *Field settings panel* mode select
+   (`tx_visualeditor_fieldChooserMode`) and the *Show floating edit buttons* toggle
+   (`tx_visualeditor_showContextButtons`, default on — governs the link buttons and the
+   element chip together; replaces the old `tx_visualeditor_showLinks`) on the *Visual
+   editor* tab of the backend user setup module.
 3. **Page TSconfig** (see below).
 
 ### Page TSconfig reference
@@ -77,15 +96,19 @@ tx_visualeditorenhancements.fieldChooser {
 
 ### Auto-detection rules (`fields = *`)
 
-Included are TCA fields of the record type's schema that are either
+Included are TCA fields of the record type's schema that are
 
 - static single-value selects (`renderType = selectSingle`, no `foreign_table`,
-  not `multiple`, `maxitems` ≤ 1), or
-- category fields (`type = category`).
+  not `multiple`, `maxitems` ≤ 1),
+- category fields (`type = category`),
+- link fields (`type = link`),
+- single checkboxes (`type = check` with at most one item), or
+- color fields (`type = color`) without opacity.
 
 Excluded are the record-type field (e.g. `CType`), `colPos`, `sorting` (and the
 table's `sortby` field), the language/`transOrigPointerField`/`translationSource`
-fields, `readOnly` fields, and relation selects (`foreign_table`). Explicit `fields`
+fields, the disable (`hidden`) and `editlock` fields, `readOnly` fields, and relation
+selects (`foreign_table`). Explicit `fields`
 lists win over auto-detection (unknown field names are ignored), `excludeFields`
 always subtracts, and a matching `types.<recordType>.fields` list wins over the
 table-level `fields`.

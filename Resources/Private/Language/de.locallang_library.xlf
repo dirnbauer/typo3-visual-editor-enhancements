@@ -7,6 +7,12 @@
         <target>Link bearbeiten</target>
       </segment>
     </unit>
+    <unit id="frontend.contextChip.open">
+      <segment state="final">
+        <source>Edit element settings</source>
+        <target>Element-Einstellungen bearbeiten</target>
+      </segment>
+    </unit>
     <unit id="frontend.library.title">
       <segment state="final">
         <source>Add content</source>
@@ -221,6 +227,36 @@
       <segment state="final">
         <source>{count, plural, one {# more category is hidden} other {# more categories are hidden}}</source>
         <target>{count, plural, one {# weitere Kategorie ist ausgeblendet} other {# weitere Kategorien sind ausgeblendet}}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.tabs">
+      <segment state="final">
+        <source>Form sections</source>
+        <target>Formularbereiche</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.linkEmpty">
+      <segment state="final">
+        <source>No link set</source>
+        <target>Kein Link gesetzt</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorChoose">
+      <segment state="final">
+        <source>Choose color</source>
+        <target>Farbe wählen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorClear">
+      <segment state="final">
+        <source>Remove color</source>
+        <target>Farbe entfernen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorNone">
+      <segment state="final">
+        <source>No color set</source>
+        <target>Keine Farbe gesetzt</target>
       </segment>
     </unit>
   </file>

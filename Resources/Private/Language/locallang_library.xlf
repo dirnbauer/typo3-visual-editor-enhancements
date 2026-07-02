@@ -6,6 +6,11 @@
         <source>Edit link</source>
       </segment>
     </unit>
+    <unit id="frontend.contextChip.open">
+      <segment>
+        <source>Edit element settings</source>
+      </segment>
+    </unit>
     <unit id="frontend.library.title">
       <segment>
         <source>Add content</source>
@@ -184,6 +189,31 @@
     <unit id="frontend.fieldChooser.truncated">
       <segment>
         <source>{count, plural, one {# more category is hidden} other {# more categories are hidden}}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.tabs">
+      <segment>
+        <source>Form sections</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.linkEmpty">
+      <segment>
+        <source>No link set</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorChoose">
+      <segment>
+        <source>Choose color</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorClear">
+      <segment>
+        <source>Remove color</source>
+      </segment>
+    </unit>
+    <unit id="frontend.fieldChooser.colorNone">
+      <segment>
+        <source>No color set</source>
       </segment>
     </unit>
   </file>

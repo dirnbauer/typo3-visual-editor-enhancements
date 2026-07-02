@@ -19,6 +19,9 @@ use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\Field\CategoryFieldType;
+use TYPO3\CMS\Core\Schema\Field\CheckboxFieldType;
+use TYPO3\CMS\Core\Schema\Field\ColorFieldType;
+use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\Field\StaticSelectFieldType;
 use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 use TYPO3\CMS\Core\Schema\Struct\SelectItemCollection;
@@ -56,6 +59,7 @@ final readonly class FieldOptionsService
         private ConnectionPool $connectionPool,
         private LanguageServiceFactory $languageServiceFactory,
         private LocalizationService $localizationService,
+        private LinkBrowserUrlService $linkBrowserUrl,
     ) {
     }
 
@@ -102,10 +106,17 @@ final readonly class FieldOptionsService
                 $payload = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
             } elseif ($field instanceof CategoryFieldType) {
                 $payload = $this->buildCategoryField($table, $field, $label, $row, $languageService);
+            } elseif ($field instanceof LinkFieldType) {
+                $payload = $this->buildLinkField($table, $uid, $field, $label, $row);
+            } elseif ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1) {
+                $payload = $this->buildCheckField($field, $label, $row);
+            } elseif ($field instanceof ColorFieldType) {
+                $payload = $this->buildColorField($field, $label, $row);
             } else {
                 continue;
             }
             $payload['group'] = $fieldGroups[$fieldName]['label'] ?? '';
+            $payload['tab'] = $fieldGroups[$fieldName]['tab'] ?? '';
             $payload['position'] = $fieldGroups[$fieldName]['position'] ?? PHP_INT_MAX;
             $fields[] = $payload;
         }
@@ -260,9 +271,11 @@ final readonly class FieldOptionsService
      * backend edit form, parsed from the TCA showitem/palette structure the
      * same way FormEngine builds the form: a labeled palette wins, otherwise
      * the surrounding tab (fields before the first --div-- belong to the
-     * implicit "General" tab). Position preserves the showitem order.
+     * implicit "General" tab). The surrounding tab is additionally kept
+     * separately so the client can group fields into backend-like tabs.
+     * Position preserves the showitem order.
      *
-     * @return array<string, array{label: string, position: int}>
+     * @return array<string, array{label: string, tab: string, position: int}>
      */
     private function getFieldGroups(string $table, string $recordType, LanguageService $languageService): array
     {
@@ -289,17 +302,69 @@ final readonly class FieldOptionsService
                 foreach (GeneralUtility::trimExplode(',', (string)($palettes[$paletteName]['showitem'] ?? ''), true) as $paletteItem) {
                     $fieldName = GeneralUtility::trimExplode(';', $paletteItem)[0] ?? '';
                     if ($fieldName !== '' && $fieldName !== '--linebreak--' && !isset($groups[$fieldName])) {
-                        $groups[$fieldName] = ['label' => $groupLabel, 'position' => $position++];
+                        $groups[$fieldName] = ['label' => $groupLabel, 'tab' => $tabLabel, 'position' => $position++];
                     }
                 }
                 continue;
             }
             if ($name !== '' && !isset($groups[$name])) {
-                $groups[$name] = ['label' => $tabLabel, 'position' => $position++];
+                $groups[$name] = ['label' => $tabLabel, 'tab' => $tabLabel, 'position' => $position++];
             }
         }
 
         return $groups;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function buildLinkField(string $table, int $uid, LinkFieldType $field, string $label, array $row): array
+    {
+        return [
+            'name' => $field->getName(),
+            'label' => $label,
+            'type' => 'link',
+            'value' => (string)($row[$field->getName()] ?? ''),
+            // Same uid as the payload so the signed itemName matches the
+            // record the client stages the chosen typolink for.
+            'linkBrowserUrl' => $this->linkBrowserUrl->buildUrl($table, $uid, (int)($row['pid'] ?? 0), $field),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function buildCheckField(CheckboxFieldType $field, string $label, array $row): array
+    {
+        $items = $field->getConfiguration()['items'] ?? [];
+
+        return [
+            'name' => $field->getName(),
+            'label' => $label,
+            'type' => 'check',
+            'value' => ($row[$field->getName()] ?? null) ? '1' : '0',
+            'invertStateDisplay' => (bool)($items[0]['invertStateDisplay'] ?? false),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function buildColorField(ColorFieldType $field, string $label, array $row): array
+    {
+        return [
+            'name' => $field->getName(),
+            'label' => $label,
+            'type' => 'color',
+            'value' => (string)($row[$field->getName()] ?? ''),
+            'opacity' => $field->supportsOpacity(),
+        ];
     }
 
     /**

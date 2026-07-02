@@ -1,17 +1,21 @@
-import {css, html, LitElement} from 'lit';
+import {css, html, LitElement, nothing} from 'lit';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
+import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
 
 /**
- * Singleton popover listing the "choice" fields of one content record - static
- * single-value selects and category trees - as reported by the
- * ?veFieldOptions=1 endpoint. Every change is staged on the shared
+ * Singleton popover listing the editable "settings" fields of one content
+ * record - static single-value selects, category trees, links, checkboxes and
+ * colors - as reported by the ?veFieldOptions=1 endpoint. Depending on the
+ * per-user field chooser mode the fields render as one sectioned list or
+ * grouped into the backend form's tabs. Every change is staged on the shared
  * dataHandlerStore and written to the database only with the next explicit
  * save, exactly like an inline text edit; reverting a field to the value it
  * had when the options loaded clears the pending change again. Opened via
  * openFieldChooser() from the per-element action-bar button injected in
- * Frontend/index.js.
+ * Frontend/index.js and from the hover chip's context button.
  *
  * @extends {HTMLElement}
  */
@@ -23,6 +27,8 @@ export class VeFieldChooser extends LitElement {
     fields: {type: Array, state: true, attribute: false},
     elementName: {type: String, state: true, attribute: false},
     popoverStyle: {type: String, state: true, attribute: false},
+    activeTab: {type: Number, state: true, attribute: false},
+    bodyMinHeight: {type: Number, state: true, attribute: false},
   };
 
   constructor() {
@@ -33,6 +39,8 @@ export class VeFieldChooser extends LitElement {
     this.fields = [];
     this.elementName = '';
     this.popoverStyle = '';
+    this.activeTab = 0;
+    this.bodyMinHeight = 0;
     this.table = '';
     this.uid = 0;
     this.listening = false;
@@ -83,6 +91,8 @@ export class VeFieldChooser extends LitElement {
     this.uid = uid;
     this.elementName = elementName ?? '';
     this.open = true;
+    this.activeTab = 0;
+    this.bodyMinHeight = 0;
     this.#position(anchorRect);
     this.#startListening();
     this.#load();
@@ -124,7 +134,7 @@ export class VeFieldChooser extends LitElement {
    * @param {DOMRect} rect
    */
   #position(rect) {
-    const width = 320;
+    const width = 480;
     const gap = 8;
     const edge = 12;
     const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || width);
@@ -141,12 +151,45 @@ export class VeFieldChooser extends LitElement {
     }
   }
 
+  /**
+   * Size stability for the tab bar: ratchets the body's min-height up to the
+   * tallest tab panel shown so far, so switching to a shorter tab never makes
+   * the popover jump smaller. Measured only when the active tab or the field
+   * list changed - never on the render the ratchet itself causes - and capped
+   * so min-height can never push the popover past its positioned max-height
+   * (the max-height clamp plus the body's overflow:auto always win).
+   */
+  updated(changedProperties) {
+    if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields'))) {
+      return;
+    }
+    if (fieldChooserMode() !== 'tabs' || this.renderRoot.querySelector('.tabBar') === null) {
+      return;
+    }
+    const popover = this.renderRoot.querySelector('.popover');
+    const body = this.renderRoot.querySelector('.body');
+    if (popover === null || body === null) {
+      return;
+    }
+    let minHeight = Math.max(this.bodyMinHeight, body.offsetHeight);
+    const maxHeight = /max-height:(\d+)px/.exec(this.popoverStyle);
+    if (maxHeight !== null) {
+      const chromeHeight = popover.offsetHeight - body.offsetHeight;
+      minHeight = Math.min(minHeight, Math.max(0, Number(maxHeight[1]) - chromeHeight));
+    }
+    if (minHeight > this.bodyMinHeight) {
+      this.bodyMinHeight = minHeight;
+    }
+  }
+
   async #load() {
     const seq = ++this.loadSeq;
     this.loading = true;
     this.error = false;
     this.fields = [];
     this.collapsedCategories = new Set();
+    this.activeTab = 0;
+    this.bodyMinHeight = 0;
     try {
       const response = await fetch(
         window.location.pathname
@@ -204,8 +247,22 @@ export class VeFieldChooser extends LitElement {
     return value === '' ? [] : value.split(',');
   }
 
-  #stageSelect(field, value) {
+  /**
+   * Stages one plain string value - selects, checkboxes ('1'/'0'), colors
+   * (hex or '' for none) and links (the typolink string) all stage strings.
+   */
+  #stageValue(field, value) {
     dataHandlerStore.setData(this.table, this.uid, field.name, value);
+  }
+
+  /**
+   * TCA invertStateDisplay flips only how the stored bit is SHOWN, never what
+   * is staged: the staged value is always the '1'/'0' database value.
+   */
+  #stageCheck(field, checked) {
+    const invert = !!field.invertStateDisplay;
+    const raw = invert ? (checked ? '0' : '1') : (checked ? '1' : '0');
+    this.#stageValue(field, raw);
   }
 
   #stageCategory(field, item, checked) {
@@ -225,6 +282,12 @@ export class VeFieldChooser extends LitElement {
     }
     const title = translate('frontend.fieldChooser.title', 'Field settings');
     const closeLabel = translate('frontend.fieldChooser.close', 'Close');
+    // Tabs mode replicates the backend form's tab bar; with a single (or no)
+    // tab it falls back to the plain sectioned list, exactly like 'sections'
+    // mode. While loading there are no fields, hence no tabs, hence no bar.
+    const tabs = fieldChooserMode() === 'tabs' ? this.#tabs() : [];
+    const useTabs = tabs.length > 1;
+    const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
       <div class="popover" style="${this.popoverStyle}" role="dialog" aria-label="${title}">
         <header class="header">
@@ -234,10 +297,128 @@ export class VeFieldChooser extends LitElement {
           </div>
           <button type="button" class="closeButton" @click="${this.close}" title="${closeLabel}" aria-label="${closeLabel}">&times;</button>
         </header>
-        <div class="body">${this.#renderBody()}</div>
+        ${useTabs ? this.#renderTabBar(tabs, activeTab) : ''}
+        <div
+          class="body"
+          id="ve-tabpanel"
+          role="${useTabs ? 'tabpanel' : nothing}"
+          aria-labelledby="${useTabs ? `ve-tab-${activeTab}` : nothing}"
+          style="${this.bodyMinHeight > 0 ? `min-height:${this.bodyMinHeight}px;` : nothing}"
+        >${useTabs ? this.#renderTabFields(tabs[activeTab]) : this.#renderBody()}</div>
         <footer class="footer">${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</footer>
       </div>
     `;
+  }
+
+  /**
+   * Groups the endpoint's ordered field list into the backend form's tabs.
+   * Fields without a tab (not part of the record's showitem) are appended to
+   * the first tab - or form one single unlabeled tab when no field has one,
+   * which render() then treats like the plain sections body.
+   * @return {Array<{label: string, fields: Array<object>}>}
+   */
+  #tabs() {
+    const tabs = [];
+    const byLabel = new Map();
+    const untabbed = [];
+    for (const field of this.fields) {
+      const label = field.tab || '';
+      if (label === '') {
+        untabbed.push(field);
+        continue;
+      }
+      let tab = byLabel.get(label);
+      if (tab === undefined) {
+        tab = {label, fields: []};
+        byLabel.set(label, tab);
+        tabs.push(tab);
+      }
+      tab.fields.push(field);
+    }
+    if (untabbed.length > 0) {
+      if (tabs.length === 0) {
+        tabs.push({label: '', fields: untabbed});
+      } else {
+        tabs[0].fields.push(...untabbed);
+      }
+    }
+    return tabs;
+  }
+
+  #renderTabBar(tabs, activeTab) {
+    const pendingHint = translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.');
+    return html`
+      <div
+        class="tabBar"
+        role="tablist"
+        aria-label="${translate('frontend.fieldChooser.tabs', 'Form sections')}"
+        @keydown="${(event) => this.#handleTabBarKeydown(event, tabs.length, activeTab)}"
+      >
+        ${tabs.map((tab, index) => html`
+          <button
+            type="button"
+            role="tab"
+            id="ve-tab-${index}"
+            class="tab ${index === activeTab ? 'isActive' : ''}"
+            aria-selected="${index === activeTab}"
+            aria-controls="ve-tabpanel"
+            tabindex="${index === activeTab ? 0 : -1}"
+            @click="${() => { this.activeTab = index; }}"
+          >
+            ${tab.label}
+            ${tab.fields.some((field) => dataHandlerStore.hasChangedData(this.table, this.uid, field.name))
+              ? html`<span class="tabDirtyDot" title="${pendingHint}"></span>`
+              : ''}
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
+  /**
+   * Roving tabindex: only the active tab is tabbable; arrow keys move both the
+   * selection and the focus along the tab list (selection follows focus).
+   */
+  #handleTabBarKeydown(event, count, activeTab) {
+    let next;
+    switch (event.key) {
+      case 'ArrowRight':
+        next = (activeTab + 1) % count;
+        break;
+      case 'ArrowLeft':
+        next = (activeTab - 1 + count) % count;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = count - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    this.activeTab = next;
+    this.updateComplete.then(() => this.renderRoot.querySelector(`#ve-tab-${next}`)?.focus());
+  }
+
+  /**
+   * One tab panel: same palette headings as the sections body, except that a
+   * group repeating the tab's own name is skipped - the active tab already
+   * says it.
+   */
+  #renderTabFields(tab) {
+    const rendered = [];
+    let lastGroup = null;
+    for (const field of tab.fields) {
+      const group = field.group || '';
+      if (group !== '' && group !== lastGroup && group !== tab.label) {
+        rendered.push(html`<h3 class="groupLabel">${group}</h3>`);
+      }
+      lastGroup = group;
+      rendered.push(this.#renderField(field));
+    }
+    return html`${rendered}`;
   }
 
   #renderBody() {
@@ -273,19 +454,145 @@ export class VeFieldChooser extends LitElement {
           ${field.label}
           ${dirty ? html`<span class="dirtyDot" title="${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}"></span>` : ''}
         </span>
-        ${field.type === 'category' ? this.#renderCategory(field) : this.#renderSelect(field)}
+        ${this.#renderControl(field)}
       </div>
     `;
+  }
+
+  #renderControl(field) {
+    switch (field.type) {
+      case 'category':
+        return this.#renderCategory(field);
+      case 'link':
+        return this.#renderLink(field);
+      case 'check':
+        return this.#renderCheck(field);
+      case 'color':
+        return this.#renderColor(field);
+      default:
+        return this.#renderSelect(field);
+    }
   }
 
   #renderSelect(field) {
     const current = this.#currentValue(field);
     return html`
-      <select class="select" aria-label="${field.label}" @change="${(event) => this.#stageSelect(field, event.target.value)}">
+      <select class="select" aria-label="${field.label}" @change="${(event) => this.#stageValue(field, event.target.value)}">
         ${field.items.map((item) => html`
           <option value="${item.value}" ?selected="${String(item.value) === current}">${item.label}</option>
         `)}
       </select>
+    `;
+  }
+
+  /**
+   * Link fields: the truncated typolink value next to an "edit" icon button
+   * opening the backend link browser through the shared link-edit bridge. The
+   * modal lives in the PARENT (backend) frame, so no pointerdown ever reaches
+   * this document and the popover stays open; once a link is picked, the
+   * staged value and the dirty dot appear via the store-change re-render.
+   */
+  #renderLink(field) {
+    const current = this.#currentValue(field);
+    const editLabel = translate('frontend.editLink', 'Edit link');
+    return html`
+      <div class="linkRow">
+        ${current === ''
+          ? html`<span class="linkValue isEmpty">${translate('frontend.fieldChooser.linkEmpty', 'No link set')}</span>`
+          : html`<span class="linkValue" title="${current}">${current}</span>`}
+        <button
+          type="button"
+          class="iconButton"
+          title="${editLabel}"
+          aria-label="${editLabel}"
+          @click="${() => this.#editLink(field)}"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path fill="currentColor" d="m13.7 3.8-1.4-1.4c-.8-.8-2-.8-2.8 0L5.9 5.9c-.8.8-.8 2 0 2.8l1.2 1.2.9-.8L6.9 8c-.4-.4-.4-1 0-1.4l3.2-3.2c.4-.4 1-.4 1.4 0l1.1 1.1c.4.4.4 1 0 1.4l-1.3 1.3c.2.4.4.9.4 1.4l2-2c.7-.8.7-2.1 0-2.8z"/>
+            <path fill="currentColor" d="m8.9 6.1-.9.8L9.1 8c.4.4.4 1 0 1.4l-3.2 3.2c-.4.4-1 .4-1.4 0l-1.1-1.1c-.4-.4-.4-1 0-1.4l1.3-1.3c-.2-.4-.4-.9-.4-1.4l-2 2c-.8.8-.8 2 0 2.8l1.4 1.4c.8.8 2 .8 2.8 0l3.5-3.5c.8-.8.8-2 0-2.8L8.9 6.1z"/>
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  #editLink(field) {
+    const current = this.#currentValue(field);
+    const src = field.linkBrowserUrl + '&P%5BcurrentValue%5D=' + encodeURIComponent(current);
+    requestLinkEdit({src, title: translate('frontend.editLink', 'Edit link')}, (value) => {
+      if (value != null) {
+        this.#stageValue(field, value);
+      }
+    });
+  }
+
+  #renderCheck(field) {
+    const invert = !!field.invertStateDisplay;
+    const current = this.#currentValue(field);
+    return html`
+      <label class="checkRow">
+        <input
+          type="checkbox"
+          class="checkbox"
+          aria-label="${field.label}"
+          .checked="${invert ? current !== '1' : current === '1'}"
+          @change="${(event) => this.#stageCheck(field, event.target.checked)}"
+        >
+      </label>
+    `;
+  }
+
+  /**
+   * Color fields: a native color input doubles as the swatch. Values are
+   * staged on 'change' only (not while dragging inside the picker); the clear
+   * button stages '' ("no color"). A stored value that is not a 6-digit hex
+   * (CSS keyword, rgba, ...) keeps showing as raw text while the picker itself
+   * is primed with black.
+   */
+  #renderColor(field) {
+    const current = this.#currentValue(field);
+    if (current === '') {
+      return html`
+        <div class="colorRow">
+          <span class="colorSwatch" aria-hidden="true"></span>
+          <span class="colorNone">${translate('frontend.fieldChooser.colorNone', 'No color set')}</span>
+          <input
+            type="color"
+            class="colorInput isHidden"
+            tabindex="-1"
+            aria-hidden="true"
+            .value="${'#000000'}"
+            @change="${(event) => this.#stageValue(field, event.target.value)}"
+          >
+          <button
+            type="button"
+            class="colorChoose"
+            @click="${(event) => event.target.closest('.colorRow')?.querySelector('.colorInput')?.click()}"
+          >${translate('frontend.fieldChooser.colorChoose', 'Choose color')}</button>
+        </div>
+      `;
+    }
+    const clearLabel = translate('frontend.fieldChooser.colorClear', 'Remove color');
+    return html`
+      <div class="colorRow">
+        <input
+          type="color"
+          class="colorInput"
+          aria-label="${field.label}"
+          .value="${/^#[0-9a-f]{6}$/i.test(current) ? current : '#000000'}"
+          @change="${(event) => this.#stageValue(field, event.target.value)}"
+        >
+        <code class="colorValue" title="${current}">${current}</code>
+        <button
+          type="button"
+          class="iconButton"
+          title="${clearLabel}"
+          aria-label="${clearLabel}"
+          @click="${() => this.#stageValue(field, '')}"
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
     `;
   }
 
@@ -377,7 +684,7 @@ export class VeFieldChooser extends LitElement {
       z-index: 100002;
       display: flex;
       flex-direction: column;
-      width: min(320px, calc(100vw - 24px));
+      width: min(480px, calc(100vw - 24px));
       max-height: 60vh;
       background: #fff;
       color: #1a1a20;
@@ -439,6 +746,49 @@ export class VeFieldChooser extends LitElement {
     .closeButton:focus-visible {
       outline: none;
       box-shadow: 0 0 0 2px var(--ve-chooser-accent);
+    }
+
+    .tabBar {
+      display: flex;
+      flex: none;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 0 10px;
+      border-bottom: 1px solid #ececf1;
+    }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 10px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: none;
+      color: #55555f;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .tab.isActive {
+      color: var(--ve-chooser-accent);
+      border-bottom-color: var(--ve-chooser-accent);
+    }
+
+    .tab:focus-visible {
+      outline: 2px solid var(--ve-chooser-accent);
+      outline-offset: -2px;
+    }
+
+    .tabDirtyDot {
+      flex: none;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ve-chooser-accent);
     }
 
     .body {
@@ -510,6 +860,154 @@ export class VeFieldChooser extends LitElement {
     }
 
     .select:focus-visible {
+      outline: none;
+      border-color: var(--ve-chooser-accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
+    }
+
+    .linkRow,
+    .colorRow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .linkValue {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      padding: 6px 8px;
+      border: 1px solid #d4d4dc;
+      border-radius: 6px;
+      background: #fafafc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .linkValue.isEmpty {
+      background: #fff;
+      color: #8a8a94;
+      font-family: inherit;
+    }
+
+    .iconButton {
+      display: inline-flex;
+      flex: none;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid #d4d4dc;
+      border-radius: 6px;
+      background: #fff;
+      color: #55555f;
+      cursor: pointer;
+    }
+
+    .iconButton:hover {
+      border-color: var(--ve-chooser-accent);
+      background: color-mix(in srgb, var(--ve-chooser-accent) 8%, #fff);
+      color: var(--ve-chooser-accent);
+    }
+
+    .iconButton:focus-visible {
+      outline: none;
+      border-color: var(--ve-chooser-accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
+    }
+
+    .checkRow {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      padding: 4px 0;
+      cursor: pointer;
+    }
+
+    .colorInput {
+      flex: none;
+      width: 34px;
+      height: 28px;
+      padding: 2px;
+      border: 1px solid #d4d4dc;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .colorInput:focus-visible {
+      outline: none;
+      border-color: var(--ve-chooser-accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
+    }
+
+    /* Kept in the DOM (not display:none) so .click() reliably opens the
+       native picker, anchored near the row; invisible and skipped by focus
+       order and screen readers. */
+    .colorInput.isHidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      clip-path: inset(50%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .colorSwatch {
+      flex: none;
+      width: 34px;
+      height: 28px;
+      border: 1px dashed #b9b9c4;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .colorNone {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: #8a8a94;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .colorValue {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .colorChoose {
+      flex: none;
+      padding: 5px 10px;
+      border: 1px solid #d4d4dc;
+      border-radius: 6px;
+      background: #fff;
+      color: #33333c;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .colorChoose:hover {
+      border-color: var(--ve-chooser-accent);
+      color: var(--ve-chooser-accent);
+    }
+
+    .colorChoose:focus-visible {
       outline: none;
       border-color: var(--ve-chooser-accent);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);

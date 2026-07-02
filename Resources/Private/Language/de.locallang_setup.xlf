@@ -19,28 +19,46 @@
         <target>Zeigt die schwebende Schaltfläche, die im visuellen Editor die Element-Bibliothek öffnet.</target>
       </segment>
     </unit>
-    <unit id="showLinks">
+    <unit id="showContextButtons">
       <segment state="final">
-        <source>Show link edit buttons</source>
-        <target>Link-Bearbeitungsschaltflächen anzeigen</target>
+        <source>Show floating edit buttons</source>
+        <target>Schwebende Bearbeitungsschaltflächen anzeigen</target>
       </segment>
     </unit>
-    <unit id="showLinks.description">
+    <unit id="showContextButtons.description">
       <segment state="final">
-        <source>Shows a link icon next to editable link fields so the TYPO3 link browser can be opened directly in the visual editor.</source>
-        <target>Zeigt neben bearbeitbaren Linkfeldern ein Link-Symbol, über das der TYPO3-Linkbrowser direkt im visuellen Editor geöffnet werden kann.</target>
+        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the element settings chip.</source>
+        <target>Zeigt kontextabhängige schwebende Schaltflächen beim Überfahren oder Fokussieren von Inhalten im visuellen Editor: Link-Bearbeitung und den Element-Einstellungen-Chip.</target>
       </segment>
     </unit>
-    <unit id="showFieldChooser">
+    <unit id="fieldChooserMode">
       <segment state="final">
-        <source>Show the "Field settings" button</source>
-        <target>Schaltfläche „Feld-Einstellungen“ anzeigen</target>
+        <source>Field settings panel</source>
+        <target>Feld-Einstellungen-Panel</target>
       </segment>
     </unit>
-    <unit id="showFieldChooser.description">
+    <unit id="fieldChooserMode.description">
       <segment state="final">
-        <source>Shows a button in the element toolbar that opens the field settings panel for select and category fields while editing a page in the visual editor.</source>
-        <target>Zeigt in der Element-Werkzeugleiste eine Schaltfläche, die beim Bearbeiten einer Seite im visuellen Editor das Feld-Einstellungen-Panel für Auswahl- und Kategoriefelder öffnet.</target>
+        <source>How the field settings panel presents the fields of an element: disabled, one list with headings, or tabs like the backend form.</source>
+        <target>Wie das Feld-Einstellungen-Panel die Felder eines Elements darstellt: deaktiviert, eine Liste mit Überschriften oder Reiter wie im Backend-Formular.</target>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.disabled">
+      <segment state="final">
+        <source>Disabled</source>
+        <target>Deaktiviert</target>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.sections">
+      <segment state="final">
+        <source>One list with headings</source>
+        <target>Eine Liste mit Überschriften</target>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.tabs">
+      <segment state="final">
+        <source>Tabs like the backend form</source>
+        <target>Reiter wie im Backend-Formular</target>
       </segment>
     </unit>
     <unit id="panelColumns">

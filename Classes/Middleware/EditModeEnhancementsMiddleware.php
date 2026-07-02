@@ -68,34 +68,45 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     }
 
     /**
+     * The legacy keys editableLinksEnabled and fieldChooserEnabled stay as
+     * derived aliases of contextButtonsEnabled and fieldChooserMode so older
+     * frontend scripts keep working against the new configuration.
+     *
      * @return array{
      *     elementLibraryEnabled: bool,
      *     elementLibraryLinks: bool,
      *     editableLinksEnabled: bool,
+     *     contextButtonsEnabled: bool,
      *     elementLibraryColumns: int,
      *     contentAddedFeedback: array{title: string, message: string},
+     *     fieldChooserMode: 'disabled'|'sections'|'tabs',
      *     fieldChooserEnabled: bool,
      *     fieldChooserTables: list<string>
      * }
      */
     private function getConfiguration(ServerRequestInterface $request): array
     {
-        $editableLinksEnabled = $this->isEditableLinksEnabled() && $this->getUserBoolSetting('tx_visualeditor_showLinks', true);
+        $contextButtonsEnabled = $this->isContextButtonsEnabled();
+        $editableLinksEnabled = $this->isEditableLinksEnabled() && $contextButtonsEnabled;
 
         // Without a resolved page id there is no TSconfig scope, so the safest
         // fallback is to keep the field chooser disabled for that request.
         $pageId = $this->getPageId($request);
-        $fieldChooserEnabled = $pageId !== null
+        $fieldChooserMode = $pageId !== null
             && $this->isFieldChooserEnabled()
-            && $this->getUserBoolSetting('tx_visualeditor_showFieldChooser', true)
-            && $this->fieldChooserConfiguration->isEnabled($pageId);
+            && $this->fieldChooserConfiguration->isEnabled($pageId)
+            ? $this->getFieldChooserMode()
+            : 'disabled';
+        $fieldChooserEnabled = $fieldChooserMode !== 'disabled';
 
         return [
             'elementLibraryEnabled' => $this->isElementLibraryEnabled() && $this->getUserBoolSetting('tx_visualeditor_showLibrary', true),
             'elementLibraryLinks' => $editableLinksEnabled,
             'editableLinksEnabled' => $editableLinksEnabled,
+            'contextButtonsEnabled' => $contextButtonsEnabled,
             'elementLibraryColumns' => $this->getElementLibraryColumns(),
             'contentAddedFeedback' => $this->getContentAddedFeedback(),
+            'fieldChooserMode' => $fieldChooserMode,
             'fieldChooserEnabled' => $fieldChooserEnabled,
             'fieldChooserTables' => $fieldChooserEnabled ? $this->fieldChooserConfiguration->getEnabledTables($pageId) : [],
         ];
@@ -131,6 +142,41 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         }
 
         return (bool)$uc[$key];
+    }
+
+    /**
+     * @return 'disabled'|'sections'|'tabs'
+     */
+    private function getFieldChooserMode(): string
+    {
+        $uc = $this->getBackendUser()->uc;
+        $mode = is_array($uc) ? ($uc['tx_visualeditor_fieldChooserMode'] ?? null) : null;
+        if (in_array($mode, ['disabled', 'sections', 'tabs'], true)) {
+            return $mode;
+        }
+
+        // Up to 0.2.x the chooser was an on/off checkbox; keep an explicitly
+        // stored "off" working until the user saves the new select once.
+        if ($mode === null
+            && is_array($uc)
+            && array_key_exists('tx_visualeditor_showFieldChooser', $uc)
+            && !$uc['tx_visualeditor_showFieldChooser']
+        ) {
+            return 'disabled';
+        }
+
+        return 'tabs';
+    }
+
+    private function isContextButtonsEnabled(): bool
+    {
+        $uc = $this->getBackendUser()->uc;
+        if (!is_array($uc) || !array_key_exists('tx_visualeditor_showContextButtons', $uc)) {
+            // Up to 0.2.x only the link edit buttons had a toggle.
+            return $this->getUserBoolSetting('tx_visualeditor_showLinks', true);
+        }
+
+        return (bool)$uc['tx_visualeditor_showContextButtons'];
     }
 
     private function getElementLibraryColumns(): int

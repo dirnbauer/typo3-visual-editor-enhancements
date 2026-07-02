@@ -16,24 +16,39 @@
         <source>Shows the floating button that opens the element library while editing a page in the visual editor.</source>
       </segment>
     </unit>
-    <unit id="showLinks">
+    <unit id="showContextButtons">
       <segment>
-        <source>Show link edit buttons</source>
+        <source>Show floating edit buttons</source>
       </segment>
     </unit>
-    <unit id="showLinks.description">
+    <unit id="showContextButtons.description">
       <segment>
-        <source>Shows a link icon next to editable link fields so the TYPO3 link browser can be opened directly in the visual editor.</source>
+        <source>Shows context-sensitive floating buttons while hovering or focusing content in the visual editor: link edit buttons and the element settings chip.</source>
       </segment>
     </unit>
-    <unit id="showFieldChooser">
+    <unit id="fieldChooserMode">
       <segment>
-        <source>Show the "Field settings" button</source>
+        <source>Field settings panel</source>
       </segment>
     </unit>
-    <unit id="showFieldChooser.description">
+    <unit id="fieldChooserMode.description">
       <segment>
-        <source>Shows a button in the element toolbar that opens the field settings panel for select and category fields while editing a page in the visual editor.</source>
+        <source>How the field settings panel presents the fields of an element: disabled, one list with headings, or tabs like the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.disabled">
+      <segment>
+        <source>Disabled</source>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.sections">
+      <segment>
+        <source>One list with headings</source>
+      </segment>
+    </unit>
+    <unit id="fieldChooserMode.tabs">
+      <segment>
+        <source>Tabs like the backend form</source>
       </segment>
     </unit>
     <unit id="panelColumns">

@@ -7,6 +7,9 @@ namespace Webconsulting\VisualEditorEnhancements\Service;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
 use TYPO3\CMS\Core\Schema\Field\CategoryFieldType;
+use TYPO3\CMS\Core\Schema\Field\CheckboxFieldType;
+use TYPO3\CMS\Core\Schema\Field\ColorFieldType;
+use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\Field\StaticSelectFieldType;
 use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -16,6 +19,7 @@ use function array_diff;
 use function array_filter;
 use function array_replace;
 use function array_values;
+use function count;
 use function in_array;
 use function is_array;
 use function is_string;
@@ -138,6 +142,9 @@ final readonly class FieldChooserConfigurationService
             }
             if ($field instanceof CategoryFieldType
                 || ($field instanceof StaticSelectFieldType && $this->isSingleValueSelect($field))
+                || $field instanceof LinkFieldType
+                || ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1)
+                || ($field instanceof ColorFieldType && !$field->supportsOpacity())
             ) {
                 $fields[] = $field->getName();
             }
@@ -157,6 +164,14 @@ final readonly class FieldChooserConfigurationService
         }
         if ($schema->hasCapability(TcaSchemaCapability::SortByField)) {
             $blockedFields[] = $schema->getCapability(TcaSchemaCapability::SortByField)->getFieldName();
+        }
+        // Visibility and edit locking stay in the page module / backend form;
+        // surfacing them as innocent-looking toggles would be a footgun.
+        if ($schema->hasCapability(TcaSchemaCapability::RestrictionDisabledField)) {
+            $blockedFields[] = $schema->getCapability(TcaSchemaCapability::RestrictionDisabledField)->getFieldName();
+        }
+        if ($schema->hasCapability(TcaSchemaCapability::EditLock)) {
+            $blockedFields[] = $schema->getCapability(TcaSchemaCapability::EditLock)->getFieldName();
         }
         if ($schema->hasCapability(TcaSchemaCapability::Language)) {
             $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);

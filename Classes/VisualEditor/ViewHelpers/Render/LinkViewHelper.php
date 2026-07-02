@@ -6,8 +6,6 @@ namespace TYPO3\CMS\VisualEditor\ViewHelpers\Render;
 
 use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
-use TYPO3\CMS\Backend\Routing\UriBuilder;
-use TYPO3\CMS\Core\Crypto\HashService;
 use TYPO3\CMS\Core\Domain\Exception\RecordPropertyNotFoundException;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
@@ -23,10 +21,9 @@ use TYPO3\CMS\VisualEditor\Service\ModelToRawRecordService;
 use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
 use TYPO3Fluid\Fluid\Core\ViewHelper\InvalidArgumentValueException;
 use TYPO3Fluid\Fluid\Core\ViewHelper\TagBuilder;
+use Webconsulting\VisualEditorEnhancements\Service\LinkBrowserUrlService;
 
 use function get_debug_type;
-use function implode;
-use function is_array;
 use function is_string;
 
 /**
@@ -59,8 +56,7 @@ final class LinkViewHelper extends AbstractViewHelper
         private readonly Typo3Version $typo3Version,
         private readonly LocalizationService $localizationService,
         private readonly ModelToRawRecordService $modelToRawRecordService,
-        private readonly UriBuilder $uriBuilder,
-        private readonly HashService $hashService,
+        private readonly LinkBrowserUrlService $linkBrowserUrlService,
     ) {
     }
 
@@ -157,34 +153,9 @@ final class LinkViewHelper extends AbstractViewHelper
         $tag->addAttribute('field', $fieldSchema->getName());
         $tag->addAttribute('name', $label);
         $tag->addAttribute('value', $value);
-        $tag->addAttribute('linkBrowserUrl', $this->buildLinkBrowserUrl($table, $uid, $record->getPid(), $fieldSchema->getName(), $fieldSchema));
+        $tag->addAttribute('linkBrowserUrl', $this->linkBrowserUrlService->buildUrl($table, $uid, $record->getPid(), $fieldSchema));
         $tag->forceClosingTag(true);
 
         return $tag->render();
-    }
-
-    private function buildLinkBrowserUrl(string $table, int $uid, int $pid, string $field, LinkFieldType $fieldSchema): string
-    {
-        $itemName = 'data[' . $table . '][' . $uid . '][' . $field . ']';
-
-        $linkBrowserArguments = [];
-        $configuration = $fieldSchema->getConfiguration();
-        if (is_array($configuration['allowedTypes'] ?? null) && $configuration['allowedTypes'] !== []) {
-            $allowedTypes = implode(',', $configuration['allowedTypes']);
-            if ($allowedTypes !== '*') {
-                $linkBrowserArguments['allowedTypes'] = $allowedTypes;
-            }
-        }
-
-        return (string)$this->uriBuilder->buildUriFromRoute('wizard_link', ['P' => [
-            'params' => $linkBrowserArguments,
-            'table' => $table,
-            'uid' => $uid,
-            'pid' => $pid,
-            'field' => $field,
-            'formName' => 'editform',
-            'itemName' => $itemName,
-            'hmac' => $this->hashService->hmac('editform' . $itemName, 'wizard_js'),
-        ]]);
     }
 }
