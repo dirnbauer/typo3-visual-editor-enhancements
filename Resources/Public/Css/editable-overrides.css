@@ -1,7 +1,14 @@
+.ck-editor:has(.ck-focused),
+ve-editable-rich-text:focus-within {
+  position: relative;
+  z-index: 2147482999 !important;
+}
+
 .ck-editor__top {
   right: auto !important;
   width: max-content !important;
   max-width: min(96vw, 960px) !important;
+  z-index: 2147483000 !important;
 }
 
 .ck-editor.ve-toolbar-below .ck-editor__top {
@@ -14,4 +21,9 @@
 .ck-editor__top .ck-toolbar > .ck-toolbar__items {
   flex-wrap: wrap;
   row-gap: var(--ck-spacing-small, 4px);
+}
+
+.ck.ck-balloon-panel,
+.ck.ck-dropdown__panel {
+  z-index: 2147483001 !important;
 }
