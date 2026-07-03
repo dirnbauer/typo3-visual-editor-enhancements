@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\ContentBlocks\Definition\TableDefinitionCollection;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
 use TYPO3\CMS\Core\Schema\Field\CategoryFieldType;
 use TYPO3\CMS\Core\Schema\Field\CheckboxFieldType;
@@ -24,15 +25,31 @@ use function in_array;
 use function is_array;
 use function is_string;
 use function str_ends_with;
+use function str_starts_with;
 use function substr;
 use function trim;
 
-final readonly class FieldChooserConfigurationService
+final class FieldChooserConfigurationService
 {
     private const AUTO_DETECT_FIELDS = '*';
 
+    /**
+     * Memoized per request; the set of Content Blocks tables cannot change
+     * within one request.
+     *
+     * @var list<string>|null
+     */
+    private ?array $autoEnabledTables = null;
+
+    /**
+     * The Content Blocks table registry is an optional cross-extension
+     * dependency: friendsoftypo3/content-blocks is not required by this
+     * package, so the parameter stays nullable and simply remains null when
+     * the extension is not installed.
+     */
     public function __construct(
-        private TcaSchemaFactory $tcaSchema,
+        private readonly TcaSchemaFactory $tcaSchema,
+        private readonly ?TableDefinitionCollection $contentBlockTables = null,
     ) {
     }
 
@@ -107,6 +124,9 @@ final readonly class FieldChooserConfigurationService
         $tables = [
             'tt_content' => ['enabled' => '1', 'fields' => self::AUTO_DETECT_FIELDS],
         ];
+        foreach ($this->getAutoEnabledTables() as $table) {
+            $tables[$table] = ['enabled' => '1', 'fields' => self::AUTO_DETECT_FIELDS];
+        }
         $configuredTables = $this->getFieldChooserTsConfig($pageId)['tables.'] ?? [];
         foreach (is_array($configuredTables) ? $configuredTables : [] as $key => $configuration) {
             if (!is_string($key) || !str_ends_with($key, '.') || !is_array($configuration)) {
@@ -117,6 +137,64 @@ final readonly class FieldChooserConfigurationService
         }
 
         return $tables;
+    }
+
+    /**
+     * Content Blocks tables (collection children and record types) get the
+     * same auto-detect default as tt_content, so their records work in the
+     * field chooser out of the box. Explicit page TSconfig for a table is
+     * merged on top and therefore always wins — `tables.<table>.enabled = 0`
+     * opts a table out again.
+     *
+     * @return list<string>
+     */
+    private function getAutoEnabledTables(): array
+    {
+        return $this->autoEnabledTables ??= array_values(array_filter(
+            $this->detectContentBlockTables(),
+            static fn(string $table): bool => !self::isCoreTable($table),
+        ));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function detectContentBlockTables(): array
+    {
+        $tables = [];
+        if ($this->contentBlockTables !== null) {
+            foreach ($this->contentBlockTables as $tableDefinition) {
+                $tables[] = $tableDefinition->table;
+            }
+
+            return $tables;
+        }
+
+        // Content Blocks is not installed as a DI service: fall back to the
+        // Content Blocks collection child convention of a
+        // foreign_table_parent_uid column in the TCA.
+        foreach ($GLOBALS['TCA'] ?? [] as $table => $configuration) {
+            if (is_string($table) && is_array($configuration) && isset($configuration['columns']['foreign_table_parent_uid'])) {
+                $tables[] = $table;
+            }
+        }
+
+        return $tables;
+    }
+
+    /**
+     * tt_content stays governed by its hard-wired default, pages and the
+     * core / Visual Editor system tables must never become editable merely
+     * because a Content Block re-uses them.
+     */
+    private static function isCoreTable(string $table): bool
+    {
+        return $table === 'tt_content'
+            || $table === 'pages'
+            || str_starts_with($table, 'sys_')
+            || str_starts_with($table, 'be_')
+            || str_starts_with($table, 'fe_')
+            || str_starts_with($table, 'tx_visualeditor');
     }
 
     /**

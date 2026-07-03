@@ -24,10 +24,28 @@
     "typo3/cms-frontend": "^14.3",
     "typo3/cms-fluid": "^14.3"
   },
+  "require-dev": {
+    "friendsoftypo3/content-blocks": "^2.4",
+    "phpunit/phpunit": "^11.5 || ^12.5"
+  },
   "autoload": {
     "psr-4": {
       "Webconsulting\\VisualEditorEnhancements\\": "Classes/",
       "TYPO3\\CMS\\VisualEditor\\ViewHelpers\\Render\\": "Classes/VisualEditor/ViewHelpers/Render/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Webconsulting\\VisualEditorEnhancements\\Tests\\": "Tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit --configuration=phpunit.xml.dist"
+  },
+  "config": {
+    "allow-plugins": {
+      "typo3/class-alias-loader": true,
+      "typo3/cms-composer-installers": true
     }
   },
   "extra": {

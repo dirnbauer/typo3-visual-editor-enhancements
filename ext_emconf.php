@@ -13,5 +13,9 @@ $EM_CONF[$_EXTKEY] = [
             'typo3' => '14.3.0-14.9.99',
             'visual_editor' => '1.8.0-1.99.99',
         ],
+        'suggests' => [
+            // The field chooser auto-enables Content Blocks tables when installed.
+            'content_blocks' => '',
+        ],
     ],
 ];

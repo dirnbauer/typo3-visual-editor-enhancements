@@ -64,6 +64,24 @@ Independent switches, all enabled by default:
    the *Visual editor* tab of the backend user setup module.
 3. **Page TSconfig** (see below).
 
+### Content Blocks tables
+
+Tables defined by TYPO3 Content Blocks (collection child tables such as
+`accordion_items` as well as custom record types) are auto-enabled with the same
+defaults as `tt_content` (`enabled = 1`, `fields = *`), so collection item records
+work in the field chooser without any configuration. Detection uses the Content
+Blocks table registry when `friendsoftypo3/content-blocks` is installed and falls
+back to scanning the TCA for tables with a `foreign_table_parent_uid` column (the
+collection child convention) otherwise. `tt_content`, `pages` and core system
+tables (`sys_*`, `be_*`, `fe_*`, `tx_visualeditor*`) are never auto-enabled this way.
+
+Explicit page TSconfig for a table always wins, so a single table can be opted
+out again:
+
+```typoscript
+tx_visualeditorenhancements.fieldChooser.tables.accordion_items.enabled = 0
+```
+
 ### Page TSconfig reference
 
 ```typoscript
@@ -90,7 +108,8 @@ tx_visualeditorenhancements.fieldChooser {
       }
     }
 
-    # Every other table is disabled unless explicitly enabled
+    # Content Blocks tables are auto-enabled like tt_content (see above);
+    # every other table is disabled unless explicitly enabled
     tx_news_domain_model_news {
       enabled = 1
     }

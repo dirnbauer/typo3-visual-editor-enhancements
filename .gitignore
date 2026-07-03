@@ -1,4 +1,6 @@
 /.Build/
+/.phpunit.cache/
+/public/
 /var/
 /vendor/
 composer.lock
