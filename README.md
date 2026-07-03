@@ -137,6 +137,15 @@ checks (table/language access, web mounts, readOnly), and select item lists hono
   the visual editor's own permission checks, and sends `Cache-Control: private,
   no-store`. Changes are staged on the visual editor's pending-change list and written
   through its existing save flow (core `DataHandler`); no separate write path is added.
+- **Partial element refresh.** The visual editor itself reloads nothing on a successful
+  save, which would leave popover-edited (server-rendered) fields stale in the preview.
+  After a successful save the extension re-fetches the current page in the background
+  and swaps only the affected content elements — scroll position and editor state are
+  preserved, inline scripts inside the swapped element are re-executed, and a bubbling
+  `ve:element-refreshed` event is dispatched on the new element for custom re-init.
+  When an element cannot be swapped (or the re-fetch fails) it falls back to a frame
+  reload. Disable install-wide with the extension configuration
+  `elementRefreshEnabled = false`.
 - **Editor UI patches** (RTE toolbar placement, container drop-zone handling) are
   applied at runtime from `Frontend/visual-editor-patches.js` instead of as Composer
   patches, so no `cweagans/composer-patches` entry is required.

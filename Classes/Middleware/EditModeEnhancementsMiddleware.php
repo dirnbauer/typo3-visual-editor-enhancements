@@ -81,7 +81,8 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
      *     contentAddedFeedback: array{title: string, message: string},
      *     fieldChooserMode: 'disabled'|'sections'|'tabs',
      *     fieldChooserEnabled: bool,
-     *     fieldChooserTables: list<string>
+     *     fieldChooserTables: list<string>,
+     *     elementRefreshEnabled: bool
      * }
      */
     private function getConfiguration(ServerRequestInterface $request): array
@@ -109,6 +110,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
             'fieldChooserMode' => $fieldChooserMode,
             'fieldChooserEnabled' => $fieldChooserEnabled,
             'fieldChooserTables' => $fieldChooserEnabled ? $this->fieldChooserConfiguration->getEnabledTables($pageId) : [],
+            'elementRefreshEnabled' => $this->isElementRefreshEnabled(),
         ];
     }
 
@@ -132,6 +134,11 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     private function isFieldChooserEnabled(): bool
     {
         return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['fieldChooserEnabled'] ?? true);
+    }
+
+    private function isElementRefreshEnabled(): bool
+    {
+        return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementRefreshEnabled'] ?? true);
     }
 
     private function getUserBoolSetting(string $key, bool $default): bool

@@ -1,7 +1,7 @@
 import {css, html, LitElement, nothing} from 'lit';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
+import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
@@ -56,8 +56,20 @@ export class VeFieldChooser extends LitElement {
     // still in flight (another element was opened or the popover was closed).
     this.loadSeq = 0;
     // Re-render on store changes so the dirty dots (and checkbox/select state
-    // derived from staged values) stay in sync with reverts and saves.
-    this.onStoreChange = () => this.requestUpdate();
+    // derived from staged values) stay in sync with reverts and saves. A save
+    // while the popover is OPEN additionally reloads the fields: the shared
+    // options cache is dropped (its payload predates the save) and #load
+    // re-seeds setInitialData from the fresh payload, matching the store's
+    // post-merge initialData - scopeGroup is deliberately kept, so a scoped
+    // popover stays scoped.
+    this.onStoreChange = (event) => {
+      if (event.detail?.kind === 'saved' && this.open) {
+        clearFieldOptionsCache();
+        this.#load();
+        return;
+      }
+      this.requestUpdate();
+    };
     this.onDocumentKeydown = (event) => {
       if (event.key === 'Escape') {
         this.close();

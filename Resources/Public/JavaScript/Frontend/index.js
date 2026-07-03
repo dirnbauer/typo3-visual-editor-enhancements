@@ -2,6 +2,7 @@ import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messagi
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores';
 import {fieldChooserTables, isEditableLinksEnabled, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance';
+import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh';
 import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link';
 
@@ -139,3 +140,4 @@ function injectFieldChooserAction(contentElement) {
 
 initializeAccentBridge();
 initializeContentElementActions();
+initializeElementRefresh();

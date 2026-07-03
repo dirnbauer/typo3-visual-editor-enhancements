@@ -32,6 +32,10 @@ export function isContextButtonsEnabled() {
   return !!(config.contextButtonsEnabled ?? config.editableLinksEnabled ?? true);
 }
 
+export function isElementRefreshEnabled() {
+  return !!(enhancementConfig().elementRefreshEnabled ?? true);
+}
+
 export function fieldChooserTables() {
   return enhancementConfig().fieldChooserTables || [];
 }
