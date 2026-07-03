@@ -52,7 +52,6 @@ export function attachElementContextAffordance(contentElement) {
   const record = {
     table: contentElement.getAttribute('table'),
     uid: Number(contentElement.getAttribute('uid')),
-    cType: contentElement.getAttribute('cType') ?? '',
     elementName: contentElement.getAttribute('elementName') ?? '',
   };
   for (const output of contentElement.querySelectorAll('ve-editable-text, ve-editable-rich-text')) {
@@ -102,7 +101,7 @@ function hasOwnLinkEditButton(output) {
  * swappable seam: future per-output affordances (a context menu, an inline
  * toolbar, ...) replace this attach logic while the scan above stays as-is.
  * @param {Element} output
- * @param {{table: string, uid: number, cType: string, elementName: string}} record
+ * @param {{table: string, uid: number, elementName: string}} record
  */
 function attachOutputAffordance(output, record) {
   // Guards the async race between hover and the field-options fetch: when the
@@ -146,7 +145,7 @@ function attachOutputAffordance(output, record) {
 /**
  * Opens the field chooser popover scoped to one backend form group, anchored
  * to the context button the user activated.
- * @param {{table: string, uid: number, cType: string, elementName: string}} record
+ * @param {{table: string, uid: number, elementName: string}} record
  * @param {string} scopeGroup
  * @param {DOMRect} anchorRect
  */
@@ -155,7 +154,6 @@ async function openScopedChooser(record, scopeGroup, anchorRect) {
   openFieldChooser({
     table: record.table,
     uid: record.uid,
-    cType: record.cType,
     elementName: record.elementName,
     anchorRect,
     scopeGroup,

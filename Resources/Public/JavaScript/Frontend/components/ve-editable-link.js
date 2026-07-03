@@ -1,7 +1,10 @@
 import {css, html, LitElement} from 'lit';
+import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {isEditableLinksEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {clamp, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 /**
@@ -42,7 +45,7 @@ export class VeEditableLink extends LitElement {
     this.hovered = false;
     this.pointerActivated = false;
     this.syncRaf = 0;
-    this.trackingViewport = false;
+    this.viewportTracker = new ViewportTracker(() => this.#scheduleSync());
     this.clippedAncestors = [];
     this.focusAnchor = null;
     this.onFocusChange = (event) => {
@@ -57,7 +60,6 @@ export class VeEditableLink extends LitElement {
       }
       this.#scheduleSync();
     };
-    this.onViewportChange = () => this.#scheduleSync();
   }
 
   connectedCallback() {
@@ -73,7 +75,7 @@ export class VeEditableLink extends LitElement {
     document.removeEventListener('focusin', this.onFocusChange);
     document.removeEventListener('focusout', this.onFocusChange);
     document.removeEventListener('pointerdown', this.onPointerDown, true);
-    this.#stopViewportTracking();
+    this.viewportTracker.stop();
     this.#restoreClipping();
     if (this.syncRaf) {
       cancelAnimationFrame(this.syncRaf);
@@ -121,10 +123,10 @@ export class VeEditableLink extends LitElement {
       this.active = next;
       if (next) {
         this.#liftClipping();
-        this.#startViewportTracking();
+        this.viewportTracker.start();
       } else {
         this.buttonStyle = '';
-        this.#stopViewportTracking();
+        this.viewportTracker.stop();
         this.#restoreClipping();
       }
     }
@@ -234,7 +236,6 @@ export class VeEditableLink extends LitElement {
     const edge = 8;
     const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || buttonSize);
     const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || buttonSize);
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
     const maxLeft = Math.max(edge, viewportWidth - buttonSize - edge);
     const maxTop = Math.max(edge, viewportHeight - buttonSize - edge);
 
@@ -257,32 +258,6 @@ export class VeEditableLink extends LitElement {
     left = clamp(left, edge, maxLeft);
     top = clamp(top, edge, maxTop);
     this.buttonStyle = `--ve-link-button-left:${Math.round(left)}px;--ve-link-button-top:${Math.round(top)}px;`;
-  }
-
-  #startViewportTracking() {
-    if (this.trackingViewport) {
-      return;
-    }
-    this.trackingViewport = true;
-    window.addEventListener('scroll', this.onViewportChange, {passive: true, capture: true});
-    window.addEventListener('resize', this.onViewportChange, {passive: true});
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('scroll', this.onViewportChange, {passive: true});
-      window.visualViewport.addEventListener('resize', this.onViewportChange, {passive: true});
-    }
-  }
-
-  #stopViewportTracking() {
-    if (!this.trackingViewport) {
-      return;
-    }
-    this.trackingViewport = false;
-    window.removeEventListener('scroll', this.onViewportChange, {capture: true});
-    window.removeEventListener('resize', this.onViewportChange);
-    if (window.visualViewport) {
-      window.visualViewport.removeEventListener('scroll', this.onViewportChange);
-      window.visualViewport.removeEventListener('resize', this.onViewportChange);
-    }
   }
 
   #liftClipping() {
@@ -366,10 +341,7 @@ export class VeEditableLink extends LitElement {
         title="${title}"
         aria-label="${title}"
       >
-        <svg class="linkIcon" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
-          <path fill="currentColor" d="m13.7 3.8-1.4-1.4c-.8-.8-2-.8-2.8 0L5.9 5.9c-.8.8-.8 2 0 2.8l1.2 1.2.9-.8L6.9 8c-.4-.4-.4-1 0-1.4l3.2-3.2c.4-.4 1-.4 1.4 0l1.1 1.1c.4.4.4 1 0 1.4l-1.3 1.3c.2.4.4.9.4 1.4l2-2c.7-.8.7-2.1 0-2.8z"/>
-          <path fill="currentColor" d="m8.9 6.1-.9.8L9.1 8c.4.4.4 1 0 1.4l-3.2 3.2c-.4.4-1 .4-1.4 0l-1.1-1.1c-.4-.4-.4-1 0-1.4l1.3-1.3c-.2-.4-.4-.9-.4-1.4l-2 2c-.8.8-.8 2 0 2.8l1.4 1.4c.8.8 2 .8 2.8 0l3.5-3.5c.8-.8.8-2 0-2.8L8.9 6.1z"/>
-        </svg>
+        ${unsafeHTML(linkIconSvg(20, 'linkIcon'))}
       </button>
     `;
   }

@@ -1,9 +1,10 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores';
 import {fieldChooserTables, isEditableLinksEnabled, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh';
-import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link';
 
 function initializeAccentBridge() {
@@ -86,7 +87,7 @@ function injectLibraryAction(contentElement, libraryModule) {
   button.className = 'button';
   button.type = 'button';
   button.dataset.veEnhancement = 'element-library';
-  const label = window.TYPO3?.lang?.['frontend.library.fromLibrary'] || 'Add from library';
+  const label = translate('frontend.library.fromLibrary', 'Add from library');
   button.title = label;
   button.setAttribute('aria-label', label);
   button.innerHTML = '<ve-icon name="actions-menu-alternative"></ve-icon>';
@@ -115,22 +116,17 @@ function injectFieldChooserAction(contentElement) {
   button.className = 'button';
   button.type = 'button';
   button.dataset.veEnhancement = 'field-chooser';
-  const label = window.TYPO3?.lang?.['frontend.fieldChooser.open'] || 'Edit field settings';
+  const label = translate('frontend.fieldChooser.open', 'Edit field settings');
   button.title = label;
   button.setAttribute('aria-label', label);
   // Sliders/options glyph: the vendor <ve-icon> set has no fitting name, so an
   // inline line-art SVG sized like <ve-icon> (16x16) is used instead.
-  button.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">'
-    + '<path d="M2 4.5h4.25M12.25 4.5H14M2 11.5h1.75M9.75 11.5H14"/>'
-    + '<circle cx="8.25" cy="4.5" r="2"/>'
-    + '<circle cx="5.75" cy="11.5" r="2"/>'
-    + '</svg>';
+  button.innerHTML = slidersIconSvg(16);
   button.addEventListener('click', async () => {
     const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser');
     openFieldChooser({
       table: contentElement.getAttribute('table'),
       uid: Number(contentElement.getAttribute('uid')),
-      cType: contentElement.getAttribute('cType') ?? '',
       elementName: contentElement.getAttribute('elementName') ?? '',
       anchorRect: button.getBoundingClientRect(),
     });

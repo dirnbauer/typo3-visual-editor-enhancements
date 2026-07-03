@@ -9,7 +9,7 @@ frontend editing experience:
   rich-text outputs that opens the field chooser scoped to that field's form section.
 - **Field chooser** — a per-element "Field settings" popover for select, category, link,
   checkbox and color fields, grouped like the backend edit form (list or tabs).
-- Editor UI bridges (accent color, RTE toolbar and drop-zone patches).
+- Editor UI bridges (accent color, CKEditor stacking-layer raise).
 
 ## Requirements
 
@@ -146,9 +146,12 @@ checks (table/language access, web mounts, readOnly), and select item lists hono
   When an element cannot be swapped (or the re-fetch fails) it falls back to a frame
   reload. Disable install-wide with the extension configuration
   `elementRefreshEnabled = false`.
-- **Editor UI patches** (RTE toolbar placement, container drop-zone handling) are
-  applied at runtime from `Frontend/visual-editor-patches.js` instead of as Composer
-  patches, so no `cweagans/composer-patches` entry is required.
+- **Lean on the vendor.** The save endpoint (`/visual-editor/save`) is served by
+  `friendsoftypo3/visual-editor` itself — earlier local fixes (NEW-record placeholders,
+  drop-zone container handling, RTE toolbar placement) were upstreamed in visual-editor
+  1.8.0, so this extension no longer overrides the route or patches vendor components
+  at runtime. Only a small CSS override raising the CKEditor UI onto its own stacking
+  layer remains.
 
 ## License
 

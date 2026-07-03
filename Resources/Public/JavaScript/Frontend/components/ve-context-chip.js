@@ -1,6 +1,7 @@
 import {css, html, LitElement} from 'lit';
-
-const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
+import {unsafeHTML} from 'lit/directives/unsafe-html.js';
+import {clamp, translate, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 
 /**
  * Singleton floating chip button shown next to the hovered (or focused)
@@ -32,12 +33,11 @@ export class VeContextChip extends LitElement {
     /** @type {((outputElement: Element, anchorRect: DOMRect) => void)|null} */
     this.activate = null;
     this.hideTimer = 0;
-    this.tracking = false;
-    this.onViewportChange = () => {
+    this.viewportTracker = new ViewportTracker(() => {
       if (this.visible && this.target !== null) {
         this.#position();
       }
-    };
+    });
   }
 
   disconnectedCallback() {
@@ -60,7 +60,7 @@ export class VeContextChip extends LitElement {
       return; // target is fully outside the viewport: #position() hid the chip
     }
     this.visible = true;
-    this.#startViewportTracking();
+    this.viewportTracker.start();
   }
 
   /**
@@ -76,7 +76,7 @@ export class VeContextChip extends LitElement {
   hideNow() {
     this.#cancelHide();
     this.visible = false;
-    this.#stopViewportTracking();
+    this.viewportTracker.stop();
     this.target = null;
   }
 
@@ -107,7 +107,6 @@ export class VeContextChip extends LitElement {
       this.hideNow();
       return false;
     }
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
     let left = rect.right + gap;
     let top = rect.top;
     if (left + size + edge > viewportWidth) {
@@ -131,32 +130,6 @@ export class VeContextChip extends LitElement {
       // The host itself is the fixed-positioned box (see :host styles) and
       // render() cannot set host inline styles, so they are applied here.
       this.style.cssText = this.chipStyle;
-    }
-  }
-
-  #startViewportTracking() {
-    if (this.tracking) {
-      return;
-    }
-    this.tracking = true;
-    window.addEventListener('scroll', this.onViewportChange, {passive: true, capture: true});
-    window.addEventListener('resize', this.onViewportChange, {passive: true});
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('scroll', this.onViewportChange, {passive: true});
-      window.visualViewport.addEventListener('resize', this.onViewportChange, {passive: true});
-    }
-  }
-
-  #stopViewportTracking() {
-    if (!this.tracking) {
-      return;
-    }
-    this.tracking = false;
-    window.removeEventListener('scroll', this.onViewportChange, {capture: true});
-    window.removeEventListener('resize', this.onViewportChange);
-    if (window.visualViewport) {
-      window.visualViewport.removeEventListener('scroll', this.onViewportChange);
-      window.visualViewport.removeEventListener('resize', this.onViewportChange);
     }
   }
 
@@ -192,11 +165,7 @@ export class VeContextChip extends LitElement {
         @pointerleave="${this.#handlePointerLeave}"
         @click="${this.#handleClick}"
       >
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <path d="M2 4.5h4.25M12.25 4.5H14M2 11.5h1.75M9.75 11.5H14"/>
-          <circle cx="8.25" cy="4.5" r="2"/>
-          <circle cx="5.75" cy="11.5" r="2"/>
-        </svg>
+        ${unsafeHTML(slidersIconSvg(14))}
       </button>
     `;
   }

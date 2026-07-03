@@ -1,10 +1,11 @@
 import {css, html, LitElement, nothing} from 'lit';
+import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config';
+import {clamp, translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
+import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
-
-const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
 
 /**
  * Singleton popover listing the editable "settings" fields of one content
@@ -101,7 +102,7 @@ export class VeFieldChooser extends LitElement {
    * form group are shown (flat, never tabs). Re-anchoring the OPEN popover to
    * another scope of the same element only re-filters the already loaded
    * fields - it never refetches.
-   * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
+   * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
    */
   openFor({table, uid, elementName, anchorRect, scopeGroup = null}) {
     const sameRecord = this.table === table && this.uid === uid;
@@ -168,7 +169,6 @@ export class VeFieldChooser extends LitElement {
     const edge = 12;
     const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || width);
     const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
     const left = clamp(Math.round(rect.left), edge, viewportWidth - width - edge);
     const capHeight = (space) => Math.round(Math.min(viewportHeight * 0.6, Math.max(space, 160)));
     const spaceBelow = viewportHeight - rect.bottom - gap - edge;
@@ -560,10 +560,7 @@ export class VeFieldChooser extends LitElement {
           aria-label="${editLabel}"
           @click="${() => this.#editLink(field)}"
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-            <path fill="currentColor" d="m13.7 3.8-1.4-1.4c-.8-.8-2-.8-2.8 0L5.9 5.9c-.8.8-.8 2 0 2.8l1.2 1.2.9-.8L6.9 8c-.4-.4-.4-1 0-1.4l3.2-3.2c.4-.4 1-.4 1.4 0l1.1 1.1c.4.4.4 1 0 1.4l-1.3 1.3c.2.4.4.9.4 1.4l2-2c.7-.8.7-2.1 0-2.8z"/>
-            <path fill="currentColor" d="m8.9 6.1-.9.8L9.1 8c.4.4.4 1 0 1.4l-3.2 3.2c-.4.4-1 .4-1.4 0l-1.1-1.1c-.4-.4-.4-1 0-1.4l1.3-1.3c-.2-.4-.4-.9-.4-1.4l-2 2c-.8.8-.8 2 0 2.8l1.4 1.4c.8.8 2 .8 2.8 0l3.5-3.5c.8-.8.8-2 0-2.8L8.9 6.1z"/>
-          </svg>
+          ${unsafeHTML(linkIconSvg(14))}
         </button>
       </div>
     `;
@@ -1210,7 +1207,7 @@ let fieldChooser = null;
  * Lazily creates the singleton popover, appends it to the document body and
  * opens (or toggles) it for the given content element. With scopeGroup set
  * only the fields of that backend form group are shown (see openFor()).
- * @param {{table: string, uid: number, cType?: string, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
+ * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
  */
 export function openFieldChooser(options) {
   if (fieldChooser === null) {
