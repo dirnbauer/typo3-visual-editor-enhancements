@@ -33,7 +33,10 @@ function contextChip() {
  * Applied to every <ve-content-element> by the shared injection pass in
  * Frontend/index.js; elements whose table is not enabled for the field chooser
  * (or that the user may not modify) are skipped. <ve-editable-link> outputs
- * keep their own dedicated link buttons and are deliberately not scanned here.
+ * keep their own dedicated link buttons and are deliberately not scanned here;
+ * text outputs inside a link-edited button (a CTA's label) are suppressed too,
+ * so one website button never stacks a second floating affordance next to its
+ * link button.
  * @param {Element} contentElement
  */
 export function attachElementContextAffordance(contentElement) {
@@ -57,8 +60,41 @@ export function attachElementContextAffordance(contentElement) {
       continue;
     }
     attachedOutputs.add(output);
+    if (hasOwnLinkEditButton(output)) {
+      continue;
+    }
     attachOutputAffordance(output, record);
   }
+}
+
+/**
+ * True when the output sits inside a link or button that carries its own
+ * link-edit affordance (a <ve-editable-link> rendered as the interactive
+ * element's next sibling or direct child - the two anchor placements the
+ * link ViewHelper documents). A CTA's label already offers inline text
+ * editing plus the floating link button; a third floating button for the
+ * same spot only adds noise, so the context button is suppressed there.
+ * The element's other outputs and the action-bar button still reach the
+ * field settings.
+ * @param {Element} output
+ * @return {boolean}
+ */
+function hasOwnLinkEditButton(output) {
+  for (let node = output.parentElement; node !== null && node.tagName !== 'VE-CONTENT-ELEMENT'; node = node.parentElement) {
+    if (node.tagName !== 'A' && node.tagName !== 'BUTTON') {
+      continue;
+    }
+    if (node.nextElementSibling?.tagName === 'VE-EDITABLE-LINK') {
+      return true;
+    }
+    for (const child of node.children) {
+      if (child.tagName === 'VE-EDITABLE-LINK') {
+        return true;
+      }
+    }
+    return false;
+  }
+  return false;
 }
 
 /**
