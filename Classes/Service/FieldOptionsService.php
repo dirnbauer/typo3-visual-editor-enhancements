@@ -64,7 +64,7 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fields: list<array<string, mixed>>}|null
+     * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fieldPalettes: array<string, string>, fields: list<array<string, mixed>>}|null
      */
     public function buildFieldOptions(string $table, int $uid, ServerRequestInterface $request): ?array
     {
@@ -83,7 +83,7 @@ final readonly class FieldOptionsService
         if ($schema->supportsSubSchema() && !$schema->getSubSchemaTypeInformation()->isPointerToForeignFieldInForeignSchema()) {
             $recordType = (string)($row[$schema->getSubSchemaTypeInformation()->getFieldName()] ?? '');
             if (!$schema->hasSubSchema($recordType)) {
-                return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => [], 'fields' => []];
+                return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => [], 'fieldPalettes' => [], 'fields' => []];
             }
             $fieldSchema = $schema->getSubSchema($recordType);
         }
@@ -94,14 +94,17 @@ final readonly class FieldOptionsService
         $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
 
         $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
-        // Every showitem field mapped to its localized group label, so the
-        // client can resolve the form section of any editable output — not
-        // just the fields the chooser itself renders.
+        // Every showitem field mapped to its localized group label and its
+        // labeled-palette identity, so the client can resolve the form section
+        // of any editable output — not just the fields the chooser renders —
+        // and scope the per-output button to a field's own attributes.
         $fieldGroupLabels = [];
+        $fieldPalettes = [];
         foreach ($fieldGroups as $groupFieldName => $group) {
             if ($group['label'] !== '') {
                 $fieldGroupLabels[$groupFieldName] = $group['label'];
             }
+            $fieldPalettes[$groupFieldName] = $group['palette'];
         }
         $fields = [];
         foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId) as $fieldName) {
@@ -138,7 +141,7 @@ final readonly class FieldOptionsService
             return $field;
         }, $fields);
 
-        return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => $fieldGroupLabels, 'fields' => $fields];
+        return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => $fieldGroupLabels, 'fieldPalettes' => $fieldPalettes, 'fields' => $fields];
     }
 
     /**
@@ -284,7 +287,7 @@ final readonly class FieldOptionsService
      * separately so the client can group fields into backend-like tabs.
      * Position preserves the showitem order.
      *
-     * @return array<string, array{label: string, tab: string, position: int}>
+     * @return array<string, array{label: string, tab: string, palette: string, position: int}>
      */
     private function getFieldGroups(string $table, string $recordType, LanguageService $languageService): array
     {
@@ -307,17 +310,22 @@ final readonly class FieldOptionsService
                 $label = trim($parts[1] ?? '') !== ''
                     ? trim($parts[1])
                     : trim((string)($palettes[$paletteName]['label'] ?? ''));
-                $groupLabel = $label !== '' ? $languageService->sL($label) : $tabLabel;
+                $isLabeled = $label !== '';
+                $groupLabel = $isLabeled ? $languageService->sL($label) : $tabLabel;
+                // Only LABELED palettes get a palette identity; the per-output
+                // context button scopes to palette-mates for those and falls
+                // back to naming companions for top-level / unlabeled fields.
+                $palette = $isLabeled ? $paletteName : '';
                 foreach (GeneralUtility::trimExplode(',', (string)($palettes[$paletteName]['showitem'] ?? ''), true) as $paletteItem) {
                     $fieldName = GeneralUtility::trimExplode(';', $paletteItem)[0] ?? '';
                     if ($fieldName !== '' && $fieldName !== '--linebreak--' && !isset($groups[$fieldName])) {
-                        $groups[$fieldName] = ['label' => $groupLabel, 'tab' => $tabLabel, 'position' => $position++];
+                        $groups[$fieldName] = ['label' => $groupLabel, 'tab' => $tabLabel, 'palette' => $palette, 'position' => $position++];
                     }
                 }
                 continue;
             }
             if ($name !== '' && !isset($groups[$name])) {
-                $groups[$name] = ['label' => $tabLabel, 'tab' => $tabLabel, 'position' => $position++];
+                $groups[$name] = ['label' => $tabLabel, 'tab' => $tabLabel, 'palette' => '', 'position' => $position++];
             }
         }
 

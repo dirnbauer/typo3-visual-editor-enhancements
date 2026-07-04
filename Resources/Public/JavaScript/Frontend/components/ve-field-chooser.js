@@ -18,8 +18,9 @@ import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/
  * edit; reverting a field to the value it had when the options loaded clears
  * the pending change again. Opened via openFieldChooser() from the
  * per-element action-bar button injected in Frontend/index.js (full view) and
- * from the per-output context buttons (scoped to one form group via the
- * scopeGroup option, with a "show all" escape hatch back to the full view).
+ * from the per-output context buttons (scoped to the hovered field's own
+ * attributes via the scopeFields option, with a "show all" escape hatch back
+ * to the full view).
  *
  * @extends {HTMLElement}
  */
@@ -33,7 +34,8 @@ export class VeFieldChooser extends LitElement {
     popoverStyle: {type: String, state: true, attribute: false},
     activeTab: {type: Number, state: true, attribute: false},
     bodyMinHeight: {type: Number, state: true, attribute: false},
-    scopeGroup: {type: String, state: true, attribute: false},
+    scopeFields: {type: Array, state: true, attribute: false},
+    scopeLabel: {type: String, state: true, attribute: false},
   };
 
   constructor() {
@@ -46,7 +48,8 @@ export class VeFieldChooser extends LitElement {
     this.popoverStyle = '';
     this.activeTab = 0;
     this.bodyMinHeight = 0;
-    this.scopeGroup = null;
+    this.scopeFields = null;
+    this.scopeLabel = '';
     this.table = '';
     this.uid = 0;
     this.listening = false;
@@ -61,7 +64,7 @@ export class VeFieldChooser extends LitElement {
     // while the popover is OPEN additionally reloads the fields: the shared
     // options cache is dropped (its payload predates the save) and #load
     // re-seeds setInitialData from the fresh payload, matching the store's
-    // post-merge initialData - scopeGroup is deliberately kept, so a scoped
+    // post-merge initialData - scopeFields is deliberately kept, so a scoped
     // popover stays scoped.
     this.onStoreChange = (event) => {
       if (event.detail?.kind === 'saved' && this.open) {
@@ -98,15 +101,15 @@ export class VeFieldChooser extends LitElement {
   /**
    * Opens the popover for one content element and loads its field options, or
    * toggles it closed when it is already showing exactly that element with
-   * exactly that scope. With scopeGroup set only the fields of that backend
-   * form group are shown (flat, never tabs). Re-anchoring the OPEN popover to
-   * another scope of the same element only re-filters the already loaded
-   * fields - it never refetches.
-   * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
+   * exactly that scope. With scopeFields set only those fields are shown (flat,
+   * never tabs) under scopeLabel. Re-anchoring the OPEN popover to another scope
+   * of the same element only re-filters the already loaded fields - it never
+   * refetches.
+   * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string}} options
    */
-  openFor({table, uid, elementName, anchorRect, scopeGroup = null}) {
+  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = ''}) {
     const sameRecord = this.table === table && this.uid === uid;
-    if (this.open && sameRecord && this.scopeGroup === scopeGroup) {
+    if (this.open && sameRecord && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
       this.close();
       return;
     }
@@ -117,7 +120,8 @@ export class VeFieldChooser extends LitElement {
     this.table = table;
     this.uid = uid;
     this.elementName = elementName ?? '';
-    this.scopeGroup = scopeGroup;
+    this.scopeFields = scopeFields;
+    this.scopeLabel = scopeLabel;
     this.open = true;
     this.activeTab = 0;
     this.bodyMinHeight = 0;
@@ -188,10 +192,10 @@ export class VeFieldChooser extends LitElement {
    * so min-height can never push the popover past its positioned max-height
    * (the max-height clamp plus the body's overflow:auto always win). Scoped
    * mode never renders the tab bar, so the ratchet never runs there; leaving
-   * scoped mode via "show all" is a scopeGroup change and re-measures.
+   * scoped mode via "show all" is a scopeFields change and re-measures.
    */
   updated(changedProperties) {
-    if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields') || changedProperties.has('scopeGroup'))) {
+    if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields') || changedProperties.has('scopeFields'))) {
       return;
     }
     if (fieldChooserMode() !== 'tabs' || this.renderRoot.querySelector('.tabBar') === null) {
@@ -303,11 +307,14 @@ export class VeFieldChooser extends LitElement {
     if (!this.open) {
       return html``;
     }
-    // Scoped mode (per-output context button): only the anchor field's form
-    // group, flat and titled with the group's label - never the tab bar, even
-    // in tabs mode. The footer's "show all" button leads to the full view.
-    const scoped = !!this.scopeGroup;
-    const title = scoped ? this.scopeGroup : translate('frontend.fieldChooser.title', 'Field settings');
+    // Scoped mode (per-output context button): only the anchor field's own
+    // attributes, flat and titled with the field's form section - never the tab
+    // bar, even in tabs mode. The footer's "show all" button leads to the full
+    // view.
+    const scoped = this.scopeFields !== null;
+    const title = scoped
+      ? (this.scopeLabel || translate('frontend.fieldChooser.title', 'Field settings'))
+      : translate('frontend.fieldChooser.title', 'Field settings');
     const closeLabel = translate('frontend.fieldChooser.close', 'Close');
     // Tabs mode replicates the backend form's tab bar; with a single (or no)
     // tab it falls back to the plain sectioned list, exactly like 'sections'
@@ -350,7 +357,8 @@ export class VeFieldChooser extends LitElement {
    * exactly as an action-bar open would (tabs when configured).
    */
   #showAll() {
-    this.scopeGroup = null;
+    this.scopeFields = null;
+    this.scopeLabel = '';
     this.activeTab = 0;
     this.bodyMinHeight = 0;
   }
@@ -473,15 +481,15 @@ export class VeFieldChooser extends LitElement {
     if (this.error) {
       return html`<p class="status isError">${translate('frontend.fieldChooser.error', 'Could not load field options.')}</p>`;
     }
-    // Scoped mode: only the anchor group's fields, flat - the popover title
-    // already names the group, so headings would only repeat it.
-    const fields = this.scopeGroup
-      ? this.fields.filter((field) => field.group === this.scopeGroup)
+    // Scoped mode: only the anchor field's own attributes, flat - the popover
+    // title already names the field's section, so headings would only repeat it.
+    const fields = this.scopeFields
+      ? this.fields.filter((field) => this.scopeFields.includes(field.name))
       : this.fields;
     if (fields.length === 0) {
       return html`<p class="status">${translate('frontend.fieldChooser.empty', 'No editable choice fields for this element.')}</p>`;
     }
-    if (this.scopeGroup) {
+    if (this.scopeFields) {
       return html`${fields.map((field) => this.#renderField(field))}`;
     }
     // Same headings as the backend edit form: a heading is emitted whenever
@@ -1204,10 +1212,20 @@ export class VeFieldChooser extends LitElement {
 let fieldChooser = null;
 
 /**
+ * Stable identity of a scope for toggle comparison: null (full view) stays
+ * null; a field list is order-independent.
+ * @param {string[]|null} scopeFields
+ * @return {string|null}
+ */
+function scopeKeyOf(scopeFields) {
+  return scopeFields === null ? null : [...scopeFields].sort().join(',');
+}
+
+/**
  * Lazily creates the singleton popover, appends it to the document body and
- * opens (or toggles) it for the given content element. With scopeGroup set
- * only the fields of that backend form group are shown (see openFor()).
- * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeGroup?: string|null}} options
+ * opens (or toggles) it for the given content element. With scopeFields set
+ * only those fields are shown under scopeLabel (see openFor()).
+ * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string}} options
  */
 export function openFieldChooser(options) {
   if (fieldChooser === null) {

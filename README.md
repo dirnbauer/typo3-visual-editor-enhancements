@@ -28,8 +28,11 @@ composer require webconsulting/visual-editor-enhancements
 While editing a page in the visual editor, every content element whose table is enabled
 gets an "Edit field settings" button in its action bar that opens the full popover, and
 hovering an editable text or rich-text output shows a floating button that opens the same
-popover scoped to that output's backend form section (e.g. the header shows only the
-heading fields; a "Show all field settings" footer link expands to the full list). The
+popover scoped to that field's own attributes — the fields in its labeled form palette
+(e.g. a heading shows type/position/link), or, for a flat Content Blocks field, the
+companions sharing its name (`primary_button_text` → `primary_button_link`,
+`primary_button_variant`). A field with no attributes of its own shows no button, and a
+"Show all field settings" footer link always expands to the full list. The
 popover lists the record's editable fields — static single-value selects (e.g. `layout`,
 `frame_class`), category trees, `type=link` fields (with the TYPO3 link browser), single
 checkboxes and non-opacity color fields — as reported by the
