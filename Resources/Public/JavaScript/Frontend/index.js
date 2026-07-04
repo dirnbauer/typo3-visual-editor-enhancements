@@ -5,6 +5,7 @@ import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-ut
 import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh';
+import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link';
 
 function initializeAccentBridge() {

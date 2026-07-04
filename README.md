@@ -9,7 +9,7 @@ frontend editing experience:
   rich-text outputs that opens the field chooser scoped to that field's form section.
 - **Field chooser** — a per-element "Field settings" popover for select, category, link,
   checkbox and color fields, grouped like the backend edit form (list or tabs).
-- Editor UI bridges (accent color, CKEditor stacking-layer raise).
+- Editor UI bridges (accent color, bundled visual-editor fixes, CKEditor stacking layer).
 
 ## Requirements
 
@@ -165,12 +165,17 @@ checks (table/language access, web mounts, readOnly), and select item lists hono
   When an element cannot be swapped (or the re-fetch fails) it falls back to a frame
   reload. Disable install-wide with the extension configuration
   `elementRefreshEnabled = false`.
-- **Lean on the vendor.** The save endpoint (`/visual-editor/save`) is served by
-  `friendsoftypo3/visual-editor` itself — earlier local fixes (NEW-record placeholders,
-  drop-zone container handling, RTE toolbar placement) were upstreamed in visual-editor
-  1.8.0, so this extension no longer overrides the route or patches vendor components
-  at runtime. Only a small CSS override raising the CKEditor UI onto its own stacking
-  layer remains.
+- **Bundled visual-editor fixes.** A few fixes the upstream `friendsoftypo3/visual-editor`
+  1.8.0 release still lacks are carried by this extension so they survive a clean
+  `composer install` (no dirty vendor edits, no `cweagans/composer-patches` requirement):
+  the `/visual-editor/save` endpoint is re-registered onto an overriding
+  `PersistenceController` + `DataHandlerService` that accept `NEW…` record placeholders
+  (needed when the element library inserts content); `Frontend/visual-editor-patches.js`
+  runtime-patches the drop-zone (only set `tx_container_parent` for real container
+  columns) and the RTE toolbar (flip below and lift `overflow:hidden` ancestors near the
+  viewport top) — each patch self-detects and no-ops if a future vendor release ships the
+  fix; and `editable-overrides.css` sizes the CKEditor toolbar and raises the editor UI
+  onto its own stacking layer.
 
 ## License
 
