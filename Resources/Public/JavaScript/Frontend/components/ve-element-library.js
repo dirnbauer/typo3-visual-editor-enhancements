@@ -1564,7 +1564,9 @@ export class VeElementLibrary extends LitElement {
       flex: 1; overflow-y: auto; overflow-x: hidden;
       display: grid;
       grid-template-columns: repeat(var(--ve-cols, 2), minmax(0, 1fr));
-      grid-auto-rows: var(--ve-card-height, 330px);
+      /* Section headers are grid items too; fixed auto-rows made them reserve a
+         full card-height row and pushed the first content row too far down. */
+      grid-auto-rows: auto;
       gap: 18px; padding: 18px 20px 28px; align-content: start;
       scrollbar-width: thin; scrollbar-color: var(--ve-panel-border) transparent;
       scroll-snap-type: y mandatory;
@@ -1789,6 +1791,7 @@ export class VeElementLibrary extends LitElement {
       color: var(--ve-panel-muted);
     }
     .sectionHead:first-child { margin-top: 0; }
+    .vlist .sectionHead { flex: 0 0 auto; margin-top: 2px; padding-bottom: 2px; }
     .sectionIcon { flex-shrink: 0; }
     .sectionCount {
       font-weight: 650; color: var(--ve-accent-readable); letter-spacing: 0;
