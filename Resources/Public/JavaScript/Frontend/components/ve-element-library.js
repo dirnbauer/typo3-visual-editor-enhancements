@@ -112,6 +112,7 @@ export class VeElementLibrary extends LitElement {
     this.searchSeq = 0;
     this.searchDebounce = null;
     this.loadedPreviews = new Set();
+    this.loadingPreviews = new Set();
     this.previewItem = null;
     this.previewAnchor = null;
     this.previewCloseTimer = null;
@@ -144,7 +145,9 @@ export class VeElementLibrary extends LitElement {
       }
     };
 
-    // lazy-preview machinery
+    // lazy-preview machinery. `loadedPreviews` means "admitted to render an
+    // iframe"; `loadingPreviews` tracks iframe load slots that still need a
+    // load/error event or DOM-removal cleanup.
     this.previewQueue = [];
     this.previewInFlight = 0;
     this.observer = null;
@@ -819,10 +822,21 @@ export class VeElementLibrary extends LitElement {
   // --- lazy preview loading -------------------------------------------------
 
   updated() {
-    // The scroll container is the grid (multi-column) or the .vlist (single
-    // column); both hold [data-ctype] tiles whose previews load lazily as they
-    // scroll into view.
-    const grid = this.shadowRoot.querySelector('.grid, .vlist');
+    // Thumbnail iframes exist only in multi-column grid mode. Single-column
+    // mode uses one docked preview iframe, loaded directly by #renderPreview().
+    if (this.columns === 1) {
+      this.observer?.disconnect();
+      this.observer = null;
+      this.gridElement = null;
+      this.previewQueue = [];
+      this.loadingPreviews.clear();
+      this.previewInFlight = 0;
+      return;
+    }
+
+    // The scroll container is the grid; it holds [data-ctype] cards whose
+    // previews load lazily as they scroll into view.
+    const grid = this.shadowRoot.querySelector('.grid');
     if (!grid) {
       this.observer?.disconnect();
       this.observer = null;
@@ -839,25 +853,70 @@ export class VeElementLibrary extends LitElement {
         }
       }, {root: grid, rootMargin: '300px 0px'});
       this.gridElement = grid;
+    } else {
+      this.observer?.disconnect();
     }
-    grid.querySelectorAll('[data-ctype]').forEach((tile) => this.observer.observe(tile));
+    const tiles = Array.from(grid.querySelectorAll('[data-ctype]'));
+    this.#syncPreviewLoader(tiles);
+    tiles.forEach((tile) => this.observer.observe(tile));
+    this.#primeVisiblePreviews(grid, tiles);
   }
 
-  #enqueuePreview(cType) {
-    if (!cType || this.loadedPreviews.has(cType) || this.previewQueue.includes(cType)) {
-      return;
+  #syncPreviewLoader(tiles) {
+    const currentTypes = new Set(tiles.map((tile) => tile.dataset.ctype).filter(Boolean));
+    this.previewQueue = this.previewQueue.filter((cType) => currentTypes.has(cType) && !this.loadedPreviews.has(cType));
+    let changed = false;
+    for (const cType of Array.from(this.loadingPreviews)) {
+      if (!currentTypes.has(cType)) {
+        this.loadingPreviews.delete(cType);
+        changed = true;
+      }
     }
-    this.previewQueue.push(cType);
+    if (changed) {
+      this.previewInFlight = this.loadingPreviews.size;
+    }
+  }
+
+  #primeVisiblePreviews(grid, tiles) {
+    const rootRect = grid.getBoundingClientRect();
+    const margin = 300;
+    const visibleTypes = [];
+    for (const tile of tiles) {
+      const rect = tile.getBoundingClientRect();
+      if (rect.bottom >= rootRect.top - margin && rect.top <= rootRect.bottom + margin) {
+        visibleTypes.push(tile.dataset.ctype);
+      }
+    }
+    for (let i = visibleTypes.length - 1; i >= 0; i--) {
+      this.#enqueuePreview(visibleTypes[i], true, false);
+    }
     this.#pumpPreviews();
   }
 
+  #enqueuePreview(cType, priority = false, pump = true) {
+    if (!cType || this.loadedPreviews.has(cType)) {
+      return;
+    }
+    if (this.previewQueue.includes(cType)) {
+      if (priority) {
+        this.previewQueue = [cType, ...this.previewQueue.filter((entry) => entry !== cType)];
+      }
+      return;
+    }
+    priority ? this.previewQueue.unshift(cType) : this.previewQueue.push(cType);
+    if (pump) {
+      this.#pumpPreviews();
+    }
+  }
+
   #pumpPreviews() {
-    while (this.previewInFlight < MAX_CONCURRENT_PREVIEWS && this.previewQueue.length > 0) {
+    while (this.loadingPreviews.size < MAX_CONCURRENT_PREVIEWS && this.previewQueue.length > 0) {
       const cType = this.previewQueue.shift();
       if (this.loadedPreviews.has(cType)) {
         continue;
       }
-      this.previewInFlight++;
+      this.loadingPreviews.add(cType);
+      this.previewInFlight = this.loadingPreviews.size;
       const next = new Set(this.loadedPreviews);
       next.add(cType);
       this.loadedPreviews = next; // triggers re-render -> iframe with src appears
@@ -867,11 +926,11 @@ export class VeElementLibrary extends LitElement {
   /**
    * @param {Event} event iframe load event
    */
-  #onPreviewLoad(event) {
+  #onPreviewLoad(event, cType) {
     this.#hideAdminPanel(event.target);
     this.#compactPreview(event.target);
     this.#fitPreview(event.target);
-    this.#onPreviewSettled();
+    this.#onPreviewSettled(cType);
   }
 
   /**
@@ -905,8 +964,16 @@ export class VeElementLibrary extends LitElement {
     iframe.style.top = Math.round(Math.max(0, (boxH - contentHeight * scale) / 2)) + 'px';
   }
 
-  #onPreviewSettled() {
-    this.previewInFlight = Math.max(0, this.previewInFlight - 1);
+  #onPreviewSettled(cType = '') {
+    if (cType) {
+      this.loadingPreviews.delete(cType);
+    } else {
+      const first = this.loadingPreviews.values().next();
+      if (!first.done) {
+        this.loadingPreviews.delete(first.value);
+      }
+    }
+    this.previewInFlight = this.loadingPreviews.size;
     this.#pumpPreviews();
   }
 
@@ -1337,8 +1404,8 @@ export class VeElementLibrary extends LitElement {
           </div>` : ''}
         <div class="preview" @click="${openOverlay}">
           ${previewLoaded && item.previewUrl
-            ? html`<iframe src="${item.previewUrl}" loading="lazy" scrolling="no" tabindex="-1"
-                          @load="${(event) => this.#onPreviewLoad(event)}" @error="${() => this.#onPreviewSettled()}"></iframe>
+            ? html`<iframe src="${item.previewUrl}" data-ctype="${item.cType}" loading="eager" scrolling="no" tabindex="-1"
+                          @load="${(event) => this.#onPreviewLoad(event, item.cType)}" @error="${() => this.#onPreviewSettled(item.cType)}"></iframe>
                    <div class="previewOverlay"></div>`
             : html`<div class="previewPlaceholder">
                      ${item.iconUrl ? html`<img src="${item.iconUrl}" alt="" loading="lazy"/>` : html`<span>${item.title}</span>`}
