@@ -1636,7 +1636,9 @@ export class VeElementLibrary extends LitElement {
       grid-auto-rows: auto;
       gap: 18px; padding: 18px 20px 28px; align-content: start;
       scrollbar-width: thin; scrollbar-color: var(--ve-panel-border) transparent;
-      scroll-snap-type: y mandatory;
+      /* Mandatory snapping always pulled the first card to the top and moved the
+         "Recently used" heading out of view as soon as scrolling settled. */
+      scroll-snap-type: y proximity;
       scroll-padding-block-start: 18px;
     }
     .grid::-webkit-scrollbar { width: 10px; }
@@ -1858,6 +1860,7 @@ export class VeElementLibrary extends LitElement {
       color: var(--ve-panel-muted);
     }
     .sectionHead:first-child { margin-top: 0; }
+    .grid .sectionHead { scroll-snap-align: start; }
     .vlist .sectionHead { flex: 0 0 auto; margin-top: 2px; padding-bottom: 2px; }
     .sectionIcon { flex-shrink: 0; }
     .sectionCount {
