@@ -13,6 +13,23 @@ import {contentAddedFeedback, elementLibraryColumns} from '@webconsulting/visual
 
 const PREVIEW_RENDER_WIDTH = 1280;
 
+/**
+ * Narrowest viewport a preview is ever rendered at.
+ *
+ * The enlarged preview used to render every element at PREVIEW_RENDER_WIDTH and
+ * scale that down to whatever the stage happened to be. In the docked two-pane
+ * layout the stage is around 590px, so the scale came out near 0.46 and 14px
+ * body text arrived on screen at about six — a picture of an element rather
+ * than something you can read.
+ *
+ * Rendering at the stage width instead means no downscaling at all, but a
+ * 590px viewport puts the element into its phone layout, which is not what an
+ * editor is choosing. This floor is the compromise: never narrower than a
+ * desktop viewport, so the layout is the one the element will really have, and
+ * never wider than it needs to be, so the text stays legible.
+ */
+const PREVIEW_MIN_RENDER_WIDTH = 1024;
+
 /** How many recently-used elements to remember and show in the top section. */
 const RECENT_LIMIT = 8;
 
@@ -1023,6 +1040,18 @@ export class VeElementLibrary extends LitElement {
     const iframe = event.target;
     this.#hideAdminPanel(iframe);
     const stage = iframe.closest('.previewStage');
+
+    // Pick the viewport BEFORE measuring: changing the iframe width relays the
+    // document out, and a height measured at the old width would be wrong.
+    const stageForWidth = (stage && stage.clientWidth)
+      ? stage.clientWidth
+      : this.#flyoutGeometry().width;
+    const renderWidth = Math.min(
+      PREVIEW_RENDER_WIDTH,
+      Math.max(Math.round(stageForWidth), PREVIEW_MIN_RENDER_WIDTH),
+    );
+    iframe.style.width = renderWidth + 'px';
+
     let contentHeight = 0;
     try {
       const body = iframe.contentDocument && iframe.contentDocument.body;
@@ -1033,7 +1062,7 @@ export class VeElementLibrary extends LitElement {
       // keep the CSS fallback size
     }
     if (contentHeight < 20) {
-      contentHeight = Math.round(PREVIEW_RENDER_WIDTH * 0.5);
+      contentHeight = Math.round(renderWidth * 0.5);
     }
 
     const flyout = iframe.closest('.previewFlyout');
@@ -1048,7 +1077,7 @@ export class VeElementLibrary extends LitElement {
     const headerH = flyout?.querySelector('.previewHead')?.offsetHeight || 44;
     const captionH = flyout?.querySelector('.previewCaption')?.offsetHeight || 0;
     const stageBudget = Math.max(140, availHeight - 28 - headerH - captionH);
-    const fitWidthScale = stageWidth / PREVIEW_RENDER_WIDTH;
+    const fitWidthScale = stageWidth / renderWidth;
     const fullHeight = contentHeight * fitWidthScale;
     let scale;
     let stageHeight;
