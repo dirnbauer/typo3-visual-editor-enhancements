@@ -17,16 +17,22 @@
     "source": "https://github.com/dirnbauer/typo3-visual-editor-enhancements"
   },
   "require": {
-    "php": "^8.3",
-    "friendsoftypo3/visual-editor": "^1.8",
-    "typo3/cms-backend": "^14.3",
-    "typo3/cms-core": "^14.3",
-    "typo3/cms-frontend": "^14.3",
-    "typo3/cms-fluid": "^14.3"
+    "php": "^8.4",
+    "friendsoftypo3/visual-editor": "^1.10.2",
+    "typo3/cms-backend": "^14.3.7",
+    "typo3/cms-core": "^14.3.7",
+    "typo3/cms-fluid": "^14.3.7",
+    "typo3/cms-frontend": "^14.3.7"
   },
   "require-dev": {
     "friendsoftypo3/content-blocks": "^2.4",
-    "phpunit/phpunit": "^11.5 || ^12.5"
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "phpunit/phpunit": "^11.5 || ^12.5",
+    "saschaegerer/phpstan-typo3": "^3.0",
+    "typo3/coding-standards": "^0.8",
+    "typo3/testing-framework": "^9.5"
   },
   "autoload": {
     "psr-4": {
@@ -40,17 +46,27 @@
     }
   },
   "scripts": {
-    "test": "phpunit --configuration=phpunit.xml.dist"
+    "cgl": "php-cs-fixer fix --config .php-cs-fixer.dist.php",
+    "cgl:check": "@cgl --dry-run --diff",
+    "lint:php": "find Classes Configuration Tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l",
+    "phpstan": "phpstan analyse --memory-limit=512M",
+    "test": "@test:unit",
+    "test:functional": "phpunit -c Build/phpunit/FunctionalTests.xml",
+    "test:unit": "phpunit -c Build/phpunit/UnitTests.xml"
   },
   "config": {
     "allow-plugins": {
+      "phpstan/extension-installer": true,
       "typo3/class-alias-loader": true,
       "typo3/cms-composer-installers": true
-    }
+    },
+    "sort-packages": true
   },
   "extra": {
     "typo3/cms": {
-      "extension-key": "visual_editor_enhancements"
+      "app-dir": ".Build",
+      "extension-key": "visual_editor_enhancements",
+      "web-dir": ".Build/Web"
     }
   }
 }

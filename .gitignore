@@ -1,9 +1,23 @@
+# Composer / TYPO3 test instance
 /.Build/
-/.phpunit.cache/
-/public/
-/var/
 /vendor/
 composer.lock
-.DS_Store
+
+# Tooling caches
+/.php-cs-fixer.cache
+/.phpunit.cache/
+/.phpunit.result.cache
+/phpstan.neon.local
+
+# TYPO3 runtime artifacts (never part of the extension)
+/public/
+/var/
+
+# Node (only used for ad-hoc linting; the shipped JS has no build step)
 /node_modules/
 package-lock.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

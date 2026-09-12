@@ -6,12 +6,12 @@ $EM_CONF[$_EXTKEY] = [
     'category' => 'be',
     'author' => 'webconsulting GmbH',
     'author_email' => 'office@webconsulting.at',
-    'state' => 'beta',
-    'version' => '0.8.0',
+    'state' => 'stable',
+    'version' => '1.0.0',
     'constraints' => [
         'depends' => [
-            'typo3' => '14.3.0-14.9.99',
-            'visual_editor' => '1.8.0-1.99.99',
+            'typo3' => '14.3.7-14.9.99',
+            'visual_editor' => '1.10.2-1.99.99',
         ],
         'suggests' => [
             // The field chooser auto-enables Content Blocks tables when installed.
