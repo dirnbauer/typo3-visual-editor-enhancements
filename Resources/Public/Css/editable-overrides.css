@@ -1,28 +1,48 @@
-.ck-editor:has(.ck-focused),
+/*
+ * Overrides for the inline CKEditor the Visual Editor mounts on
+ * <ve-editable-rich-text>.
+ *
+ * Every rule that targets a CKEditor part INSIDE the component is scoped to
+ * <ve-editable-rich-text>, the way EXT:visual_editor scoped its own
+ * editable.css in 1.10.0 ("Prevent editable text style collisions", PR #122).
+ * Unscoped .ck-* rules would reach every other CKEditor on the page - a
+ * backend form opened in a modal above the edit frame, for example.
+ */
+
+/* Raise the focused editable onto its own stacking layer so the floating
+   toolbar is not covered by later siblings. */
+ve-editable-rich-text .ck-editor:has(.ck-focused),
 ve-editable-rich-text:focus-within {
   position: relative;
   z-index: 2147482999 !important;
 }
 
-.ck-editor__top {
+/* Upstream stretches the toolbar across the editable (left: 0; right: 0);
+   size it to its content instead so it stays readable on wide elements. */
+ve-editable-rich-text .ck-editor__top {
   right: auto !important;
   width: max-content !important;
   max-width: min(96vw, 960px) !important;
   z-index: 2147483000 !important;
 }
 
-.ck-editor.ve-toolbar-below .ck-editor__top {
+/* Set by visual-editor-patches.js when the editable sits too close to the top
+   of the viewport for a toolbar floating above it. */
+ve-editable-rich-text .ck-editor.ve-toolbar-below .ck-editor__top {
   bottom: auto !important;
   top: 100% !important;
   margin-top: 6px !important;
 }
 
-.ck-editor__top .ck-toolbar,
-.ck-editor__top .ck-toolbar > .ck-toolbar__items {
+ve-editable-rich-text .ck-editor__top .ck-toolbar,
+ve-editable-rich-text .ck-editor__top .ck-toolbar > .ck-toolbar__items {
   flex-wrap: wrap;
   row-gap: var(--ck-spacing-small, 4px);
 }
 
+/* Deliberately NOT scoped: CKEditor appends balloon panels and dropdown
+   panels to <body>, outside the component, so a descendant selector would
+   never match them. */
 .ck.ck-balloon-panel,
 .ck.ck-dropdown__panel {
   z-index: 2147483001 !important;

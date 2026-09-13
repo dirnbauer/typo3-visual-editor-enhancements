@@ -3,8 +3,9 @@ import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {isEditableLinksEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {clamp, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {clamp, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
 import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
+import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
 
 /**
@@ -46,7 +47,7 @@ export class VeEditableLink extends LitElement {
     this.pointerActivated = false;
     this.syncRaf = 0;
     this.viewportTracker = new ViewportTracker(() => this.#scheduleSync());
-    this.clippedAncestors = [];
+    this.clipping = createClippingLift(this);
     this.focusAnchor = null;
     this.onFocusChange = (event) => {
       this.#rememberFocusAnchor(event);
@@ -76,7 +77,7 @@ export class VeEditableLink extends LitElement {
     document.removeEventListener('focusout', this.onFocusChange);
     document.removeEventListener('pointerdown', this.onPointerDown, true);
     this.viewportTracker.stop();
-    this.#restoreClipping();
+    this.clipping.restore();
     if (this.syncRaf) {
       cancelAnimationFrame(this.syncRaf);
       this.syncRaf = 0;
@@ -122,12 +123,12 @@ export class VeEditableLink extends LitElement {
     if (next !== this.active) {
       this.active = next;
       if (next) {
-        this.#liftClipping();
+        this.clipping.lift();
         this.viewportTracker.start();
       } else {
         this.buttonStyle = '';
         this.viewportTracker.stop();
-        this.#restoreClipping();
+        this.clipping.restore();
       }
     }
   }
@@ -234,8 +235,7 @@ export class VeEditableLink extends LitElement {
     const buttonSize = 36;
     const gap = 8;
     const edge = 8;
-    const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || buttonSize);
-    const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || buttonSize);
+    const {width: viewportWidth, height: viewportHeight} = viewportSize(buttonSize);
     const maxLeft = Math.max(edge, viewportWidth - buttonSize - edge);
     const maxTop = Math.max(edge, viewportHeight - buttonSize - edge);
 
@@ -258,30 +258,6 @@ export class VeEditableLink extends LitElement {
     left = clamp(left, edge, maxLeft);
     top = clamp(top, edge, maxTop);
     this.buttonStyle = `--ve-link-button-left:${Math.round(left)}px;--ve-link-button-top:${Math.round(top)}px;`;
-  }
-
-  #liftClipping() {
-    if (this.clippedAncestors.length > 0) {
-      return;
-    }
-    for (let el = this.parentElement; el && el !== document.body; el = el.parentElement) {
-      const overflow = getComputedStyle(el).overflow;
-      if (overflow === 'hidden' || overflow === 'clip') {
-        this.clippedAncestors.push([el, el.style.overflow]);
-        el.style.setProperty('overflow', 'visible', 'important');
-      }
-    }
-  }
-
-  #restoreClipping() {
-    while (this.clippedAncestors.length) {
-      const [el, value] = this.clippedAncestors.pop();
-      if (value) {
-        el.style.overflow = value;
-      } else {
-        el.style.removeProperty('overflow');
-      }
-    }
   }
 
   #handlePointerEnter() {

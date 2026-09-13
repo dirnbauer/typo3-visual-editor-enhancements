@@ -1,6 +1,6 @@
 import {css, html, LitElement} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
-import {clamp, translate, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
 import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 
 /**
@@ -101,8 +101,7 @@ export class VeContextChip extends LitElement {
     const size = 28;
     const gap = 8;
     const edge = 8;
-    const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || size);
-    const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || size);
+    const {width: viewportWidth, height: viewportHeight} = viewportSize(size);
     if (rect.bottom <= 0 || rect.right <= 0 || rect.top >= viewportHeight || rect.left >= viewportWidth) {
       this.hideNow();
       return false;

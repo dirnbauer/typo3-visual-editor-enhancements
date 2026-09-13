@@ -2,6 +2,7 @@ import {lll} from '@typo3/core/lit-helper.js';
 import {flipInsertBefore} from '@typo3/visual-editor/Frontend/flip-insert-before';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
+import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping';
 
 patchDropZoneContainerParentHandling();
 patchRichTextToolbarPlacement();
@@ -124,38 +125,19 @@ function installToolbarPlacement(editableRichText) {
   }
 
   editableRichText.visualEditorEnhancementsToolbarInstalled = true;
-  const clippedAncestors = [];
-  const liftClipping = () => {
-    for (let el = editableRichText.parentElement; el && el !== document.body; el = el.parentElement) {
-      const overflow = getComputedStyle(el).overflow;
-      if (overflow === 'hidden' || overflow === 'clip') {
-        clippedAncestors.push([el, el.style.overflow]);
-        el.style.setProperty('overflow', 'visible', 'important');
-      }
-    }
-  };
-  const restoreClipping = () => {
-    while (clippedAncestors.length) {
-      const [el, value] = clippedAncestors.pop();
-      if (value) {
-        el.style.overflow = value;
-      } else {
-        el.style.removeProperty('overflow');
-      }
-    }
-  };
+  const clipping = createClippingLift(editableRichText);
   const placeToolbar = () => ckEditorEl.classList.toggle(
     've-toolbar-below',
     ckEditorEl.getBoundingClientRect().top < 140,
   );
   editableRichText.editor.ui.focusTracker.on('change:isFocused', (_evt, _name, isFocused) => {
     if (isFocused) {
-      liftClipping();
+      clipping.lift();
       placeToolbar();
       window.addEventListener('scroll', placeToolbar, {passive: true, capture: true});
       window.addEventListener('resize', placeToolbar, {passive: true});
     } else {
-      restoreClipping();
+      clipping.restore();
       window.removeEventListener('scroll', placeToolbar, {capture: true});
       window.removeEventListener('resize', placeToolbar);
     }

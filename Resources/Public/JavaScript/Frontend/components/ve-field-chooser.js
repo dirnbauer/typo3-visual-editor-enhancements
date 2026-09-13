@@ -2,7 +2,7 @@ import {css, html, LitElement, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {clamp, translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
+import {clamp, translate, viewportSize} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
 import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
@@ -171,8 +171,7 @@ export class VeFieldChooser extends LitElement {
     const width = 480;
     const gap = 8;
     const edge = 12;
-    const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || width);
-    const viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    const {width: viewportWidth, height: viewportHeight} = viewportSize(width);
     const left = clamp(Math.round(rect.left), edge, viewportWidth - width - edge);
     const capHeight = (space) => Math.round(Math.min(viewportHeight * 0.6, Math.max(space, 160)));
     const spaceBelow = viewportHeight - rect.bottom - gap - edge;

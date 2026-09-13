@@ -14,6 +14,20 @@
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
 
 /**
+ * The visible viewport in CSS pixels, as the floating affordances need it:
+ * the larger of the documentElement's client box and the window's inner box,
+ * so a page with a scrollbar or a zoomed visual viewport still yields the box
+ * a fixed-position element is clamped into. `fallback` only applies when
+ * window.innerWidth/innerHeight are unavailable (detached documents).
+ * @param {number} [fallback]
+ * @return {{width: number, height: number}}
+ */
+export const viewportSize = (fallback = 0) => ({
+  width: Math.max(document.documentElement.clientWidth, window.innerWidth || fallback),
+  height: Math.max(document.documentElement.clientHeight, window.innerHeight || fallback),
+});
+
+/**
  * Backend-user-language label lookup with an English fallback; the labels are
  * exported to TYPO3.lang by EditModeEnhancementsMiddleware.
  * @param {string} key
