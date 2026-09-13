@@ -1,0 +1,162 @@
+:navigation-title: Compatibility
+
+..  include:: /Includes.rst.txt
+..  _compatibility:
+
+=============
+Compatibility
+=============
+
+This package sits close to the Visual Editor's own runtime, so every release
+of it is audited against a concrete upstream version. 1.0.0 is audited against
+**friendsoftypo3/visual-editor 1.10.2**.
+
+..  _compatibility-audit:
+
+Feature audit against 1.10.2
+============================
+
+..  list-table::
+    :header-rows: 1
+    :widths: 26 12 62
+
+    *   -   Feature
+        -   Verdict
+        -   Reasoning
+
+    *   -   RTE toolbar clipping and below-flip
+        -   Keep
+        -   1.10.0 ("Prevent editable text style collisions", PR #122) only
+            scoped :file:`editable.css` selectors. At 1.10.2
+            :file:`ve-editable-rich-text.js` still has no toolbar placement
+            logic at all, and :file:`editable.css` still pins the toolbar to
+            ``bottom: 100%`` with no viewport-top handling and no clipping
+            escape. The patch self-detects (it looks for ``ve-toolbar-below``
+            in upstream's ``firstUpdated``) and turns itself off the day
+            upstream ships this.
+
+    *   -   CKEditor style overrides
+        -   Rewrite
+        -   Rescoped under ``ve-editable-rich-text`` to follow PR #122's
+            intent, so the rules no longer reach a CKEditor the Visual Editor
+            did not mount. Balloon and dropdown panels stay unscoped on
+            purpose - CKEditor appends those to ``<body>``.
+
+    *   -   Drop-zone ``tx_container_parent`` patch
+        -   Keep
+        -   1.10.2 :file:`ve-drop-zone.js` still writes
+            ``tx_container_parent`` for any integer value, including 0, and
+            sets the attribute on the moved element unconditionally. The patch
+            only sets it for real container columns and removes it otherwise.
+            Self-detecting.
+
+    *   -   ``/visual-editor/save`` override
+        -   Keep
+        -   1.10.2 ``DataHandlerService::validateData()`` still requires
+            ``is_int($uid)``, so a ``NEW…`` placeholder is rejected - and a
+            library drop is exactly that. A functional test covers the
+            placeholder path, so the day upstream accepts it the override can
+            be deleted with evidence.
+
+    *   -   ``f:render.link`` ViewHelper
+        -   Rewrite
+        -   Up to 0.8.0 the class was autoloaded into
+            ``TYPO3\CMS\VisualEditor\ViewHelpers\Render\`` through a second
+            PSR-4 entry. It now lives in this extension's own namespace, which
+            :file:`ext_localconf.php` appends to the ``f`` Fluid namespace.
+            Fluid resolves namespace entries in reverse registration order, so
+            ``f:render.link`` keeps working and a future upstream
+            ``LinkViewHelper`` no longer collides silently.
+
+    *   -   Plain-text editable workaround
+        -   Delete
+        -   There is none left to carry. Rendering a ``Textarea`` field as
+            inline-editable plain text is a template pattern built on Core and
+            Visual Editor ViewHelpers, and 1.10.2 (PR #130) additionally makes
+            ``f:render.text`` render rich text in backend requests through
+            ``f:sanitize.html`` plus ``f:transform.html``. Nothing in this
+            package works around either.
+
+    *   -   Element library FAB and action-bar buttons
+        -   Keep
+        -   Additive DOM only: the button is a custom element appended to
+            ``<body>``, the action-bar entries are appended into the Visual
+            Editor's shadow root and re-applied by one wrapped
+            ``VeContentElement.updated``. The 1.10.0 extension point governs
+            the *URL of the core wizard*; it cannot host a floating button, so
+            it does not replace this.
+
+    *   -   New content wizard URL
+        -   Rewrite
+        -   Adopted onto the 1.10.0 extension point
+            (``ModifyNewContentElementWizardUrlParameterEvent``): page TSconfig
+            under ``tx_visualeditorenhancements.newContentWizard.parameters``
+            is merged into the wizard parameters, so no JavaScript ever has to
+            rewrite ``veInfo.newContentUrl``. See
+            :ref:`configuration-wizard`.
+
+    *   -   ``?veFieldOptions=1`` endpoint
+        -   Rewrite
+        -   One explicit gate (``EditSessionGuard``): backend login, the
+            Visual Editor request token in ``X-Request-Token``, and
+            ``tables_modify`` on the requested table - 401 for the first, 403
+            for the rest, and no database read before it passes. Previously an
+            unknown table was reported before authentication ran, which made
+            the endpoint a TCA probe.
+
+    *   -   Preview iframes and cHash (1.9.1)
+        -   Keep, verified
+        -   PR #118 changed how the *backend module* builds the iframe URL for
+            a translated page (``PageEditController``); this package does not
+            build that URL. Library preview URLs are signed by the catalog
+            provider with their own ``cHash``, which is unaffected.
+
+    *   -   CKEditor and CSP (1.9.1)
+        -   Keep, verified
+        -   PR #117 forces ``useNonce = true`` in edit mode, because CKEditor
+            does not work under hash-based policies. The inline configuration
+            this extension emits already uses ``['useNonce' => true]``, so it
+            is nonce-covered under the policy the Visual Editor installs.
+
+    *   -   Page visibility in language headers (1.9.0)
+        -   No impact
+        -   Backend module chrome this package does not touch.
+
+..  _compatibility-not-here:
+
+What lives elsewhere
+====================
+
+The element library's server side - the catalog at ``?elementLibrary=1``, the
+ranked search at ``?elementLibrarySearch=``, the cached catalog metadata and
+the cacheable preview rendering at ``?elPreview=`` - is **not** part of this
+extension. It belongs to a catalog provider, because the element inventory,
+the demo records and the preview page type are site-specific.
+:ref:`developer-catalog` documents the contract a provider has to answer.
+
+..  _compatibility-versions:
+
+Version support
+===============
+
+..  list-table::
+    :header-rows: 1
+
+    *   -   This extension
+        -   TYPO3
+        -   PHP
+        -   Visual Editor
+
+    *   -   1.0.x
+        -   14.3.7+
+        -   8.4+
+        -   1.10.2+
+
+    *   -   0.6 - 0.8
+        -   14.3+
+        -   8.3+
+        -   1.8+
+
+Upgrading from 0.8 requires no configuration change. The only externally
+visible move is the ``f:render.link`` ViewHelper's PHP namespace, which
+templates never reference by class name.

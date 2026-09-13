@@ -1,0 +1,14 @@
+.. This file is included by every document of this manual. Put global
+   replacements and role definitions here, nothing else.
+
+.. |extension-key| replace:: ``visual_editor_enhancements``
+.. |composer-name| replace:: ``webconsulting/visual-editor-enhancements``
+
+.. role:: php(code)
+   :language: php
+
+.. role:: typoscript(code)
+   :language: typoscript
+
+.. role:: javascript(code)
+   :language: javascript

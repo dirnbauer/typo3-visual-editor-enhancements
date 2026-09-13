@@ -1,184 +1,119 @@
 # Visual Editor Enhancements
 
-TYPO3 extension that enhances the [friendsoftypo3/visual-editor](https://github.com/FriendsOfTYPO3/visual-editor)
-frontend editing experience:
+TYPO3 extension that adds an element library, a field chooser and a few editor
+UI bridges to [friendsoftypo3/visual-editor](https://github.com/FriendsOfTYPO3/visual_editor),
+without forking it.
 
-- **Element library** — a searchable, drag-and-drop library of content elements with live previews.
-- **Context buttons** — floating affordances that appear on hover/focus: inline link-edit
-  icons for TCA `type=link` fields, and a per-output field button on editable text and
-  rich-text outputs that opens the field chooser scoped to that field's form section.
-- **Field chooser** — a per-element "Field settings" popover for select, category, link,
-  checkbox and color fields, grouped like the backend edit form (list or tabs).
-- Editor UI bridges (accent color, bundled visual-editor fixes, CKEditor stacking layer).
+- **Element library** — a side panel of content element types with rendered
+  previews, keyword chips and typo-tolerant search, dragged onto the editor's
+  own drop zones. Dropping copies the element's seeded demo record, so it lands
+  pre-filled and looks like its preview.
+- **Field chooser** — a popover with the record's choice fields (selects,
+  category trees, `type=link`, checkboxes, colors), grouped like the backend
+  form. Reachable from the element's action bar or from a hover button on an
+  editable output, scoped to that field's own attributes. Changes are staged on
+  the editor's pending-change list and written by its own save.
+- **Editor UI bridges** — a link button for TCA `type=link` fields
+  (`f:render.link`), a CKEditor toolbar that survives `overflow: hidden`
+  ancestors and the top of the viewport, the backend accent color in the edit
+  frame, and a partial element refresh after saving.
 
 ## Requirements
 
-- TYPO3 14.3+
-- PHP 8.3+
-- `friendsoftypo3/visual-editor` ^1.8
+| | |
+|---|---|
+| TYPO3 | 14.3.7+ |
+| PHP | 8.4+ |
+| `friendsoftypo3/visual-editor` | 1.10.2+ |
+| `friendsoftypo3/content-blocks` | optional — auto-enables Content Blocks tables |
 
-## Installation
+Distributed through Composer and Git only; there is no TER release.
+
+## Install
 
 ```bash
 composer require webconsulting/visual-editor-enhancements
+vendor/bin/typo3 cache:flush
 ```
 
-## Field chooser
+## Configure
 
-While editing a page in the visual editor, every content element whose table is enabled
-gets an "Edit field settings" button in its action bar that opens the full popover, and
-hovering an editable text or rich-text output shows a floating button that opens the same
-popover scoped to that field's own attributes — the fields in its labeled form palette
-(e.g. a heading shows type/position/link), or, for a flat Content Blocks field, the
-companions sharing its name (`primary_button_text` → `primary_button_link`,
-`primary_button_variant`). A field with no attributes of its own shows no button, and a
-"Show all field settings" footer link always expands to the full list. The
-popover lists the record's editable fields — static single-value selects (e.g. `layout`,
-`frame_class`), category trees, `type=link` fields (with the TYPO3 link browser), single
-checkboxes and non-opacity color fields — as reported by the
-`?veFieldOptions=1&editMode=1&table=<table>&uid=<uid>` JSON endpoint.
-Fields are grouped under the same headings as the backend edit form. Changes are staged
-on the visual editor's pending change list and written only with the next explicit save;
-reverting a field to its original value clears the pending change again.
+All features default to on. Toggle them install-wide from a **sitepackage's
+`ext_localconf.php`** — not from `config/system/settings.php`, which is
+git-ignored in most setups, so a flag set there is lost on the next deployment:
 
-### Presentation modes
-
-The popover has three modes, chosen per backend user under *User settings → Visual
-editor → Field settings panel* (`tx_visualeditor_fieldChooserMode`, default `tabs`):
-
-- **`tabs`** — fields split into tabs mirroring the backend form (Allgemein, Bilder,
-  Erscheinungsbild, …); the default.
-- **`sections`** — one scrolling list with the group headings.
-- **`disabled`** — the field chooser (action-bar button and per-output buttons) is turned off.
-
-Up to 0.2.x this was the on/off checkbox `tx_visualeditor_showFieldChooser`; an existing
-"off" value is honored as `disabled` until the user saves the new select once.
-
-### Enabling / disabling
-
-Independent switches, all enabled by default:
-
-1. **Extension configuration**: `fieldChooserEnabled` (also `elementLibraryEnabled`,
-   `editableLinksEnabled`).
-2. **User settings**: the *Field settings panel* mode select
-   (`tx_visualeditor_fieldChooserMode`) and the *Show floating edit buttons* toggle
-   (`tx_visualeditor_showContextButtons`, default on — governs the link buttons and the
-   per-output field buttons together; replaces the old `tx_visualeditor_showLinks`) on
-   the *Visual editor* tab of the backend user setup module.
-3. **Page TSconfig** (see below).
-
-### Content Blocks tables
-
-Tables defined by TYPO3 Content Blocks (collection child tables such as
-`accordion_items` as well as custom record types) are auto-enabled with the same
-defaults as `tt_content` (`enabled = 1`, `fields = *`), so collection item records
-work in the field chooser without any configuration. Detection uses the Content
-Blocks table registry when `friendsoftypo3/content-blocks` is installed and falls
-back to scanning the TCA for tables with a `foreign_table_parent_uid` column (the
-collection child convention) otherwise. `tt_content`, `pages` and core system
-tables (`sys_*`, `be_*`, `fe_*`, `tx_visualeditor*`) are never auto-enabled this way.
-
-Explicit page TSconfig for a table always wins, so a single table can be opted
-out again:
-
-```typoscript
-tx_visualeditorenhancements.fieldChooser.tables.accordion_items.enabled = 0
+```php
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementLibraryEnabled'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['fieldChooserEnabled'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['editableLinksEnabled'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementRefreshEnabled'] = true;
 ```
 
-### Page TSconfig reference
+Per backend user, on the *Visual editor* tab of User settings:
+`tx_visualeditor_showLibrary`, `tx_visualeditor_showContextButtons`,
+`tx_visualeditor_fieldChooserMode` (`tabs` | `sections` | `disabled`),
+`tx_visualeditor_panelColumns`.
+
+Page TSconfig:
 
 ```typoscript
 tx_visualeditorenhancements.fieldChooser {
-  # Master switch for the current page (default: 1)
   enabled = 1
-
   tables {
-    # tt_content is enabled by default with auto-detected fields
     tt_content {
       enabled = 1
-
-      # "*" (default) auto-detects fields, or use an explicit comma list
-      fields = *
-
-      # Always subtracted, from both auto-detected and explicit lists
+      fields = *                      # or an explicit comma list
       excludeFields = layout
-
-      # Per record type (CType) override, wins over the table-level "fields"
-      types {
-        textmedia {
-          fields = frame_class, space_before_class
-        }
-      }
+      types.textmedia.fields = frame_class, space_before_class
     }
-
-    # Content Blocks tables are auto-enabled like tt_content (see above);
-    # every other table is disabled unless explicitly enabled
-    tx_news_domain_model_news {
-      enabled = 1
-    }
+    tx_news_domain_model_news.enabled = 1
   }
+}
+
+# Parameters for the "new content element" wizard the editor opens from "+",
+# through the Visual Editor 1.10.0 extension point
+tx_visualeditorenhancements.newContentWizard.parameters {
+  defVals.tt_content.header_layout = 2
 }
 ```
 
-### Auto-detection rules (`fields = *`)
+The element library additionally needs a **catalog provider** extension that
+answers `?elementLibrary=1` (and, optionally, `?elementLibrarySearch=`) with
+the site's element inventory and signed, cacheable preview URLs. That part is
+site-specific and deliberately not shipped here — the contract is in the
+[developer documentation](Documentation/Developer.rst).
 
-Included are TCA fields of the record type's schema that are
+## Use
 
-- static single-value selects (`renderType = selectSingle`, no `foreign_table`,
-  not `multiple`, `maxitems` ≤ 1),
-- category fields (`type = category`),
-- link fields (`type = link`),
-- single checkboxes (`type = check` with at most one item), or
-- color fields (`type = color`) without opacity.
+In *Web > Edit*: the round button top right opens the library, drag a card onto
+a drop zone. Every element's action bar gets an "Edit field settings" button,
+and hovering an editable text shows a small button that opens the same popover
+scoped to that field. Link fields show a chain icon that opens the TYPO3 link
+browser. Everything is staged and written by the editor's normal save.
 
-Excluded are the record-type field (e.g. `CType`), `colPos`, `sorting` (and the
-table's `sortby` field), the language/`transOrigPointerField`/`translationSource`
-fields, the disable (`hidden`) and `editlock` fields, `readOnly` fields, and relation
-selects (`foreign_table`). Explicit `fields`
-lists win over auto-detection (unknown field names are ignored), `excludeFields`
-always subtracts, and a matching `types.<recordType>.fields` list wins over the
-table-level `fields`.
+## Develop
 
-Field visibility additionally respects the visual editor's own per-field permission
-checks (table/language access, web mounts, readOnly), and select item lists honor
-`TCEFORM.` TSconfig (`keepItems`, `addItems`, `removeItems`, `altLabels`) as well as
-`itemsProcFunc`/`itemsProcessors`.
+```bash
+composer install
+composer cgl:check        # typo3/coding-standards, dry run
+composer phpstan          # level 8, no baseline
+composer test:unit
+composer test:functional  # sqlite by default; CI also runs MariaDB 10.11
+```
 
-## How it works / notes
+The shipped JavaScript is dependency-free ES modules under
+`Resources/Public/JavaScript/` with no build step, mirroring how the Visual
+Editor ships its own. Everything this extension does to the Visual Editor's own
+runtime lives in `Frontend/visual-editor-patches.js`, and each patch checks
+first whether upstream already has the fix.
 
-- **`LinkViewHelper` override.** This package intentionally autoloads
-  `TYPO3\CMS\VisualEditor\ViewHelpers\Render\` from
-  `Classes/VisualEditor/ViewHelpers/Render/` (see the `autoload.psr-4` map in
-  `composer.json`) to override the upstream `LinkViewHelper` and add the editable
-  link button. This is load-bearing and tied to `friendsoftypo3/visual-editor` ^1.8;
-  a major upstream release may require revisiting it.
-- **Field-chooser endpoint security.** The `?veFieldOptions=1` JSON endpoint is a
-  frontend middleware that only answers for a logged-in backend user presenting the
-  visual editor request token (`window.veInfo.token`, scope `visual_editor/save`) in
-  the `X-Request-Token` header, re-validates table/field access server-side through
-  the visual editor's own permission checks, and sends `Cache-Control: private,
-  no-store`. Changes are staged on the visual editor's pending-change list and written
-  through its existing save flow (core `DataHandler`); no separate write path is added.
-- **Partial element refresh.** The visual editor itself reloads nothing on a successful
-  save, which would leave popover-edited (server-rendered) fields stale in the preview.
-  After a successful save the extension re-fetches the current page in the background
-  and swaps only the affected content elements — scroll position and editor state are
-  preserved, inline scripts inside the swapped element are re-executed, and a bubbling
-  `ve:element-refreshed` event is dispatched on the new element for custom re-init.
-  When an element cannot be swapped (or the re-fetch fails) it falls back to a frame
-  reload. Disable install-wide with the extension configuration
-  `elementRefreshEnabled = false`.
-- **Bundled visual-editor fixes.** A few fixes the upstream `friendsoftypo3/visual-editor`
-  1.8.0 release still lacks are carried by this extension so they survive a clean
-  `composer install` (no dirty vendor edits, no `cweagans/composer-patches` requirement):
-  the `/visual-editor/save` endpoint is re-registered onto an overriding
-  `PersistenceController` + `DataHandlerService` that accept `NEW…` record placeholders
-  (needed when the element library inserts content); `Frontend/visual-editor-patches.js`
-  runtime-patches the drop-zone (only set `tx_container_parent` for real container
-  columns) and the RTE toolbar (flip below and lift `overflow:hidden` ancestors near the
-  viewport top) — each patch self-detects and no-ops if a future vendor release ships the
-  fix; and `editable-overrides.css` sizes the CKEditor toolbar and raises the editor UI
-  onto its own stacking layer.
+## Docs
+
+Full manual in [`Documentation/`](Documentation/Index.rst): installation,
+configuration, usage, [developer reference](Documentation/Developer.rst),
+[known problems](Documentation/KnownProblems.rst), and a feature-by-feature
+[compatibility audit](Documentation/Compatibility.rst) against Visual Editor
+1.10.2. Changes per release: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
