@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
-use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -28,7 +27,7 @@ class BackendUserProvider
 
     public function getOrThrow(): BackendUserAuthentication
     {
-        return $this->get() ?? throw new RuntimeException('Could not determine backend user authentication', 3305745964);
+        return $this->get() ?? throw new \RuntimeException('Could not determine backend user authentication', 3305745964);
     }
 
     /**

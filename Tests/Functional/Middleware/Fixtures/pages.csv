@@ -1,0 +1,4 @@
+"pages",,,,,,,,,
+,"uid","pid","sorting","deleted","hidden","title","slug","doktype","is_siteroot"
+,1,0,256,0,0,"Home","/",1,1
+,666,1,256,0,0,"Editing test page","/editing-test-page",1,0

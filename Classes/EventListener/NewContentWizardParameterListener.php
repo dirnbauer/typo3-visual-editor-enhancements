@@ -10,8 +10,6 @@ use TYPO3\CMS\Core\TypoScript\TypoScriptService;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\VisualEditor\Events\ModifyNewContentElementWizardUrlParameterEvent;
 
-use function is_array;
-
 /**
  * Steers the "new content element" wizard the Visual Editor opens from a
  * content area's or element's "+" button, through the official extension
@@ -40,8 +38,7 @@ final readonly class NewContentWizardParameterListener
 {
     public function __construct(
         private TypoScriptService $typoScriptService,
-    ) {
-    }
+    ) {}
 
     #[AsEventListener]
     public function __invoke(ModifyNewContentElementWizardUrlParameterEvent $event): void
@@ -67,10 +64,17 @@ final readonly class NewContentWizardParameterListener
     private function getConfiguredParameters(int $pageId): array
     {
         $configuration = BackendUtility::getPagesTSconfig($pageId)['tx_visualeditorenhancements.']['newContentWizard.']['parameters.'] ?? null;
-        if (!is_array($configuration) || $configuration === []) {
+        if (!\is_array($configuration) || $configuration === []) {
             return [];
         }
 
-        return $this->typoScriptService->convertTypoScriptArrayToPlainArray($configuration);
+        $parameters = [];
+        foreach ($this->typoScriptService->convertTypoScriptArrayToPlainArray($configuration) as $key => $value) {
+            // A numeric TSconfig key would end up as an int here; wizard URL
+            // parameter names are always strings.
+            $parameters[(string)$key] = $value;
+        }
+
+        return $parameters;
     }
 }

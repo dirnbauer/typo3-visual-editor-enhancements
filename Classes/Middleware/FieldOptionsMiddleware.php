@@ -16,9 +16,6 @@ use Webconsulting\VisualEditorEnhancements\Security\EditSessionGuard;
 use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
 use Webconsulting\VisualEditorEnhancements\Service\FieldOptionsService;
 
-use function is_numeric;
-use function is_string;
-
 /**
  * Frontend JSON endpoint for the visual editor field chooser: ?veFieldOptions=1
  * returns the editable select and category fields of a single record together
@@ -37,8 +34,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         private TcaSchemaFactory $tcaSchema,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private FieldOptionsService $fieldOptionsService,
-    ) {
-    }
+    ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -48,7 +44,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         }
 
         $table = $queryParams['table'] ?? '';
-        if (!is_string($table) || $table === '' || !$this->tcaSchema->has($table)) {
+        if (!\is_string($table) || $table === '' || !$this->tcaSchema->has($table)) {
             // Answering "unknown table" before the guard would turn the
             // endpoint into a TCA probe for anonymous callers.
             $denial = $this->guard->check($request) ?? AccessDenial::InsufficientPermissions;
@@ -62,7 +58,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         }
 
         $uidParam = $queryParams['uid'] ?? null;
-        $uid = is_numeric($uidParam) ? (int)$uidParam : 0;
+        $uid = \is_numeric($uidParam) ? (int)$uidParam : 0;
         if ($uid <= 0) {
             return $this->jsonError('Record not found', 404);
         }

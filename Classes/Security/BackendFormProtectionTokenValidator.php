@@ -20,8 +20,7 @@ final readonly class BackendFormProtectionTokenValidator implements RequestToken
 
     public function __construct(
         private FormProtectionFactory $formProtectionFactory,
-    ) {
-    }
+    ) {}
 
     public function isValid(string $token): bool
     {

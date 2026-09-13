@@ -1,0 +1,18 @@
+includes:
+    - vendor/saschaegerer/phpstan-typo3/extension.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/phpstan/phpstan-phpunit/rules.neon
+
+parameters:
+    level: 8
+    phpVersion: 80400
+    paths:
+        - Classes
+        - Configuration
+        - Tests
+    # No baseline on purpose: in a package this size a level-8 finding is a bug
+    # to fix, not a line to record.
+    treatPhpDocTypesAsCertain: false
+    typo3:
+        requestGetAttributeMapping:
+            route: TYPO3\CMS\Backend\Routing\Route

@@ -17,8 +17,7 @@ final readonly class BackendEnhancementsMiddleware implements MiddlewareInterfac
 {
     public function __construct(
         private PageRenderer $pageRenderer,
-    ) {
-    }
+    ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

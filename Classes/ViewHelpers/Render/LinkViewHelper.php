@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Webconsulting\VisualEditorEnhancements\ViewHelpers\Render;
 
-use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Domain\Exception\RecordPropertyNotFoundException;
 use TYPO3\CMS\Core\Domain\RecordFactory;
@@ -21,9 +20,6 @@ use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
 use TYPO3Fluid\Fluid\Core\ViewHelper\InvalidArgumentValueException;
 use TYPO3Fluid\Fluid\Core\ViewHelper\TagBuilder;
 use Webconsulting\VisualEditorEnhancements\Service\LinkBrowserUrlService;
-
-use function get_debug_type;
-use function is_string;
 
 /**
  * ViewHelper for pure TCA type=link fields: renders a small link icon
@@ -61,8 +57,7 @@ final class LinkViewHelper extends AbstractViewHelper
         private readonly LocalizationService $localizationService,
         private readonly ModelToRawRecordService $modelToRawRecordService,
         private readonly LinkBrowserUrlService $linkBrowserUrlService,
-    ) {
-    }
+    ) {}
 
     public function initializeArguments(): void
     {
@@ -81,7 +76,7 @@ final class LinkViewHelper extends AbstractViewHelper
 
     public function render(): string
     {
-        $renderingContext = $this->renderingContext ?? throw new InvalidArgumentException('$this->renderingContext is not available', 1777200010);
+        $renderingContext = $this->renderingContext ?? throw new \InvalidArgumentException('$this->renderingContext is not available', 1777200010);
         $request = $renderingContext->getAttribute(ServerRequestInterface::class);
         $this->editModeService->init($request);
 
@@ -97,8 +92,8 @@ final class LinkViewHelper extends AbstractViewHelper
         }
 
         if (!$record instanceof RecordInterface) {
-            throw new InvalidArgumentException(
-                'The record argument must be an instance of ' . self::RECORD_TYPE . '. Given: ' . get_debug_type($record),
+            throw new \InvalidArgumentException(
+                'The record argument must be an instance of ' . self::RECORD_TYPE . '. Given: ' . \get_debug_type($record),
                 1777200011,
             );
         }
@@ -120,7 +115,7 @@ final class LinkViewHelper extends AbstractViewHelper
         if ($value instanceof \Stringable) {
             $value = (string)$value;
         }
-        if (!is_string($value)) {
+        if (!\is_string($value)) {
             $value = '';
         }
 
@@ -128,8 +123,8 @@ final class LinkViewHelper extends AbstractViewHelper
         $fieldSchema = $schema->getField($field);
         if (!$fieldSchema instanceof LinkFieldType) {
             $table = $record->getMainType();
-            throw new InvalidArgumentException(
-                'The field "' . $table . '.' . $field . '" is not a link field (TCA type=link). Given: ' . get_debug_type($fieldSchema),
+            throw new \InvalidArgumentException(
+                'The field "' . $table . '.' . $field . '" is not a link field (TCA type=link). Given: ' . \get_debug_type($fieldSchema),
                 1777200013,
             );
         }

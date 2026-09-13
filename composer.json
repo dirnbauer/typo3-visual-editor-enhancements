@@ -2,7 +2,12 @@
   "name": "webconsulting/visual-editor-enhancements",
   "type": "typo3-cms-extension",
   "description": "Visual Editor enhancements: element library, editable link helper, select/category field chooser, and editor UI bridges.",
-  "keywords": ["TYPO3", "visual-editor", "frontend-editing", "content-elements"],
+  "keywords": [
+    "TYPO3",
+    "visual-editor",
+    "frontend-editing",
+    "content-elements"
+  ],
   "homepage": "https://webconsulting.at",
   "license": "GPL-2.0-or-later",
   "authors": [
@@ -26,7 +31,6 @@
   },
   "require-dev": {
     "friendsoftypo3/content-blocks": "^2.4",
-    "phpstan/extension-installer": "^1.4",
     "phpstan/phpstan": "^2.1",
     "phpstan/phpstan-phpunit": "^2.0",
     "phpunit/phpunit": "^11.5 || ^12.5",
@@ -55,7 +59,6 @@
   },
   "config": {
     "allow-plugins": {
-      "phpstan/extension-installer": true,
       "typo3/class-alias-loader": true,
       "typo3/cms-composer-installers": true
     },
@@ -63,7 +66,6 @@
   },
   "extra": {
     "typo3/cms": {
-      "app-dir": ".Build",
       "extension-key": "visual_editor_enhancements",
       "web-dir": ".Build/Web"
     }

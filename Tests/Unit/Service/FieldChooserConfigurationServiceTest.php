@@ -14,20 +14,15 @@ use TYPO3\CMS\ContentBlocks\Definition\TableDefinition;
 use TYPO3\CMS\ContentBlocks\Definition\TableDefinitionCollection;
 use TYPO3\CMS\ContentBlocks\Definition\TcaFieldDefinitionCollection;
 use TYPO3\CMS\ContentBlocks\Registry\AutomaticLanguageKeysRegistry;
-use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
-use TYPO3\CMS\Core\Cache\CacheManager;
-use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
-use TYPO3\CMS\Core\EventDispatcher\NoopEventDispatcher;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
-use TYPO3\CMS\Core\TypoScript\AST\AstBuilder;
-use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
-use TYPO3\CMS\Core\TypoScript\PageTsConfig;
-use TYPO3\CMS\Core\TypoScript\Tokenizer\LosslessTokenizer;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
+use Webconsulting\VisualEditorEnhancements\Tests\Unit\PageTsConfigPriming;
 
 final class FieldChooserConfigurationServiceTest extends TestCase
 {
+    use PageTsConfigPriming;
+
     /**
      * @var array<string, mixed>|null
      */
@@ -38,11 +33,7 @@ final class FieldChooserConfigurationServiceTest extends TestCase
         parent::setUp();
         $this->tcaBackup = $GLOBALS['TCA'] ?? null;
 
-        // BackendUtility::getPagesTSconfig() consults the runtime cache first;
-        // tests prime it via primePageTsConfig() so no database is needed.
-        $cacheManager = new CacheManager();
-        $cacheManager->registerCache(new VariableFrontend('runtime', new TransientMemoryBackend()));
-        GeneralUtility::setSingletonInstance(CacheManager::class, $cacheManager);
+        $this->registerRuntimeCache();
     }
 
     protected function tearDown(): void
@@ -151,7 +142,7 @@ final class FieldChooserConfigurationServiceTest extends TestCase
 
     private function createService(?TableDefinitionCollection $contentBlockTables = null): FieldChooserConfigurationService
     {
-        $tcaSchemaFactory = $this->createStub(TcaSchemaFactory::class);
+        $tcaSchemaFactory = self::createStub(TcaSchemaFactory::class);
         $tcaSchemaFactory
             ->method('has')
             ->willReturnCallback(static fn(string $table): bool => isset($GLOBALS['TCA'][$table]));
@@ -172,20 +163,5 @@ final class FieldChooserConfigurationServiceTest extends TestCase
             paletteDefinitionCollection: new PaletteDefinitionCollection(),
             parentReferences: [],
         );
-    }
-
-    /**
-     * BackendUtility::getPagesTSconfig() returns the runtime-cached
-     * PageTsConfig for a page id without touching root line, site or
-     * database when both cache entries exist.
-     */
-    private function primePageTsConfig(int $pageId, string $tsConfig): void
-    {
-        $rootNode = (new AstBuilder(new NoopEventDispatcher()))
-            ->build((new LosslessTokenizer())->tokenize($tsConfig), new RootNode());
-        $runtimeCache = GeneralUtility::makeInstance(CacheManager::class)->getCache('runtime');
-        $hash = 'field-chooser-test-' . $pageId;
-        $runtimeCache->set('pageTsConfig-pid-to-hash-' . $pageId, $hash);
-        $runtimeCache->set('pageTsConfig-hash-to-object-' . $hash, new PageTsConfig($rootNode, []));
     }
 }

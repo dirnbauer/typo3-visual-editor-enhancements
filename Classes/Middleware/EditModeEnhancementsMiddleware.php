@@ -26,8 +26,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         private LocalizationService $localizationService,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private BackendUserProvider $backendUserProvider,
-    ) {
-    }
+    ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -146,7 +145,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     private function getUserBoolSetting(string $key, bool $default): bool
     {
         $uc = $this->getBackendUser()->uc;
-        if (!is_array($uc) || !array_key_exists($key, $uc)) {
+        if (!array_key_exists($key, $uc)) {
             return $default;
         }
 
@@ -159,7 +158,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     private function getFieldChooserMode(): string
     {
         $uc = $this->getBackendUser()->uc;
-        $mode = is_array($uc) ? ($uc['tx_visualeditor_fieldChooserMode'] ?? null) : null;
+        $mode = $uc['tx_visualeditor_fieldChooserMode'] ?? null;
         if (in_array($mode, ['disabled', 'sections', 'tabs'], true)) {
             return $mode;
         }
@@ -167,7 +166,6 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         // Up to 0.2.x the chooser was an on/off checkbox; keep an explicitly
         // stored "off" working until the user saves the new select once.
         if ($mode === null
-            && is_array($uc)
             && array_key_exists('tx_visualeditor_showFieldChooser', $uc)
             && !$uc['tx_visualeditor_showFieldChooser']
         ) {
@@ -180,7 +178,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     private function isContextButtonsEnabled(): bool
     {
         $uc = $this->getBackendUser()->uc;
-        if (!is_array($uc) || !array_key_exists('tx_visualeditor_showContextButtons', $uc)) {
+        if (!array_key_exists('tx_visualeditor_showContextButtons', $uc)) {
             // Up to 0.2.x only the link edit buttons had a toggle.
             return $this->getUserBoolSetting('tx_visualeditor_showLinks', true);
         }
@@ -190,8 +188,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
 
     private function getElementLibraryColumns(): int
     {
-        $uc = $this->getBackendUser()->uc;
-        $value = is_array($uc) ? (int)($uc['tx_visualeditor_panelColumns'] ?? 3) : 3;
+        $value = (int)($this->getBackendUser()->uc['tx_visualeditor_panelColumns'] ?? 3);
 
         return $value === 1 ? 1 : 3;
     }

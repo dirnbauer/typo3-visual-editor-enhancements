@@ -31,8 +31,7 @@ final readonly class EditSessionGuard
         private Context $context,
         private RequestTokenValidator $tokenValidator,
         private BackendUserProvider $backendUserProvider,
-    ) {
-    }
+    ) {}
 
     public function check(ServerRequestInterface $request, ?string $table = null): ?AccessDenial
     {
