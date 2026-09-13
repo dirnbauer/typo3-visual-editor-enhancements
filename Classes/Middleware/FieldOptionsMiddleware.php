@@ -9,10 +9,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Core\Context\Context;
-use TYPO3\CMS\Core\FormProtection\FormProtectionFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use Webconsulting\VisualEditorEnhancements\Security\AccessDenial;
+use Webconsulting\VisualEditorEnhancements\Security\EditSessionGuard;
 use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
 use Webconsulting\VisualEditorEnhancements\Service\FieldOptionsService;
 
@@ -24,15 +24,16 @@ use function is_string;
  * returns the editable select and category fields of a single record together
  * with their possible options, labels localized to the backend user's language.
  *
- * Access requires a logged-in backend user AND the visual editor request
- * token (window.veInfo.token, scope visual_editor/save) in X-Request-Token,
- * so the endpoint is only reachable from an authenticated edit session.
+ * Access requires a logged-in backend user, the visual editor request token
+ * (window.veInfo.token, scope visual_editor/save) in X-Request-Token, and
+ * tables_modify permission on the requested table - see EditSessionGuard. An
+ * unauthenticated request is answered with 401, everything else with 403, and
+ * no request ever reaches a database read before the guard passed.
  */
 final readonly class FieldOptionsMiddleware implements MiddlewareInterface
 {
     public function __construct(
-        private Context $context,
-        private FormProtectionFactory $formProtectionFactory,
+        private EditSessionGuard $guard,
         private TcaSchemaFactory $tcaSchema,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private FieldOptionsService $fieldOptionsService,
@@ -46,20 +47,18 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        if (!(bool)$this->context->getPropertyFromAspect('backend.user', 'isLoggedIn', false)) {
-            return $this->jsonError('Backend login required', 401);
-        }
-
-        $token = $request->getHeaderLine('X-Request-Token');
-        if ($token === ''
-            || !$this->formProtectionFactory->createForType('backend')->validateToken($token, 'visual_editor', 'save')
-        ) {
-            return $this->jsonError('Invalid or missing request token', 403);
-        }
-
         $table = $queryParams['table'] ?? '';
         if (!is_string($table) || $table === '' || !$this->tcaSchema->has($table)) {
-            return $this->jsonError('Table is not enabled for the field chooser', 403);
+            // Answering "unknown table" before the guard would turn the
+            // endpoint into a TCA probe for anonymous callers.
+            $denial = $this->guard->check($request) ?? AccessDenial::InsufficientPermissions;
+
+            return $this->guard->denialResponse($denial);
+        }
+
+        $denial = $this->guard->check($request, $table);
+        if ($denial !== null) {
+            return $this->guard->denialResponse($denial);
         }
 
         $uidParam = $queryParams['uid'] ?? null;
@@ -78,7 +77,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         if (!$this->fieldChooserConfiguration->isEnabled($pageId)
             || !$this->fieldChooserConfiguration->isTableEnabled($table, $pageId)
         ) {
-            return $this->jsonError('Table is not enabled for the field chooser', 403);
+            return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
         }
 
         $payload = $this->fieldOptionsService->buildFieldOptions($table, $uid, $request);

@@ -6,8 +6,6 @@ services:
 
   Webconsulting\VisualEditorEnhancements\:
     resource: '../Classes/*'
-    exclude:
-      - '../Classes/VisualEditor/*'
 
-  TYPO3\CMS\VisualEditor\ViewHelpers\Render\:
-    resource: '../Classes/VisualEditor/ViewHelpers/Render/*'
+  Webconsulting\VisualEditorEnhancements\Security\RequestTokenValidator:
+    alias: Webconsulting\VisualEditorEnhancements\Security\BackendFormProtectionTokenValidator

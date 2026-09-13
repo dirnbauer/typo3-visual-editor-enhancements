@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace TYPO3\CMS\VisualEditor\ViewHelpers\Render;
+namespace Webconsulting\VisualEditorEnhancements\ViewHelpers\Render;
 
 use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Domain\Exception\RecordPropertyNotFoundException;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
-use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -33,12 +32,18 @@ use function is_string;
  * nothing - the surrounding template stays responsible for the actual
  * <a> tag (f:link.typolink).
  *
- * The link TEXT stays a regular ve:render.text field when it is editable;
+ * The link TEXT stays a regular f:render.text field when it is editable;
  * when the text is derived (e.g. from a label) only the icon appears.
  *
+ * Reachable as `f:render.link` because ext_localconf.php appends this
+ * extension's ViewHelper namespace to the `f` Fluid namespace, after the
+ * Visual Editor appended its own. Fluid resolves namespace entries in
+ * reverse registration order, so no class has to be placed into the Visual
+ * Editor's own PHP namespace for the tag to resolve.
+ *
  * ````html
- *   <a href="{link}"><ve:render.text record="{record}" field="cta_text"/></a>
- *   <ve:render.link record="{record}" field="cta_link"/>
+ *   <a href="{link}"><f:render.text record="{record}" field="cta_text"/></a>
+ *   <f:render.link record="{record}" field="cta_link"/>
  * ````
  */
 final class LinkViewHelper extends AbstractViewHelper
@@ -53,7 +58,6 @@ final class LinkViewHelper extends AbstractViewHelper
         private readonly EditModeService $editModeService,
         private readonly RecordFactory $recordFactory,
         private readonly TcaSchemaFactory $tcaSchema,
-        private readonly Typo3Version $typo3Version,
         private readonly LocalizationService $localizationService,
         private readonly ModelToRawRecordService $modelToRawRecordService,
         private readonly LinkBrowserUrlService $linkBrowserUrlService,
@@ -64,13 +68,7 @@ final class LinkViewHelper extends AbstractViewHelper
     {
         parent::initializeArguments();
 
-        $type = 'object';
-        $typo3Version = $this->typo3Version ?? GeneralUtility::makeInstance(Typo3Version::class);
-        if ($typo3Version->getMajorVersion() >= 14) {
-            $type = self::RECORD_TYPE;
-        }
-
-        $this->registerArgument('record', $type, 'A Record API Object (field is also needed)');
+        $this->registerArgument('record', self::RECORD_TYPE, 'A Record API Object (field is also needed)');
         $this->registerArgument('field', 'string', 'the link field (TCA type=link) the icon edits', true);
         $this->registerArgument('textField', 'string', 'informational: the field holding the link text, when it is separately editable', false, '');
         $this->registerArgument('optional', 'boolean', 'If the provided field does not exist in the record, an empty string is returned.', false, false);

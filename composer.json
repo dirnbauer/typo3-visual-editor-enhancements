@@ -36,8 +36,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Webconsulting\\VisualEditorEnhancements\\": "Classes/",
-      "TYPO3\\CMS\\VisualEditor\\ViewHelpers\\Render\\": "Classes/VisualEditor/ViewHelpers/Render/"
+      "Webconsulting\\VisualEditorEnhancements\\": "Classes/"
     }
   },
   "autoload-dev": {

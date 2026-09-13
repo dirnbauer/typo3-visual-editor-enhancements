@@ -14,6 +14,7 @@ use TYPO3\CMS\Core\Page\AssetCollector;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\VisualEditor\Service\LocalizationService;
+use Webconsulting\VisualEditorEnhancements\Service\BackendUserProvider;
 use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
 
 final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterface
@@ -24,6 +25,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         private LanguageServiceFactory $languageServiceFactory,
         private LocalizationService $localizationService,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
+        private BackendUserProvider $backendUserProvider,
     ) {
     }
 
@@ -45,7 +47,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
     private function isEditModeRequest(ServerRequestInterface $request): bool
     {
         return isset($request->getQueryParams()['editMode'])
-            && ($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication;
+            && $this->backendUserProvider->get() !== null;
     }
 
     private function loadLanguageLabelsInline(): void
@@ -211,11 +213,6 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
 
     private function getBackendUser(): BackendUserAuthentication
     {
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if (!$backendUser instanceof BackendUserAuthentication) {
-            throw new \RuntimeException('Could not determine backend user authentication', 3305745964);
-        }
-
-        return $backendUser;
+        return $this->backendUserProvider->getOrThrow();
     }
 }

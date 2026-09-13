@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use Psr\Http\Message\ServerRequestInterface;
-use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -60,6 +59,7 @@ final readonly class FieldOptionsService
         private LanguageServiceFactory $languageServiceFactory,
         private LocalizationService $localizationService,
         private LinkBrowserUrlService $linkBrowserUrl,
+        private BackendUserProvider $backendUserProvider,
     ) {
     }
 
@@ -537,11 +537,6 @@ final readonly class FieldOptionsService
 
     private function getBackendUser(): BackendUserAuthentication
     {
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if (!$backendUser instanceof BackendUserAuthentication) {
-            throw new RuntimeException('Could not determine backend user authentication', 7943118262);
-        }
-
-        return $backendUser;
+        return $this->backendUserProvider->getOrThrow();
     }
 }
