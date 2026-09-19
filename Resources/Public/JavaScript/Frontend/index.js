@@ -1,17 +1,19 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
-import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores';
-import {fieldChooserTables, isEditableLinksEnabled, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
-import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
-import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance';
-import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh';
-import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches';
-import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link';
+import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
+import {fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
+import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance.js';
+import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
+import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches.js';
+import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link.js';
 
+/**
+ * Every floating control of this extension is painted in the backend's accent
+ * color (--ve-accent-color); the backend frame answers requestAccent with the
+ * resolved theme token (Backend/index.js).
+ */
 function initializeAccentBridge() {
-  if (!isElementLibraryEnabled() && !isEditableLinksEnabled() && !isFieldChooserEnabled()) {
-    return;
-  }
   onMessage('veAccent', ({color}) => {
     if (color) {
       document.documentElement.style.setProperty('--ve-accent-color', color);
@@ -24,8 +26,8 @@ async function initializeElementLibrary() {
   if (!isElementLibraryEnabled()) {
     return null;
   }
-  const libraryModule = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library');
-  await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library-button');
+  const libraryModule = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library.js');
+  await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library-button.js');
   document.body.appendChild(document.createElement('ve-element-library-button'));
   if (elementLibraryOpen.get()) {
     libraryModule.getElementLibrary().openPanel();
@@ -35,15 +37,10 @@ async function initializeElementLibrary() {
 
 /**
  * One shared injection pass (initial sweep + MutationObserver + wrapped
- * VeContentElement.updated) feeds every per-element enhancement - the
- * action-bar buttons and the per-output context buttons (hover buttons on the
- * editable outputs inside an element that open the field chooser scoped to
- * the output's form group, while the action-bar button keeps opening the full
- * popover); it is set up only when at least one of them is enabled, and the
- * prototype wrap is installed once no matter which features are on. The
- * per-output affordance needs no extra gate here: it only applies when the
- * field chooser is enabled, which the early return below already covers, and
- * the repeated sweeps let it pick up late-rendered outputs.
+ * VeContentElement.updated) feeds every per-element enhancement: the
+ * action-bar buttons and the per-output context buttons on the editable
+ * outputs inside an element. The repeated sweeps pick up late-rendered
+ * outputs; each injector is idempotent.
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
@@ -124,7 +121,7 @@ function injectFieldChooserAction(contentElement) {
   // inline line-art SVG sized like <ve-icon> (16x16) is used instead.
   button.innerHTML = slidersIconSvg(16);
   button.addEventListener('click', async () => {
-    const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser');
+    const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser.js');
     openFieldChooser({
       table: contentElement.getAttribute('table'),
       uid: Number(contentElement.getAttribute('uid')),

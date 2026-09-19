@@ -1,6 +1,6 @@
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
-import {isElementRefreshEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
+import {isElementRefreshEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 
 /**
  * Partial element refresh after a successful save.

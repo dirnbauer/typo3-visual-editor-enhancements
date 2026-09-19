@@ -1,7 +1,7 @@
 import {css, html, LitElement} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
-import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
-import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
+import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
+import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 
 /**
  * Singleton floating chip button shown next to the hovered (or focused)

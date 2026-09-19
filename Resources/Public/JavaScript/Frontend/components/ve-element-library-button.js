@@ -1,8 +1,8 @@
 import {css, html, LitElement} from 'lit';
 import {lll} from '@typo3/core/lit-helper.js';
 import {dragInProgressStore} from '@typo3/visual-editor/Frontend/stores/drag-store';
-import {getElementLibrary} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library';
-import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores';
+import {getElementLibrary} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library.js';
+import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
 
 /**
  * Floating action button that toggles the element library panel. Anchored at

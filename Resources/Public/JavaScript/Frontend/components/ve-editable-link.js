@@ -2,11 +2,11 @@ import {css, html, LitElement} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {lll} from '@typo3/core/lit-helper.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
-import {isEditableLinksEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {clamp, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils';
-import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons';
-import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping';
-import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request';
+import {isEditableLinksEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {clamp, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
+import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping.js';
+import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
 
 /**
  * Inline editor for pure TCA type=link fields: renders a floating link icon

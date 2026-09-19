@@ -1,5 +1,6 @@
-import {fieldChooserMode, fieldChooserTables, isContextButtonsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config';
-import {fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache';
+import {fieldChooserMode, fieldChooserTables, isContextButtonsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
+import {relatedFields} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/related-fields.js';
 
 /**
  * Editable outputs (<ve-editable-text>, <ve-editable-rich-text>) the hover
@@ -19,7 +20,7 @@ let chipPromise = null;
  * @return {Promise<import('./components/ve-context-chip').VeContextChip>}
  */
 function contextChip() {
-  chipPromise ??= import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-context-chip')
+  chipPromise ??= import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-context-chip.js')
     .then((module) => module.getContextChip());
   return chipPromise;
 }
@@ -145,30 +146,6 @@ function attachOutputAffordance(output, record) {
 }
 
 /**
- * The chooser fields that are attributes of the hovered output field. A field
- * in a labeled form palette (core content elements) resolves to its palette
- * mates - e.g. the header palette's type/position/link. A flat field (the
- * common Content Blocks layout) has no palette, so its companions are taken
- * from the TYPO3 naming convention: <stem>_<suffix>, where the editable output
- * is the stem minus a trailing content suffix (header -> header_*,
- * primary_button_text -> primary_button_*). Fields with no attributes of their
- * own return an empty list, so no button is shown.
- * @param {string} anchorName
- * @param {{fieldPalettes?: Object, fields?: Array<{name: string}>}} payload
- * @return {Array<{name: string}>}
- */
-function relatedFields(anchorName, payload) {
-  const palettes = payload.fieldPalettes || {};
-  const fields = payload.fields || [];
-  const anchorPalette = palettes[anchorName] ?? '';
-  if (anchorPalette !== '') {
-    return fields.filter((field) => palettes[field.name] === anchorPalette);
-  }
-  const prefix = anchorName.replace(/_(text|label)$/, '') + '_';
-  return fields.filter((field) => field.name.startsWith(prefix));
-}
-
-/**
  * Opens the field chooser popover scoped to the hovered field's own
  * attributes, anchored to the context button the user activated.
  * @param {{table: string, uid: number, elementName: string}} record
@@ -177,7 +154,7 @@ function relatedFields(anchorName, payload) {
  * @param {DOMRect} anchorRect
  */
 async function openScopedChooser(record, scopeFields, scopeLabel, anchorRect) {
-  const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser');
+  const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser.js');
   openFieldChooser({
     table: record.table,
     uid: record.uid,

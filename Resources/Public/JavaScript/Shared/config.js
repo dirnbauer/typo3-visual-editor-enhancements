@@ -1,3 +1,9 @@
+/**
+ * Read access to window.visualEditorEnhancements, the configuration
+ * EditModeEnhancementsMiddleware inlines into the edit frame (built by
+ * Service\FrontendConfiguration). Every reader tolerates a missing object so a
+ * module evaluated outside edit mode degrades to "everything off".
+ */
 export function enhancementConfig() {
   return window.visualEditorEnhancements || {};
 }
@@ -7,43 +13,38 @@ export function isElementLibraryEnabled() {
 }
 
 export function isEditableLinksEnabled() {
-  const config = enhancementConfig();
-  return !!(config.editableLinksEnabled ?? config.elementLibraryLinks);
+  return !!enhancementConfig().editableLinksEnabled;
 }
 
+export function isContextButtonsEnabled() {
+  return !!enhancementConfig().contextButtonsEnabled;
+}
+
+/** @return {'disabled'|'sections'|'tabs'} */
 export function fieldChooserMode() {
-  const config = enhancementConfig();
-  if (['disabled', 'sections', 'tabs'].includes(config.fieldChooserMode)) {
-    return config.fieldChooserMode;
-  }
-  // Pre-0.3 window config only carried the boolean; it maps to the old
-  // single-list presentation.
-  return config.fieldChooserEnabled ? 'sections' : 'disabled';
+  const mode = enhancementConfig().fieldChooserMode;
+  return ['sections', 'tabs'].includes(mode) ? mode : 'disabled';
 }
 
 export function isFieldChooserEnabled() {
   return fieldChooserMode() !== 'disabled';
 }
 
-export function isContextButtonsEnabled() {
-  const config = enhancementConfig();
-  // Pre-0.3 window config had no dedicated key; the editable-links toggle
-  // carried the only per-user "context buttons" preference back then.
-  return !!(config.contextButtonsEnabled ?? config.editableLinksEnabled ?? true);
-}
-
 export function isElementRefreshEnabled() {
-  return !!(enhancementConfig().elementRefreshEnabled ?? true);
+  return !!enhancementConfig().elementRefreshEnabled;
 }
 
+/** @return {string[]} */
 export function fieldChooserTables() {
   return enhancementConfig().fieldChooserTables || [];
 }
 
+/** @return {1|3} */
 export function elementLibraryColumns() {
-  return enhancementConfig().elementLibraryColumns || 3;
+  return enhancementConfig().elementLibraryColumns === 1 ? 1 : 3;
 }
 
+/** @return {{title: string, message: string}|null} */
 export function contentAddedFeedback() {
   return enhancementConfig().contentAddedFeedback || null;
 }
