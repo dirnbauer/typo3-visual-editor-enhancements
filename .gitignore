@@ -13,9 +13,12 @@ composer.lock
 /public/
 /var/
 
-# Node (only used for ad-hoc linting; the shipped JS has no build step)
-/node_modules/
+# Node (the shipped JS has no build step; the unit tests need no dependencies,
+# only the Playwright end-to-end suite does)
+node_modules
 package-lock.json
+/Tests/E2E/test-results/
+/Tests/E2E/playwright-report/
 
 # OS / editor
 .DS_Store

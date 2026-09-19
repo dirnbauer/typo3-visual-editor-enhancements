@@ -73,6 +73,22 @@ jobs:
       - name: Unit tests
         run: composer test:unit
 
+  javascript:
+    name: JavaScript unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The shipped JavaScript has no build step and the unit tests use the
+      # Node test runner, so there is nothing to install. The Playwright
+      # end-to-end suite in Tests/E2E needs a running TYPO3 and stays out of CI.
+      - name: JavaScript unit tests
+        run: node --test 'Tests/JavaScript/*.test.js'
+
   functional:
     name: Functional tests PHP ${{ matrix.php }}, MariaDB 10.11
     runs-on: ubuntu-latest

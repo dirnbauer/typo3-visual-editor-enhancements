@@ -53,8 +53,9 @@
     "cgl:check": "@cgl --dry-run --diff",
     "lint:php": "find Classes Configuration Tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l",
     "phpstan": "phpstan analyse --memory-limit=512M",
-    "test": "@test:unit",
+    "test": ["@test:unit", "@test:js"],
     "test:functional": "phpunit -c Build/phpunit/FunctionalTests.xml",
+    "test:js": "node --test 'Tests/JavaScript/*.test.js'",
     "test:unit": "phpunit -c Build/phpunit/UnitTests.xml"
   },
   "config": {
