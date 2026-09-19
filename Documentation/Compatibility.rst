@@ -8,8 +8,9 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.0.0 is audited against
-**friendsoftypo3/visual-editor 1.10.2**.
+of it is audited against a concrete upstream version. 1.1.0 is audited against
+**friendsoftypo3/visual-editor 1.10.2** — re-checked on Packagist at release
+time and still the newest published version, unchanged since 1.0.0.
 
 ..  _compatibility-audit:
 
@@ -42,13 +43,15 @@ Feature audit against 1.10.2
             did not mount. Balloon and dropdown panels stay unscoped on
             purpose - CKEditor appends those to ``<body>``.
 
-    *   -   Drop-zone ``tx_container_parent`` patch
-        -   Keep
+    *   -   Drop-zone ``tx_container_parent``
+        -   Dropped
         -   1.10.2 :file:`ve-drop-zone.js` still writes
-            ``tx_container_parent`` for any integer value, including 0, and
-            sets the attribute on the moved element unconditionally. The patch
-            only sets it for real container columns and removes it otherwise.
-            Self-detecting.
+            ``tx_container_parent`` for any integer value, including 0. Rather
+            than keep patching upstream's drop zone for that, the library's own
+            drop handler
+            (:file:`components/ve-element-library/drop-target.js`) builds the
+            payload itself and sets the field only for a real container column.
+            Upstream's own drag and drop is left exactly as it is.
 
     *   -   ``/visual-editor/save`` override
         -   Keep
@@ -147,7 +150,7 @@ Version support
         -   PHP
         -   Visual Editor
 
-    *   -   1.0.x
+    *   -   1.0.x, 1.1.x
         -   14.3.7+
         -   8.4+
         -   1.10.2+
@@ -160,3 +163,8 @@ Version support
 Upgrading from 0.8 requires no configuration change. The only externally
 visible move is the ``f:render.link`` ViewHelper's PHP namespace, which
 templates never reference by class name.
+
+Upgrading from 1.0 requires no configuration change either. Site JavaScript
+that read the legacy keys ``elementLibraryLinks`` or ``fieldChooserEnabled``
+from ``window.visualEditorEnhancements`` has to read ``editableLinksEnabled``
+and ``fieldChooserMode`` instead; both legacy aliases were removed in 1.1.0.
