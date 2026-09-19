@@ -4,6 +4,71 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-09-19
+
+Behaviour-preserving restructuring, re-verified against
+`friendsoftypo3/visual-editor` **1.10.2** — still the newest release on
+Packagist, and the version the constraint already names. Nothing upstream
+changed between 1.0.0 and this release, so no further patch could be dropped;
+the one remaining runtime patch (rich-text toolbar placement) was re-audited
+and still has no upstream equivalent.
+
+### Added
+
+- **JavaScript unit tests** (`Tests/JavaScript/`, `composer test:js`): 29 cases
+  on the Lit-free modules — the search client and its fallback rules, the
+  category/term filter, the `?veFieldOptions` promise cache and the reader of
+  `window.visualEditorEnhancements`. They run on the Node test runner with no
+  dependencies and no browser, and are a CI job of their own.
+- **Playwright end-to-end suite** (`Tests/E2E/`) driving a running TYPO3
+  through the whole editor surface: the library FAB, the server-ranked search
+  with suggestions and did-you-mean, the cached previews, the field chooser
+  with `select` *and* `category` fields, the rich-text toolbar at the top of
+  the viewport, and the plain-text editables. Not part of CI; the four
+  environment variables it needs are documented in `Tests/E2E/README.md`.
+
+### Changed
+
+- **One place decides whether a feature is on.** `Service\FeatureFlags` reads
+  the install-wide flags and `Service\FrontendConfiguration` combines them with
+  the backend user's settings and the page TSconfig into the object the edit
+  frame receives. `EditModeEnhancementsMiddleware` shrank from 215 to 88 lines
+  and is now only an asset loader.
+- **The two oversized components were decomposed.**
+  `ve-element-library.js` 2045 → 941 lines (constants, filter, search,
+  drag-ghost, drop-target, preview-frame, preview-loader and styles now live in
+  `ve-element-library/`) and `ve-field-chooser.js` 1237 → 758 lines
+  (`ve-field-chooser/`). The extracted modules import no Lit, which is what
+  makes them unit-testable.
+- **The import map is one prefix entry instead of a directory scan on every
+  request** (`Configuration/JavaScriptModules.php`, 21 → 12 lines). Module
+  specifiers must therefore carry their `.js` suffix; every specifier in this
+  extension does.
+- `Configuration/TCA/Overrides/be_users.php`: four near-identical
+  `addUserSetting()` blocks became one data-driven loop (84 → 59 lines).
+- `FieldChooserConfigurationService::scopePageId()` replaces the "a page is its
+  own TSconfig scope" branch that was duplicated in the middleware and the
+  service.
+- `FieldOptionsService::buildFieldOptions()` takes the already resolved record
+  row and no longer returns `null`: the endpoint resolves and refuses, the
+  service only builds. `FieldOptionsMiddleware` collapsed three separate
+  "Record not found" exits into one.
+- Backend-user labels come from `LanguageServiceFactory::createFromUserPreferences()`,
+  so the extension no longer depends on the Visual Editor's
+  `LocalizationService`.
+
+### Removed
+
+- The legacy aliases `elementLibraryLinks` and `fieldChooserEnabled` from
+  `window.visualEditorEnhancements`; `editableLinksEnabled` and
+  `fieldChooserMode` are the contract. Site JavaScript reading the old keys
+  must be updated.
+- The 0.2.x `be_users.uc` migration fallbacks (`tx_visualeditor_showLinks`,
+  `tx_visualeditor_showFieldChooser`). The current settings have shipped since
+  0.3.0.
+- The four `??=` flag defaults in `ext_localconf.php`; `FeatureFlags` defaults
+  each flag to on where it is read.
+
 ## [1.0.0] — 2026-09-13
 
 First stable release. Audited feature by feature against

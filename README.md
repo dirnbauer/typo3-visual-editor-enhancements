@@ -11,8 +11,8 @@ without forking it.
 - **Field chooser** — a popover with the record's choice fields (selects,
   category trees, `type=link`, checkboxes, colors), grouped like the backend
   form. Reachable from the element's action bar or from a hover button on an
-  editable output, scoped to that field's own attributes. Changes are staged on
-  the editor's pending-change list and written by its own save.
+  editable output. Changes are staged on the editor's pending-change list and
+  written by its own save.
 - **Editor UI bridges** — a link button for TCA `type=link` fields
   (`f:render.link`), a CKEditor toolbar that survives `overflow: hidden`
   ancestors and the top of the viewport, the backend accent color in the edit
@@ -70,11 +70,8 @@ tx_visualeditorenhancements.fieldChooser {
   }
 }
 
-# Parameters for the "new content element" wizard the editor opens from "+",
-# through the Visual Editor 1.10.0 extension point
-tx_visualeditorenhancements.newContentWizard.parameters {
-  defVals.tt_content.header_layout = 2
-}
+# Wizard parameters, through the Visual Editor 1.10.0 extension point
+tx_visualeditorenhancements.newContentWizard.parameters.defVals.tt_content.header_layout = 2
 ```
 
 The element library additionally needs a **catalog provider** extension that
@@ -98,14 +95,17 @@ composer install
 composer cgl:check        # typo3/coding-standards, dry run
 composer phpstan          # level 8, no baseline
 composer test:unit
+composer test:js          # node --test, no dependencies
 composer test:functional  # sqlite by default; CI also runs MariaDB 10.11
 ```
 
 The shipped JavaScript is dependency-free ES modules under
 `Resources/Public/JavaScript/` with no build step, mirroring how the Visual
-Editor ships its own. Everything this extension does to the Visual Editor's own
-runtime lives in `Frontend/visual-editor-patches.js`, and each patch checks
-first whether upstream already has the fix.
+Editor ships its own; specifiers carry their `.js` suffix. Everything this
+extension does to the Visual Editor's own runtime lives in
+`Frontend/visual-editor-patches.js`, and each patch checks first whether
+upstream already has the fix. [`Tests/E2E/`](Tests/E2E/README.md) holds a
+Playwright suite for a running installation; it is not part of CI.
 
 ## Docs
 

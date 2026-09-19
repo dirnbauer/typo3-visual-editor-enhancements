@@ -130,6 +130,27 @@ listened to by ``NewContentWizardParameterListener``, which merges page
 TSconfig into the wizard parameters (:ref:`configuration-wizard`). Register
 your own listener after it if you need to react to the result.
 
+..  _developer-configuration-pipeline:
+
+How a feature is switched on
+============================
+
+Three layers decide it, and all three have to agree:
+
+#.  the install-wide flag in
+    ``$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']``,
+    read by ``Service\FeatureFlags`` (everything defaults to on),
+#.  the backend user's own setting from the *Visual editor* tab of User
+    settings, stored in ``be_users.uc``,
+#.  for the field chooser, the page TSconfig of the edited page, resolved by
+    ``Service\FieldChooserConfigurationService``.
+
+``Service\FrontendConfiguration`` combines them into the object that
+``EditModeEnhancementsMiddleware`` inlines as
+``window.visualEditorEnhancements``; the JavaScript side reads it through
+:file:`Shared/config.js` and never looks at anything else. A module evaluated
+outside edit mode finds no object and degrades to "everything off".
+
 ..  _developer-javascript:
 
 JavaScript
@@ -138,8 +159,16 @@ JavaScript
 Dependency-free ES modules under :file:`Resources/Public/JavaScript/`, no
 build step, mirroring how the Visual Editor ships its own. They are exposed
 through the import map as ``@webconsulting/visual-editor-enhancements/…`` by
-:file:`Configuration/JavaScriptModules.php`, which maps the directory
-automatically - a new file needs no registration.
+:file:`Configuration/JavaScriptModules.php`, which maps the whole directory
+with a single trailing-slash prefix entry - a new file needs no registration.
+
+..  important::
+
+    Because the import map carries only the prefix, every specifier must name
+    the file **with its** :file:`.js` **suffix**
+    (``…/Shared/config.js``, not ``…/Shared/config``). A suffix-less
+    specifier resolves to a URL that does not exist and the module silently
+    fails to load.
 
 Layout:
 
@@ -150,10 +179,22 @@ Layout:
     Frontend/index.js             edit-frame entry point and injection sweep
     Frontend/components/          <ve-element-library>, <ve-field-chooser>,
                                   <ve-editable-link>, <ve-context-chip>, …
+    Frontend/components/ve-element-library/
+                                  panel internals: constants, filter, search,
+                                  drag-ghost, drop-target, preview-frame,
+                                  preview-loader, styles
+    Frontend/components/ve-field-chooser/
+                                  popover internals: related-fields, styles
     Frontend/visual-editor-patches.js
                                   the self-detecting upstream patches
     Shared/                       config, DOM helpers, icons, caches,
                                   overflow-clipping
+
+The component files stay browsable on purpose: the panel and the popover both
+keep their Lit component in one file and push everything that does not touch
+the render tree - ranking, filtering, drag geometry, preview throttling, the
+stylesheet - into the sibling directory next to it. Those modules import no
+Lit, which is what makes them unit-testable under plain Node.
 
 Anything the extension does to the Visual Editor's own runtime lives in
 :file:`Frontend/visual-editor-patches.js` and nowhere else, and each patch
@@ -174,8 +215,21 @@ Tests and quality
     composer cgl:check       # typo3/coding-standards, dry run
     composer phpstan         # level 8, no baseline
     composer test:unit
+    composer test:js         # node --test, no dependencies
     composer test:functional # sqlite by default
 
 Functional tests use ``typo3/testing-framework``; CI additionally runs them
 against MariaDB 10.11 by setting the usual ``typo3Database*`` environment
 variables.
+
+:file:`Tests/JavaScript/` covers the Lit-free modules - the search client, the
+fallback filter, the ``?veFieldOptions`` cache and the reader of
+``window.visualEditorEnhancements`` - with the Node test runner, so it needs
+neither a browser nor an :file:`npm install`.
+
+:file:`Tests/E2E/` holds a Playwright suite that drives a **running** TYPO3
+installation through the whole editor surface: the FAB, the ranked search and
+its suggestions, the cached previews, the field chooser with ``select`` and
+``category`` fields, the rich-text toolbar near the top of the viewport and
+the plain-text editables. It is not part of CI - see
+:file:`Tests/E2E/README.md` for the four environment variables it needs.
