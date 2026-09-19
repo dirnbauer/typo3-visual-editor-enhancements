@@ -56,8 +56,10 @@ final readonly class PersistenceController
      */
     private function getJsonPayload(ServerRequestInterface $request): array
     {
+        // A JSON request has no form-encoded body, so TYPO3 leaves the parsed
+        // body null (or, behind some proxies, an empty array).
         $payload = $request->getParsedBody();
-        if (!\is_array($payload) || (!isset($payload['data']) && !isset($payload['cmdArray']))) {
+        if (!\is_array($payload) || $payload === []) {
             $payload = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
         }
 

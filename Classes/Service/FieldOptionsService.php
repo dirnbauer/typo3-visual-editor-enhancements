@@ -28,7 +28,6 @@ use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 use TYPO3\CMS\VisualEditor\Service\EditModeService;
-use TYPO3\CMS\VisualEditor\Service\LocalizationService;
 
 final readonly class FieldOptionsService
 {
@@ -44,25 +43,17 @@ final readonly class FieldOptionsService
         private ItemProcessingService $itemProcessingService,
         private ConnectionPool $connectionPool,
         private LanguageServiceFactory $languageServiceFactory,
-        private LocalizationService $localizationService,
         private LinkBrowserUrlService $linkBrowserUrl,
         private BackendUserProvider $backendUserProvider,
     ) {}
 
     /**
-     * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fieldPalettes: array<string, string>, fields: list<array<string, mixed>>}|null
+     * @param array<string, mixed> $row the record, workspace-overlaid, as the endpoint resolved it
+     *
+     * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fieldPalettes: array<string, string>, fields: list<array<string, mixed>>}
      */
-    public function buildFieldOptions(string $table, int $uid, ServerRequestInterface $request): ?array
+    public function buildFieldOptions(string $table, int $uid, array $row, ServerRequestInterface $request): array
     {
-        if (!$this->tcaSchema->has($table)) {
-            return null;
-        }
-
-        $row = BackendUtility::getRecordWSOL($table, $uid);
-        if ($row === null) {
-            return null;
-        }
-
         $schema = $this->tcaSchema->get($table);
         $recordType = '';
         $fieldSchema = $schema;
@@ -74,10 +65,9 @@ final readonly class FieldOptionsService
             $fieldSchema = $schema->getSubSchema($recordType);
         }
 
-        // TSconfig scope is the page the record lives on; pages records are their own scope.
-        $pageId = $table === 'pages' ? (int)($row['uid'] ?? 0) : (int)($row['pid'] ?? 0);
+        $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
         $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
-        $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
+        $languageService = $this->languageServiceFactory->createFromUserPreferences($this->getBackendUser());
 
         $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
         // Every showitem field mapped to its localized group label and its

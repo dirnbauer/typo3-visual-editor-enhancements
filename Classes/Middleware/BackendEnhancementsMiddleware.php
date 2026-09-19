@@ -13,6 +13,10 @@ use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 use TYPO3\CMS\Core\Page\PageRenderer;
 
+/**
+ * Loads the backend-frame bridge (link browser modal, notifications, accent
+ * color) on the Visual Editor module page.
+ */
 final readonly class BackendEnhancementsMiddleware implements MiddlewareInterface
 {
     public function __construct(
@@ -23,7 +27,7 @@ final readonly class BackendEnhancementsMiddleware implements MiddlewareInterfac
     {
         if ($this->isVisualEditorModuleRequest($request)) {
             $this->pageRenderer->getJavaScriptRenderer()->addJavaScriptModuleInstruction(
-                JavaScriptModuleInstruction::create('@webconsulting/visual-editor-enhancements/Backend/index'),
+                JavaScriptModuleInstruction::create('@webconsulting/visual-editor-enhancements/Backend/index.js'),
             );
         }
 
@@ -38,6 +42,7 @@ final readonly class BackendEnhancementsMiddleware implements MiddlewareInterfac
         }
 
         $route = $request->getAttribute('route');
+
         return $route instanceof Route && $route->getOption('_identifier') === 'web_edit';
     }
 }

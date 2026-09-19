@@ -45,6 +45,17 @@ final class FieldChooserConfigurationService
     }
 
     /**
+     * The page whose TSconfig governs a record: a page is its own scope, every
+     * other record is governed by the page it lives on.
+     *
+     * @param array<string, mixed> $row
+     */
+    public function scopePageId(string $table, array $row): int
+    {
+        return (int)($row[$table === 'pages' ? 'uid' : 'pid'] ?? 0);
+    }
+
+    /**
      * @return list<string>
      */
     public function getEnabledTables(int $pageId): array

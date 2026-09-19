@@ -9,110 +9,61 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Page\AssetCollector;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Routing\PageArguments;
-use TYPO3\CMS\VisualEditor\Service\LocalizationService;
 use Webconsulting\VisualEditorEnhancements\Service\BackendUserProvider;
-use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
+use Webconsulting\VisualEditorEnhancements\Service\FrontendConfiguration;
 
+/**
+ * Adds this extension's edit-frame assets to a Visual Editor edit-mode request
+ * (?editMode=1 with a backend user): the CKEditor overrides, the frontend entry
+ * module, the labels and window.visualEditorEnhancements.
+ */
 final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterface
 {
+    private const LANGUAGE_FILE = 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf';
+
     public function __construct(
         private AssetCollector $assetCollector,
         private PageRenderer $pageRenderer,
         private LanguageServiceFactory $languageServiceFactory,
-        private LocalizationService $localizationService,
-        private FieldChooserConfigurationService $fieldChooserConfiguration,
+        private FrontendConfiguration $frontendConfiguration,
         private BackendUserProvider $backendUserProvider,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if ($this->isEditModeRequest($request)) {
-            $this->assetCollector->addStyleSheet(
-                'visual-editor-enhancements-editable-overrides',
-                'EXT:visual_editor_enhancements/Resources/Public/Css/editable-overrides.css',
-            );
-            $this->assetCollector->addJavaScriptModule('@webconsulting/visual-editor-enhancements/Frontend/index');
-            $this->loadLanguageLabelsInline();
-            $this->addConfigurationInline($request);
+        $backendUser = $this->backendUserProvider->get();
+        if ($backendUser === null || !isset($request->getQueryParams()['editMode'])) {
+            return $handler->handle($request);
         }
 
-        return $handler->handle($request);
-    }
+        $languageService = $this->languageServiceFactory->createFromUserPreferences($backendUser);
 
-    private function isEditModeRequest(ServerRequestInterface $request): bool
-    {
-        return isset($request->getQueryParams()['editMode'])
-            && $this->backendUserProvider->get() !== null;
-    }
-
-    private function loadLanguageLabelsInline(): void
-    {
-        $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
-        $file = 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf';
-        foreach ($languageService->getLabelsFromResource($file) as $key => $value) {
+        $this->assetCollector->addStyleSheet(
+            'visual-editor-enhancements-editable-overrides',
+            'EXT:visual_editor_enhancements/Resources/Public/Css/editable-overrides.css',
+        );
+        $this->assetCollector->addJavaScriptModule('@webconsulting/visual-editor-enhancements/Frontend/index.js');
+        foreach ($languageService->getLabelsFromResource(self::LANGUAGE_FILE) as $key => $value) {
             $this->pageRenderer->addInlineLanguageLabel($key, $value);
         }
-    }
 
-    private function addConfigurationInline(ServerRequestInterface $request): void
-    {
+        $configuration = [
+            ...$this->frontendConfiguration->build($this->getPageId($request)),
+            'contentAddedFeedback' => $this->getContentAddedFeedback($languageService, $backendUser),
+        ];
         $this->assetCollector->addInlineJavaScript(
             'visualEditorEnhancementsInfo',
-            'window.visualEditorEnhancements = ' . json_encode($this->getConfiguration($request), JSON_THROW_ON_ERROR) . ';',
+            'window.visualEditorEnhancements = ' . json_encode($configuration, JSON_THROW_ON_ERROR) . ';',
             ['type' => 'text/javascript'],
             ['useNonce' => true],
         );
-    }
 
-    /**
-     * The legacy keys editableLinksEnabled and fieldChooserEnabled stay as
-     * derived aliases of contextButtonsEnabled and fieldChooserMode so older
-     * frontend scripts keep working against the new configuration.
-     *
-     * @return array{
-     *     elementLibraryEnabled: bool,
-     *     elementLibraryLinks: bool,
-     *     editableLinksEnabled: bool,
-     *     contextButtonsEnabled: bool,
-     *     elementLibraryColumns: int,
-     *     contentAddedFeedback: array{title: string, message: string},
-     *     fieldChooserMode: 'disabled'|'sections'|'tabs',
-     *     fieldChooserEnabled: bool,
-     *     fieldChooserTables: list<string>,
-     *     elementRefreshEnabled: bool
-     * }
-     */
-    private function getConfiguration(ServerRequestInterface $request): array
-    {
-        $contextButtonsEnabled = $this->isContextButtonsEnabled();
-        $editableLinksEnabled = $this->isEditableLinksEnabled() && $contextButtonsEnabled;
-
-        // Without a resolved page id there is no TSconfig scope, so the safest
-        // fallback is to keep the field chooser disabled for that request.
-        $pageId = $this->getPageId($request);
-        $fieldChooserMode = $pageId !== null
-            && $this->isFieldChooserEnabled()
-            && $this->fieldChooserConfiguration->isEnabled($pageId)
-            ? $this->getFieldChooserMode()
-            : 'disabled';
-        $fieldChooserEnabled = $fieldChooserMode !== 'disabled';
-
-        return [
-            'elementLibraryEnabled' => $this->isElementLibraryEnabled() && $this->getUserBoolSetting('tx_visualeditor_showLibrary', true),
-            'elementLibraryLinks' => $editableLinksEnabled,
-            'editableLinksEnabled' => $editableLinksEnabled,
-            'contextButtonsEnabled' => $contextButtonsEnabled,
-            'elementLibraryColumns' => $this->getElementLibraryColumns(),
-            'contentAddedFeedback' => $this->getContentAddedFeedback(),
-            'fieldChooserMode' => $fieldChooserMode,
-            'fieldChooserEnabled' => $fieldChooserEnabled,
-            'fieldChooserTables' => $fieldChooserEnabled ? $this->fieldChooserConfiguration->getEnabledTables($pageId) : [],
-            'elementRefreshEnabled' => $this->isElementRefreshEnabled(),
-        ];
+        return $handler->handle($request);
     }
 
     private function getPageId(ServerRequestInterface $request): ?int
@@ -122,94 +73,16 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         return $routing instanceof PageArguments ? $routing->getPageId() : null;
     }
 
-    private function isElementLibraryEnabled(): bool
-    {
-        return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementLibraryEnabled'] ?? false);
-    }
-
-    private function isEditableLinksEnabled(): bool
-    {
-        return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['editableLinksEnabled'] ?? true);
-    }
-
-    private function isFieldChooserEnabled(): bool
-    {
-        return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['fieldChooserEnabled'] ?? true);
-    }
-
-    private function isElementRefreshEnabled(): bool
-    {
-        return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementRefreshEnabled'] ?? true);
-    }
-
-    private function getUserBoolSetting(string $key, bool $default): bool
-    {
-        $uc = $this->getBackendUser()->uc;
-        if (!array_key_exists($key, $uc)) {
-            return $default;
-        }
-
-        return (bool)$uc[$key];
-    }
-
-    /**
-     * @return 'disabled'|'sections'|'tabs'
-     */
-    private function getFieldChooserMode(): string
-    {
-        $uc = $this->getBackendUser()->uc;
-        $mode = $uc['tx_visualeditor_fieldChooserMode'] ?? null;
-        if (in_array($mode, ['disabled', 'sections', 'tabs'], true)) {
-            return $mode;
-        }
-
-        // Up to 0.2.x the chooser was an on/off checkbox; keep an explicitly
-        // stored "off" working until the user saves the new select once.
-        if ($mode === null
-            && array_key_exists('tx_visualeditor_showFieldChooser', $uc)
-            && !$uc['tx_visualeditor_showFieldChooser']
-        ) {
-            return 'disabled';
-        }
-
-        return 'tabs';
-    }
-
-    private function isContextButtonsEnabled(): bool
-    {
-        $uc = $this->getBackendUser()->uc;
-        if (!array_key_exists('tx_visualeditor_showContextButtons', $uc)) {
-            // Up to 0.2.x only the link edit buttons had a toggle.
-            return $this->getUserBoolSetting('tx_visualeditor_showLinks', true);
-        }
-
-        return (bool)$uc['tx_visualeditor_showContextButtons'];
-    }
-
-    private function getElementLibraryColumns(): int
-    {
-        $value = (int)($this->getBackendUser()->uc['tx_visualeditor_panelColumns'] ?? 3);
-
-        return $value === 1 ? 1 : 3;
-    }
-
     /**
      * @return array{title: string, message: string}
      */
-    private function getContentAddedFeedback(): array
+    private function getContentAddedFeedback(LanguageService $languageService, BackendUserAuthentication $backendUser): array
     {
-        $languageService = $this->languageServiceFactory->create($this->localizationService->getBackendUserLanguage() ?? 'en');
-        $domain = 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf';
-        $workspace = (int)$this->getBackendUser()->workspace === 0 ? 'live' : 'workspace';
+        $workspace = (int)$backendUser->workspace === 0 ? 'live' : 'workspace';
 
         return [
-            'title' => (string)($languageService->translate('frontend.library.contentAdded.title', $domain) ?? 'Content added'),
-            'message' => (string)($languageService->translate('frontend.library.contentAdded.message', $domain, ['workspace' => $workspace]) ?? ''),
+            'title' => (string)($languageService->translate('frontend.library.contentAdded.title', self::LANGUAGE_FILE) ?? 'Content added'),
+            'message' => (string)($languageService->translate('frontend.library.contentAdded.message', self::LANGUAGE_FILE, ['workspace' => $workspace]) ?? ''),
         ];
-    }
-
-    private function getBackendUser(): BackendUserAuthentication
-    {
-        return $this->backendUserProvider->getOrThrow();
     }
 }

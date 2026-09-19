@@ -59,33 +59,20 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
 
         $uidParam = $queryParams['uid'] ?? null;
         $uid = \is_numeric($uidParam) ? (int)$uidParam : 0;
-        if ($uid <= 0) {
-            return $this->jsonError('Record not found', 404);
-        }
-
-        $row = BackendUtility::getRecordWSOL($table, $uid);
+        $row = $uid > 0 ? BackendUtility::getRecordWSOL($table, $uid) : null;
         if ($row === null) {
-            return $this->jsonError('Record not found', 404);
+            return new JsonResponse(['error' => 'Record not found'], 404, ['Cache-Control' => 'private, no-store']);
         }
 
-        // TSconfig scope is the page the record lives on; pages records are their own scope.
-        $pageId = $table === 'pages' ? (int)($row['uid'] ?? 0) : (int)($row['pid'] ?? 0);
-        if (!$this->fieldChooserConfiguration->isEnabled($pageId)
-            || !$this->fieldChooserConfiguration->isTableEnabled($table, $pageId)
-        ) {
+        $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
+        if (!$this->fieldChooserConfiguration->isTableEnabled($table, $pageId)) {
             return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
         }
 
-        $payload = $this->fieldOptionsService->buildFieldOptions($table, $uid, $request);
-        if ($payload === null) {
-            return $this->jsonError('Record not found', 404);
-        }
-
-        return new JsonResponse($payload, 200, ['Cache-Control' => 'private, no-store']);
-    }
-
-    private function jsonError(string $message, int $statusCode): ResponseInterface
-    {
-        return new JsonResponse(['error' => $message], $statusCode, ['Cache-Control' => 'private, no-store']);
+        return new JsonResponse(
+            $this->fieldOptionsService->buildFieldOptions($table, $uid, $row, $request),
+            200,
+            ['Cache-Control' => 'private, no-store'],
+        );
     }
 }
