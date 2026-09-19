@@ -24,3 +24,4 @@ package-lock.json
 .DS_Store
 .idea/
 .vscode/
+/Tests/E2E/support/.auth/

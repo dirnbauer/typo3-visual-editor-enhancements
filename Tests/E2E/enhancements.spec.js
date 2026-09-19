@@ -8,7 +8,7 @@
  */
 import {expect, test} from '@playwright/test';
 
-import {config, enhancementConfig, openEditFrame, login} from './support/backend.js';
+import {config, enhancementConfig, openEditFrame} from './support/backend.js';
 
 /** @type {import('@playwright/test').Frame} */
 let frame;
@@ -31,7 +31,6 @@ test.beforeEach(async ({page}) => {
     }
   });
 
-  await login(page);
   frame = await openEditFrame(page);
 });
 
@@ -47,20 +46,19 @@ const openLibrary = (target) => target.evaluate(() => {
  * The panel renders one of two layouts, chosen by the backend user's
  * `tx_visualeditor_panelColumns` setting: a thumbnail grid of `.card`s, each
  * with its own preview iframe, or a compact list of `.lrow`s that share one
- * docked preview. Both mark every entry with `data-ctype`, so the assertions
- * below work in either mode.
+ * docked preview. The assertions below cover both.
  */
 const panelState = (target) => target.evaluate(() => {
   const panel = document.querySelector('ve-element-library');
   if (panel === null) {
-    return {present: false, open: false, items: 0, keywordChips: 0, previewFrames: 0};
+    return {present: false, open: false, items: 0, keywordChips: 0, previewFrames: 0, mode: null};
   }
   const root = panel.shadowRoot;
 
   return {
     present: true,
     open: panel.open === true,
-    items: root.querySelectorAll('[data-ctype]').length,
+    items: root.querySelectorAll('.card, .lrow').length,
     keywordChips: root.querySelectorAll('.kw').length,
     previewFrames: root.querySelectorAll('iframe').length,
     mode: panel.columns === 1 ? 'list' : 'grid',
@@ -104,11 +102,11 @@ test('typing a term asks the server for a ranking and reorders the panel', async
   const total = (await panelState(frame)).items;
 
   const search = page.waitForResponse((response) => response.url().includes('elementLibrarySearch='), {timeout: 60000});
-  await frame.evaluate(() => {
+  await frame.evaluate((term) => {
     const input = document.querySelector('ve-element-library').shadowRoot.querySelector('input');
-    input.value = 'preis';
+    input.value = term;
     input.dispatchEvent(new Event('input', {bubbles: true}));
-  });
+  }, config.searchTerm);
 
   const response = await search;
   expect(response.status()).toBe(200);
@@ -125,11 +123,11 @@ test('a misspelled term still produces suggestions or a did-you-mean', async ({p
   await expect.poll(async () => (await panelState(frame)).items, {timeout: 90000}).toBeGreaterThan(0);
 
   const search = page.waitForResponse((response) => response.url().includes('elementLibrarySearch='), {timeout: 60000});
-  await frame.evaluate(() => {
+  await frame.evaluate((term) => {
     const input = document.querySelector('ve-element-library').shadowRoot.querySelector('input');
-    input.value = 'preisl';
+    input.value = term;
     input.dispatchEvent(new Event('input', {bubbles: true}));
-  });
+  }, config.searchTypo);
 
   const body = await (await search).json();
   const hasHelp = (body.suggestions ?? []).length > 0 || body.didYouMean !== null && body.didYouMean !== undefined;
@@ -162,7 +160,7 @@ test('previews load lazily through the cached ?elPreview route', async ({page}) 
   // the visible cards load their own iframes. Hovering the first entry covers
   // both without having to know which mode the user is in.
   await frame.evaluate(() => {
-    const entry = document.querySelector('ve-element-library').shadowRoot.querySelector('[data-ctype]');
+    const entry = document.querySelector('ve-element-library').shadowRoot.querySelector('.card, .lrow');
     entry?.dispatchEvent(new MouseEvent('mouseenter', {bubbles: false}));
     entry?.dispatchEvent(new FocusEvent('focus', {bubbles: false}));
   });
