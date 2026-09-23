@@ -30,13 +30,13 @@
     "typo3/cms-frontend": "^14.3.7"
   },
   "require-dev": {
-    "friendsoftypo3/content-blocks": "^2.4",
-    "phpstan/phpstan": "^2.1",
-    "phpstan/phpstan-phpunit": "^2.0",
-    "phpunit/phpunit": "^11.5 || ^12.5",
-    "saschaegerer/phpstan-typo3": "^3.0",
-    "typo3/coding-standards": "^0.8",
-    "typo3/testing-framework": "^9.5"
+    "friendsoftypo3/content-blocks": "^2.4.10",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-phpunit": "^2.0.18",
+    "phpunit/phpunit": "^13.3",
+    "saschaegerer/phpstan-typo3": "^3.1",
+    "typo3/coding-standards": "^0.9",
+    "typo3/testing-framework": "^9.7"
   },
   "autoload": {
     "psr-4": {
@@ -51,7 +51,7 @@
   "scripts": {
     "cgl": "php-cs-fixer fix --config .php-cs-fixer.dist.php",
     "cgl:check": "@cgl --dry-run --diff",
-    "lint:php": "find Classes Configuration Tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l",
+    "lint:php": "find Classes Configuration Tests ext_localconf.php -name '*.php' -print0 | xargs -0 -n1 -P4 php -l",
     "phpstan": "phpstan analyse --memory-limit=512M",
     "test": ["@test:unit", "@test:js"],
     "test:functional": "phpunit -c Build/phpunit/FunctionalTests.xml",
