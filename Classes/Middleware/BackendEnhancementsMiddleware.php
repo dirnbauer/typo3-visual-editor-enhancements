@@ -23,6 +23,7 @@ final readonly class BackendEnhancementsMiddleware implements MiddlewareInterfac
         private PageRenderer $pageRenderer,
     ) {}
 
+    #[\Override]
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if ($this->isVisualEditorModuleRequest($request)) {

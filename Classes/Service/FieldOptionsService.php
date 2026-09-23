@@ -33,7 +33,7 @@ final readonly class FieldOptionsService
 {
     // Guard against pathological installs only — like the backend category
     // tree, the chooser is expected to deliver the complete category tree.
-    private const CATEGORY_ITEM_LIMIT = 10000;
+    private const int CATEGORY_ITEM_LIMIT = 10000;
 
     public function __construct(
         private TcaSchemaFactory $tcaSchema,

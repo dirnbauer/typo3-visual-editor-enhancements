@@ -25,7 +25,7 @@ use Webconsulting\VisualEditorEnhancements\Service\BackendUserProvider;
  */
 final readonly class EditSessionGuard
 {
-    public const TOKEN_HEADER = 'X-Request-Token';
+    public const string TOKEN_HEADER = 'X-Request-Token';
 
     public function __construct(
         private Context $context,

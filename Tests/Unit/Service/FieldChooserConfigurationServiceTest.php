@@ -28,6 +28,7 @@ final class FieldChooserConfigurationServiceTest extends TestCase
      */
     private ?array $tcaBackup = null;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,6 +37,7 @@ final class FieldChooserConfigurationServiceTest extends TestCase
         $this->registerRuntimeCache();
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         if ($this->tcaBackup === null) {

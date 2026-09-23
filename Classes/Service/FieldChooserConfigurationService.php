@@ -18,7 +18,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class FieldChooserConfigurationService
 {
-    private const AUTO_DETECT_FIELDS = '*';
+    private const string AUTO_DETECT_FIELDS = '*';
 
     /**
      * Memoized per request; the set of Content Blocks tables cannot change

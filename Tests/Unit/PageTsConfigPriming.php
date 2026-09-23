@@ -32,8 +32,8 @@ trait PageTsConfigPriming
 
     protected function primePageTsConfig(int $pageId, string $tsConfig): void
     {
-        $rootNode = (new AstBuilder(new NoopEventDispatcher()))
-            ->build((new LosslessTokenizer())->tokenize($tsConfig), new RootNode());
+        $rootNode = new AstBuilder(new NoopEventDispatcher())
+            ->build(new LosslessTokenizer()->tokenize($tsConfig), new RootNode());
         $runtimeCache = GeneralUtility::makeInstance(CacheManager::class)->getCache('runtime');
         $hash = 'ts-config-test-' . $pageId;
         $runtimeCache->set('pageTsConfig-pid-to-hash-' . $pageId, $hash);

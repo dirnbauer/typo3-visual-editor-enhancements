@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Tests\Functional\Backend\Controller;
 
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -32,6 +33,7 @@ final class PersistenceControllerTest extends FunctionalTestCase
         'webconsulting/visual-editor-enhancements',
     ];
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -100,9 +102,9 @@ final class PersistenceControllerTest extends FunctionalTestCase
     /**
      * @param array<string, mixed> $payload
      */
-    private function save(array $payload): \Psr\Http\Message\ResponseInterface
+    private function save(array $payload): ResponseInterface
     {
-        $request = (new ServerRequest('https://vee.test/typo3/ajax/visual-editor/save', 'POST'))
+        $request = new ServerRequest('https://vee.test/typo3/ajax/visual-editor/save', 'POST')
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withParsedBody($payload);
         $GLOBALS['TYPO3_REQUEST'] = $request;

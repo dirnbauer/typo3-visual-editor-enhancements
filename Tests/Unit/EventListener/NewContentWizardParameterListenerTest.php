@@ -24,12 +24,14 @@ final class NewContentWizardParameterListenerTest extends TestCase
 {
     use PageTsConfigPriming;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
         $this->registerRuntimeCache();
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         GeneralUtility::purgeInstances();

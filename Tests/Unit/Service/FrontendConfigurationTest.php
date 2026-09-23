@@ -30,6 +30,7 @@ final class FrontendConfigurationTest extends TestCase
      */
     private ?array $confVarsBackup = null;
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -40,6 +41,7 @@ final class FrontendConfigurationTest extends TestCase
         $this->primePageTsConfig(666, '');
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         if ($this->confVarsBackup === null) {
@@ -162,10 +164,10 @@ final class FrontendConfigurationTest extends TestCase
         $tcaSchemaFactory = self::createStub(TcaSchemaFactory::class);
         $tcaSchemaFactory->method('has')->willReturnCallback(static fn(string $table): bool => isset($GLOBALS['TCA'][$table]));
 
-        return (new FrontendConfiguration(
+        return new FrontendConfiguration(
             new FeatureFlags(),
             new FieldChooserConfigurationService($tcaSchemaFactory),
             $backendUserProvider,
-        ))->build($pageId);
+        )->build($pageId);
     }
 }

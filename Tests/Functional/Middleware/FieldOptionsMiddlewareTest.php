@@ -44,6 +44,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
         'webconsulting/visual-editor-enhancements',
     ];
 
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -182,6 +183,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
         $handler = new class () implements RequestHandlerInterface {
             public bool $handled = false;
 
+            #[\Override]
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 $this->handled = true;
@@ -227,7 +229,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
 
     private function endpointRequest(string $table, int $uid): ServerRequest
     {
-        return (new ServerRequest('https://vee.test/editing-test-page'))
+        return new ServerRequest('https://vee.test/editing-test-page')
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_FE)
             ->withQueryParams([
                 'veFieldOptions' => '1',
@@ -250,6 +252,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
     private function process(ServerRequestInterface $request): ResponseInterface
     {
         $handler = new class () implements RequestHandlerInterface {
+            #[\Override]
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 throw new \RuntimeException('The middleware must answer the request itself.', 1777200020);

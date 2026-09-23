@@ -36,6 +36,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         private FieldOptionsService $fieldOptionsService,
     ) {}
 
+    #[\Override]
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $queryParams = $request->getQueryParams();

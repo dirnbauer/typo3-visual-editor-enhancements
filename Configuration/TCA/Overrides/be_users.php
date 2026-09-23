@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
 
 defined('TYPO3') or die();
 
@@ -20,12 +21,11 @@ defined('TYPO3') or die();
         'tx_visualeditor_fieldChooserMode' => [
             'type' => 'select',
             'renderType' => 'selectSingle',
-            'default' => 'tabs',
-            'items' => [
-                ['label' => $labels . 'fieldChooserMode.tabs', 'value' => 'tabs'],
-                ['label' => $labels . 'fieldChooserMode.sections', 'value' => 'sections'],
-                ['label' => $labels . 'fieldChooserMode.disabled', 'value' => 'disabled'],
-            ],
+            'default' => FieldChooserMode::Tabs->value,
+            'items' => array_map(
+                static fn(FieldChooserMode $mode): array => ['label' => $labels . 'fieldChooserMode.' . $mode->value, 'value' => $mode->value],
+                FieldChooserMode::cases(),
+            ),
         ],
         'tx_visualeditor_panelColumns' => [
             'type' => 'select',

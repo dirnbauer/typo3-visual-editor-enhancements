@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
+use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
+
 /**
  * The configuration the edit frame receives as window.visualEditorEnhancements:
  * the install-wide feature flags combined with the backend user's own settings
@@ -28,7 +30,7 @@ final readonly class FrontendConfiguration
      *     elementLibraryColumns: 1|3,
      *     contextButtonsEnabled: bool,
      *     editableLinksEnabled: bool,
-     *     fieldChooserMode: 'disabled'|'sections'|'tabs',
+     *     fieldChooserMode: value-of<FieldChooserMode>,
      *     fieldChooserTables: list<string>,
      *     elementRefreshEnabled: bool
      * }
@@ -38,13 +40,13 @@ final readonly class FrontendConfiguration
         $userSettings = $this->backendUserProvider->getOrThrow()->uc;
         $contextButtonsEnabled = (bool)($userSettings['tx_visualeditor_showContextButtons'] ?? true);
 
-        $fieldChooserMode = 'disabled';
+        $fieldChooserMode = FieldChooserMode::Disabled;
         $fieldChooserTables = [];
         if ($pageId !== null && $this->features->isFieldChooserEnabled()) {
-            $fieldChooserMode = $this->fieldChooserMode($userSettings);
-            $fieldChooserTables = $fieldChooserMode === 'disabled' ? [] : $this->fieldChooserConfiguration->getEnabledTables($pageId);
+            $fieldChooserMode = FieldChooserMode::fromUserSetting($userSettings['tx_visualeditor_fieldChooserMode'] ?? null);
+            $fieldChooserTables = $fieldChooserMode === FieldChooserMode::Disabled ? [] : $this->fieldChooserConfiguration->getEnabledTables($pageId);
             if ($fieldChooserTables === []) {
-                $fieldChooserMode = 'disabled';
+                $fieldChooserMode = FieldChooserMode::Disabled;
             }
         }
 
@@ -54,21 +56,9 @@ final readonly class FrontendConfiguration
             'elementLibraryColumns' => (int)($userSettings['tx_visualeditor_panelColumns'] ?? 3) === 1 ? 1 : 3,
             'contextButtonsEnabled' => $contextButtonsEnabled,
             'editableLinksEnabled' => $contextButtonsEnabled && $this->features->isEditableLinksEnabled(),
-            'fieldChooserMode' => $fieldChooserMode,
+            'fieldChooserMode' => $fieldChooserMode->value,
             'fieldChooserTables' => $fieldChooserTables,
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
         ];
-    }
-
-    /**
-     * @param array<string, mixed> $userSettings
-     *
-     * @return 'disabled'|'sections'|'tabs'
-     */
-    private function fieldChooserMode(array $userSettings): string
-    {
-        $mode = $userSettings['tx_visualeditor_fieldChooserMode'] ?? 'tabs';
-
-        return \in_array($mode, ['disabled', 'sections', 'tabs'], true) ? $mode : 'tabs';
     }
 }

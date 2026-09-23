@@ -44,7 +44,7 @@ use Webconsulting\VisualEditorEnhancements\Service\LinkBrowserUrlService;
  */
 final class LinkViewHelper extends AbstractViewHelper
 {
-    private const RECORD_TYPE = RecordInterface::class . '|' . PageInformation::class . '|' . DomainObjectInterface::class;
+    private const string RECORD_TYPE = RecordInterface::class . '|' . PageInformation::class . '|' . DomainObjectInterface::class;
 
     protected $escapeChildren = false;
 
@@ -59,6 +59,7 @@ final class LinkViewHelper extends AbstractViewHelper
         private readonly LinkBrowserUrlService $linkBrowserUrlService,
     ) {}
 
+    #[\Override]
     public function initializeArguments(): void
     {
         parent::initializeArguments();
@@ -69,11 +70,13 @@ final class LinkViewHelper extends AbstractViewHelper
         $this->registerArgument('optional', 'boolean', 'If the provided field does not exist in the record, an empty string is returned.', false, false);
     }
 
+    #[\Override]
     public function getContentArgumentName(): string
     {
         return 'record';
     }
 
+    #[\Override]
     public function render(): string
     {
         $renderingContext = $this->renderingContext ?? throw new \InvalidArgumentException('$this->renderingContext is not available', 1777200010);

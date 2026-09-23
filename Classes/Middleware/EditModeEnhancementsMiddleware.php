@@ -24,7 +24,7 @@ use Webconsulting\VisualEditorEnhancements\Service\FrontendConfiguration;
  */
 final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterface
 {
-    private const LANGUAGE_FILE = 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf';
+    private const string LANGUAGE_FILE = 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf';
 
     public function __construct(
         private AssetCollector $assetCollector,
@@ -34,6 +34,7 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
         private BackendUserProvider $backendUserProvider,
     ) {}
 
+    #[\Override]
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $backendUser = $this->backendUserProvider->get();

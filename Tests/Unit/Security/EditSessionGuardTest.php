@@ -126,9 +126,10 @@ final class EditSessionGuardTest extends TestCase
 
     private function tokenValidator(bool $valid): RequestTokenValidator
     {
-        return new class ($valid) implements RequestTokenValidator {
-            public function __construct(private readonly bool $valid) {}
+        return new readonly class ($valid) implements RequestTokenValidator {
+            public function __construct(private bool $valid) {}
 
+            #[\Override]
             public function isValid(string $token): bool
             {
                 return $this->valid && $token !== '';

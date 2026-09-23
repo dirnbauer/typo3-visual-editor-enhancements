@@ -14,14 +14,15 @@ use TYPO3\CMS\Core\FormProtection\FormProtectionFactory;
  */
 final readonly class BackendFormProtectionTokenValidator implements RequestTokenValidator
 {
-    public const FORM_NAME = 'visual_editor';
+    public const string FORM_NAME = 'visual_editor';
 
-    public const ACTION = 'save';
+    public const string ACTION = 'save';
 
     public function __construct(
         private FormProtectionFactory $formProtectionFactory,
     ) {}
 
+    #[\Override]
     public function isValid(string $token): bool
     {
         if ($token === '') {
