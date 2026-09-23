@@ -65,7 +65,27 @@ final class FrontendConfigurationTest extends TestCase
             'fieldChooserMode' => 'tabs',
             'fieldChooserTables' => ['tt_content'],
             'elementRefreshEnabled' => true,
+            'colorScheme' => 'auto',
         ], $this->build([], 666));
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function colorSchemeProvider(): iterable
+    {
+        yield 'light' => ['light', 'light'];
+        yield 'dark' => ['dark', 'dark'];
+        yield 'auto' => ['auto', 'auto'];
+        yield 'unknown value' => ['sepia', 'auto'];
+        yield 'not a string' => [1, 'auto'];
+    }
+
+    #[Test]
+    #[DataProvider('colorSchemeProvider')]
+    public function theEditorChromeStartsInTheUsersBackendColorScheme(mixed $setting, string $expected): void
+    {
+        self::assertSame($expected, $this->build(['colorScheme' => $setting], 666)['colorScheme']);
     }
 
     /**

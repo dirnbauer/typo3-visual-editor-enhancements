@@ -32,7 +32,8 @@ final readonly class FrontendConfiguration
      *     editableLinksEnabled: bool,
      *     fieldChooserMode: value-of<FieldChooserMode>,
      *     fieldChooserTables: list<string>,
-     *     elementRefreshEnabled: bool
+     *     elementRefreshEnabled: bool,
+     *     colorScheme: 'auto'|'light'|'dark'
      * }
      */
     public function build(?int $pageId): array
@@ -59,6 +60,22 @@ final readonly class FrontendConfiguration
             'fieldChooserMode' => $fieldChooserMode->value,
             'fieldChooserTables' => $fieldChooserTables,
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
+            'colorScheme' => $this->colorScheme($userSettings['colorScheme'] ?? null),
         ];
+    }
+
+    /**
+     * The backend user's colour scheme (User settings, or the switch in the
+     * user menu). The edit frame paints its chrome in it until the backend
+     * frame hands over the resolved theme (Shared/theme.js).
+     *
+     * @return 'auto'|'light'|'dark'
+     */
+    private function colorScheme(mixed $setting): string
+    {
+        return match ($setting) {
+            'light', 'dark' => $setting,
+            default => 'auto',
+        };
     }
 }

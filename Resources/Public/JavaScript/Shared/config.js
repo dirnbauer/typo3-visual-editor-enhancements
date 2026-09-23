@@ -48,3 +48,13 @@ export function elementLibraryColumns() {
 export function contentAddedFeedback() {
   return enhancementConfig().contentAddedFeedback || null;
 }
+
+/**
+ * The backend user's colour scheme setting; the theme bridge replaces it with
+ * the scheme the backend actually renders in as soon as it answers.
+ * @return {'auto'|'light'|'dark'}
+ */
+export function editorColorScheme() {
+  const scheme = enhancementConfig().colorScheme;
+  return scheme === 'light' || scheme === 'dark' ? scheme : 'auto';
+}

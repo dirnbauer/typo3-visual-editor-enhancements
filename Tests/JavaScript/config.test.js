@@ -9,6 +9,7 @@ import {beforeEach, describe, it} from 'node:test';
 
 import {
   contentAddedFeedback,
+  editorColorScheme,
   elementLibraryColumns,
   fieldChooserMode,
   fieldChooserTables,
@@ -33,6 +34,7 @@ describe('without a configuration object', () => {
     assert.equal(fieldChooserMode(), 'disabled');
     assert.deepEqual(fieldChooserTables(), []);
     assert.equal(contentAddedFeedback(), null);
+    assert.equal(editorColorScheme(), 'auto');
   });
 
   it('still answers the column count with the wide default', () => {
@@ -79,5 +81,16 @@ describe('with the configuration the middleware inlines', () => {
 
     globalThis.window.visualEditorEnhancements.elementLibraryColumns = 1;
     assert.equal(elementLibraryColumns(), 1);
+  });
+
+  it('passes the backend user\'s colour scheme through, anything else is auto', () => {
+    globalThis.window.visualEditorEnhancements.colorScheme = 'dark';
+    assert.equal(editorColorScheme(), 'dark');
+
+    globalThis.window.visualEditorEnhancements.colorScheme = 'light';
+    assert.equal(editorColorScheme(), 'light');
+
+    globalThis.window.visualEditorEnhancements.colorScheme = 'sepia';
+    assert.equal(editorColorScheme(), 'auto');
   });
 });

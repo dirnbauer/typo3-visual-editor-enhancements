@@ -1,25 +1,27 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
-import {fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {editorColorScheme, fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {applyTheme} from '@webconsulting/visual-editor-enhancements/Shared/theme-bridge.js';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance.js';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/visual-editor-patches.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-editable-link.js';
 
 /**
- * Every floating control of this extension is painted in the backend's accent
- * color (--ve-accent-color); the backend frame answers requestAccent with the
- * resolved theme token (Backend/index.js).
+ * The editor chrome wears the backend's theme (Shared/theme.js): the backend
+ * frame answers requestTheme with its resolved design tokens and sends them
+ * again whenever the backend's theme or colour scheme changes. Until then the
+ * backend user's colour scheme setting picks light or dark for the fallback.
  */
-function initializeAccentBridge() {
-  onMessage('veAccent', ({color}) => {
-    if (color) {
-      document.documentElement.style.setProperty('--ve-accent-color', color);
-    }
-  });
-  sendMessage('requestAccent', null, 'parent');
+function initializeThemeBridge() {
+  const scheme = editorColorScheme();
+  if (scheme !== 'auto') {
+    applyTheme({scheme});
+  }
+  onMessage('veTheme', (theme) => applyTheme(theme));
+  sendMessage('requestTheme', null, 'parent');
 }
 
 async function initializeElementLibrary() {
@@ -132,6 +134,6 @@ function injectFieldChooserAction(contentElement) {
   actionBar.appendChild(button);
 }
 
-initializeAccentBridge();
+initializeThemeBridge();
 initializeContentElementActions();
 initializeElementRefresh();
