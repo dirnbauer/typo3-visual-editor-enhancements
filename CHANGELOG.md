@@ -4,6 +4,61 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-09-23
+
+Audited against `friendsoftypo3/visual-editor` **1.10.3** (21 September 2026).
+1.10.3 only changes how edit mode treats hidden pages; no script, stylesheet
+or save path this package builds on changed, and the self-detecting rich-text
+toolbar patch is still needed. The constraint stays `^1.10.2`.
+
+### Added
+
+- **Theme bridge.** The backend frame resolves 19 of its design tokens -
+  surfaces, text, borders, primary, danger, shadows, radius, font, theme and
+  colour scheme included - and hands the computed values to the edit frame
+  (`requestTheme` → `veTheme`, `Shared/theme-bridge.js`); it sends them again
+  when the backend's theme or colour scheme changes while the editor is open.
+  `Shared/theme.js` turns them into the `--ve-*` tokens every component styles
+  against, with CSS system colours as the fallback. The frontend
+  configuration carries the backend user's colour scheme
+  (`window.visualEditorEnhancements.colorScheme`) for the first paint.
+- JavaScript tests for the bridge (token resolution, scheme detection, the
+  allow-list applied in the edit frame) and the colour scheme setting.
+
+### Changed
+
+- **The editor chrome looks like the TYPO3 backend.** Element library, field
+  chooser, library button, context chip, link button and both drag images use
+  the backend's surfaces, radius, font, shadows and form controls, the field
+  chooser's tabs are drawn like nav-tabs, and the primary colour is reserved
+  for the active filter, the selection and the floating buttons. There is no
+  hard-coded colour left. Dark mode follows the backend (it followed the
+  site's `.dark` class, and only in Chromium); the field chooser had no dark
+  mode at all.
+- Accessibility: the library panel is a labelled dialog with a labelled search
+  field, toggle-button category filters (`aria-pressed`), a live result count
+  and status/alert states; the enlarged preview is a modal dialog that takes
+  and returns focus; the field chooser takes focus when it opens and returns
+  it to its trigger on Escape or close, and announces pending changes; the
+  library button reports `aria-expanded`. Focus rings use the primary text
+  colour, which keeps its contrast on the dark surfaces.
+- PHP 8.4 idioms: typed class constants, `new Foo()->bar()`, a readonly
+  anonymous class, `#[\Override]` everywhere it applies (PHPStan enforces it),
+  and a `FieldChooserMode` enum for the `tabs`/`sections`/`disabled` setting.
+- Development: PHPUnit ^13.3 (configs use `recordTestRunHistory`),
+  typo3/coding-standards ^0.9 (applied), testing-framework ^9.7, PHPStan ^2.2,
+  Playwright ^1.63. CI runs unit and functional tests on PHP 8.4 **and** 8.5
+  (8.5 was informational), adds `composer audit`, and uses
+  actions/checkout and setup-node v7 and ramsey/composer-install v4.
+  `.gitattributes` keeps development files out of the Composer archive.
+
+### Removed
+
+- The `requestAccent`/`veAccent` messages and the `--ve-accent-color`
+  property; the theme bridge replaces them.
+- Nine unused labels of the removed demo-content switch and the old layout
+  options.
+
 ## [1.1.0] — 2026-09-19
 
 Behaviour-preserving restructuring, re-verified against
