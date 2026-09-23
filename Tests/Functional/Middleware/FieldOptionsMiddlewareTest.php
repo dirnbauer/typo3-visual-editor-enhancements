@@ -180,7 +180,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
     #[Test]
     public function aRequestWithoutTheQueryParameterIsPassedThrough(): void
     {
-        $handler = new class () implements RequestHandlerInterface {
+        $handler = new class implements RequestHandlerInterface {
             public bool $handled = false;
 
             #[\Override]
@@ -251,7 +251,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
 
     private function process(ServerRequestInterface $request): ResponseInterface
     {
-        $handler = new class () implements RequestHandlerInterface {
+        $handler = new class implements RequestHandlerInterface {
             #[\Override]
             public function handle(ServerRequestInterface $request): ResponseInterface
             {

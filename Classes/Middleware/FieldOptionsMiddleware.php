@@ -45,7 +45,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         }
 
         $table = $queryParams['table'] ?? '';
-        if (!\is_string($table) || $table === '' || !$this->tcaSchema->has($table)) {
+        if (!is_string($table) || $table === '' || !$this->tcaSchema->has($table)) {
             // Answering "unknown table" before the guard would turn the
             // endpoint into a TCA probe for anonymous callers.
             $denial = $this->guard->check($request) ?? AccessDenial::InsufficientPermissions;
@@ -59,7 +59,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         }
 
         $uidParam = $queryParams['uid'] ?? null;
-        $uid = \is_numeric($uidParam) ? (int)$uidParam : 0;
+        $uid = is_numeric($uidParam) ? (int)$uidParam : 0;
         $row = $uid > 0 ? BackendUtility::getRecordWSOL($table, $uid) : null;
         if ($row === null) {
             return new JsonResponse(['error' => 'Record not found'], 404, ['Cache-Control' => 'private, no-store']);

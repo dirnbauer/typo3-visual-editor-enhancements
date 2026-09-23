@@ -64,7 +64,7 @@ final readonly class NewContentWizardParameterListener
     private function getConfiguredParameters(int $pageId): array
     {
         $configuration = BackendUtility::getPagesTSconfig($pageId)['tx_visualeditorenhancements.']['newContentWizard.']['parameters.'] ?? null;
-        if (!\is_array($configuration) || $configuration === []) {
+        if (!is_array($configuration) || $configuration === []) {
             return [];
         }
 

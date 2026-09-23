@@ -28,8 +28,8 @@ final readonly class LinkBrowserUrlService
 
         $linkBrowserArguments = [];
         $configuration = $fieldSchema->getConfiguration();
-        if (\is_array($configuration['allowedTypes'] ?? null) && $configuration['allowedTypes'] !== []) {
-            $allowedTypes = \implode(',', $configuration['allowedTypes']);
+        if (is_array($configuration['allowedTypes'] ?? null) && $configuration['allowedTypes'] !== []) {
+            $allowedTypes = implode(',', $configuration['allowedTypes']);
             if ($allowedTypes !== '*') {
                 $linkBrowserArguments['allowedTypes'] = $allowedTypes;
             }

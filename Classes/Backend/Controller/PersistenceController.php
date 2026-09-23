@@ -25,16 +25,16 @@ final readonly class PersistenceController
         unset($input['data']);
         $cmdArray = $input['cmdArray'] ?? [];
         unset($input['cmdArray']);
-        if (!\is_array($data)) {
+        if (!is_array($data)) {
             throw new \RuntimeException('Data must be an array of table names to rows', 5781185589);
         }
 
-        if (!\is_array($cmdArray)) {
+        if (!is_array($cmdArray)) {
             throw new \RuntimeException('Command array must be a list of DataHandler commands', 4576273831);
         }
 
         if ($input !== []) {
-            throw new \RuntimeException('Unknown data operations: ' . \implode(', ', \array_keys($input)) . ' only data and cmdArray are allowed', 8110225095);
+            throw new \RuntimeException('Unknown data operations: ' . implode(', ', array_keys($input)) . ' only data and cmdArray are allowed', 8110225095);
         }
 
         $GLOBALS['TYPO3_REQUEST'] = $request;
@@ -59,11 +59,11 @@ final readonly class PersistenceController
         // A JSON request has no form-encoded body, so TYPO3 leaves the parsed
         // body null (or, behind some proxies, an empty array).
         $payload = $request->getParsedBody();
-        if (!\is_array($payload) || $payload === []) {
+        if (!is_array($payload) || $payload === []) {
             $payload = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
         }
 
-        if (!\is_array($payload)) {
+        if (!is_array($payload)) {
             throw new \RuntimeException('Save payload must be a JSON object', 2634277014);
         }
 

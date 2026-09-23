@@ -38,8 +38,8 @@ defined('TYPO3') or die();
         ],
     ];
 
-    $GLOBALS['TCA']['be_users']['columns']['user_settings']['showitem'] =
-        ($GLOBALS['TCA']['be_users']['columns']['user_settings']['showitem'] ?? '')
+    $GLOBALS['TCA']['be_users']['columns']['user_settings']['showitem']
+        = ($GLOBALS['TCA']['be_users']['columns']['user_settings']['showitem'] ?? '')
         . ', --div--;' . $labels . 'tab';
 
     $position = 'after:--div--;' . $labels . 'tab';

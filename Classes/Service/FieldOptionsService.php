@@ -89,14 +89,14 @@ final readonly class FieldOptionsService
             }
 
             $field = $fieldSchema->getField($fieldName);
-            $label = $languageService->sL(\trim($field->getLabel()));
+            $label = $languageService->sL(trim($field->getLabel()));
             if ($field instanceof StaticSelectFieldType) {
                 $payload = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
             } elseif ($field instanceof CategoryFieldType) {
                 $payload = $this->buildCategoryField($table, $field, $label, $row, $languageService);
             } elseif ($field instanceof LinkFieldType) {
                 $payload = $this->buildLinkField($table, $uid, $field, $label, $row);
-            } elseif ($field instanceof CheckboxFieldType && \count($field->getConfiguration()['items'] ?? []) <= 1) {
+            } elseif ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1) {
                 $payload = $this->buildCheckField($field, $label, $row);
             } elseif ($field instanceof ColorFieldType) {
                 $payload = $this->buildColorField($field, $label, $row);
@@ -111,8 +111,8 @@ final readonly class FieldOptionsService
 
         // Mirror the backend form: fields in showitem order, so group headings
         // come out in the same sequence as the FormEngine tabs and palettes.
-        \usort($fields, static fn(array $a, array $b): int => $a['position'] <=> $b['position']);
-        $fields = \array_map(static function (array $field): array {
+        usort($fields, static fn(array $a, array $b): int => $a['position'] <=> $b['position']);
+        $fields = array_map(static function (array $field): array {
             unset($field['position']);
             return $field;
         }, $fields);
@@ -138,7 +138,7 @@ final readonly class FieldOptionsService
         $items = $this->processSelectItems($table, $field, $row, $pageId, $fieldTsConfig);
         $items = $this->applySelectItemsTsConfig($items, $fieldTsConfig);
 
-        $altLabels = \is_array($fieldTsConfig['altLabels.'] ?? null) ? $fieldTsConfig['altLabels.'] : [];
+        $altLabels = is_array($fieldTsConfig['altLabels.'] ?? null) ? $fieldTsConfig['altLabels.'] : [];
         $options = [];
         foreach ($items as $item) {
             $value = $item->getValue();
@@ -148,7 +148,7 @@ final readonly class FieldOptionsService
             $altLabel = $altLabels[$value] ?? null;
             $options[] = [
                 'value' => (string)$value,
-                'label' => $languageService->sL(\trim(\is_string($altLabel) && $altLabel !== '' ? $altLabel : $item->getLabel())),
+                'label' => $languageService->sL(trim(is_string($altLabel) && $altLabel !== '' ? $altLabel : $item->getLabel())),
             ];
         }
 
@@ -174,14 +174,14 @@ final readonly class FieldOptionsService
         int $pageId,
         array $fieldTsConfig,
     ): array {
-        $items = \array_values($field->getItems());
+        $items = array_values($field->getItems());
         $configuration = $field->getConfiguration();
         if (empty($configuration['itemsProcFunc']) && empty($configuration['itemsProcessors'])) {
             return $items;
         }
 
         try {
-            return \array_values($this->itemProcessingService->processItems(
+            return array_values($this->itemProcessingService->processItems(
                 SelectItemCollection::createFromArray($items, 'select'),
                 new ItemsProcessorContext(
                     table: $table,
@@ -208,31 +208,31 @@ final readonly class FieldOptionsService
     private function applySelectItemsTsConfig(array $items, array $fieldTsConfig): array
     {
         $keepItems = $fieldTsConfig['keepItems'] ?? null;
-        if (\is_string($keepItems)) {
+        if (is_string($keepItems)) {
             if ($keepItems === '') {
                 $items = [];
             } else {
-                $keep = \array_flip(GeneralUtility::trimExplode(',', $keepItems, true));
-                $items = \array_filter($items, static fn(SelectItem $item): bool => isset($keep[(string)$item->getValue()]));
+                $keep = array_flip(GeneralUtility::trimExplode(',', $keepItems, true));
+                $items = array_filter($items, static fn(SelectItem $item): bool => isset($keep[(string)$item->getValue()]));
             }
         }
 
-        $addItems = \is_array($fieldTsConfig['addItems.'] ?? null) ? $fieldTsConfig['addItems.'] : [];
+        $addItems = is_array($fieldTsConfig['addItems.'] ?? null) ? $fieldTsConfig['addItems.'] : [];
         foreach ($addItems as $value => $itemLabel) {
             $value = (string)$value;
-            if (\str_ends_with($value, '.') || !\is_string($itemLabel)) {
+            if (str_ends_with($value, '.') || !is_string($itemLabel)) {
                 continue;
             }
             $items[] = SelectItem::fromTcaItemArray(['label' => $itemLabel, 'value' => $value]);
         }
 
         $removeItems = $fieldTsConfig['removeItems'] ?? null;
-        if (\is_string($removeItems) && $removeItems !== '') {
-            $remove = \array_flip(GeneralUtility::trimExplode(',', $removeItems, true));
-            $items = \array_filter($items, static fn(SelectItem $item): bool => !isset($remove[(string)$item->getValue()]));
+        if (is_string($removeItems) && $removeItems !== '') {
+            $remove = array_flip(GeneralUtility::trimExplode(',', $removeItems, true));
+            $items = array_filter($items, static fn(SelectItem $item): bool => !isset($remove[(string)$item->getValue()]));
         }
 
-        return \array_values($items);
+        return array_values($items);
     }
 
     /**
@@ -241,13 +241,13 @@ final readonly class FieldOptionsService
     private function getFieldTsConfig(string $table, string $fieldName, string $recordType, int $pageId): array
     {
         $fieldTsConfig = BackendUtility::getPagesTSconfig($pageId)['TCEFORM.'][$table . '.'][$fieldName . '.'] ?? [];
-        if (!\is_array($fieldTsConfig)) {
+        if (!is_array($fieldTsConfig)) {
             return [];
         }
 
         $typeSpecific = $recordType !== '' ? ($fieldTsConfig['types.'][$recordType . '.'] ?? null) : null;
         unset($fieldTsConfig['types.']);
-        if (\is_array($typeSpecific)) {
+        if (is_array($typeSpecific)) {
             ArrayUtility::mergeRecursiveWithOverrule($fieldTsConfig, $typeSpecific);
         }
 
@@ -278,14 +278,14 @@ final readonly class FieldOptionsService
             $parts = GeneralUtility::trimExplode(';', $item);
             $name = $parts[0] ?? '';
             if ($name === '--div--') {
-                $tabLabel = $languageService->sL(\trim($parts[1] ?? ''));
+                $tabLabel = $languageService->sL(trim($parts[1] ?? ''));
                 continue;
             }
             if ($name === '--palette--') {
                 $paletteName = $parts[2] ?? '';
-                $label = \trim($parts[1] ?? '') !== ''
-                    ? \trim($parts[1])
-                    : \trim((string)($palettes[$paletteName]['label'] ?? ''));
+                $label = trim($parts[1] ?? '') !== ''
+                    ? trim($parts[1])
+                    : trim((string)($palettes[$paletteName]['label'] ?? ''));
                 $isLabeled = $label !== '';
                 $groupLabel = $isLabeled ? $languageService->sL($label) : $tabLabel;
                 // Only LABELED palettes get a palette identity; the per-output
@@ -405,7 +405,7 @@ final readonly class FieldOptionsService
         $relationHandler = GeneralUtility::makeInstance(RelationHandler::class);
         $relationHandler->initializeForField($table, $field, $row, $row[$field->getName()] ?? null);
 
-        return \array_values(\array_map(\strval(...), $relationHandler->getValueArray()));
+        return array_values(array_map(\strval(...), $relationHandler->getValueArray()));
     }
 
     /**
@@ -497,7 +497,7 @@ final readonly class FieldOptionsService
             return;
         }
         $visited[$categoryUid] = true;
-        if (\count($items) >= self::CATEGORY_ITEM_LIMIT) {
+        if (count($items) >= self::CATEGORY_ITEM_LIMIT) {
             $hiddenCount++;
         } else {
             $items[] = [

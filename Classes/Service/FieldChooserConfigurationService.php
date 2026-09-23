@@ -76,7 +76,7 @@ final class FieldChooserConfigurationService
 
     public function isTableEnabled(string $table, int $pageId): bool
     {
-        return \in_array($table, $this->getEnabledTables($pageId), true);
+        return in_array($table, $this->getEnabledTables($pageId), true);
     }
 
     /**
@@ -94,7 +94,7 @@ final class FieldChooserConfigurationService
             : $schema;
 
         $configuration = $this->getTableConfigurations($pageId)[$table] ?? [];
-        $fieldsSetting = \trim((string)(
+        $fieldsSetting = trim((string)(
             $configuration['types.'][$recordType . '.']['fields']
             ?? $configuration['fields']
             ?? self::AUTO_DETECT_FIELDS
@@ -102,7 +102,7 @@ final class FieldChooserConfigurationService
         if ($fieldsSetting === self::AUTO_DETECT_FIELDS) {
             $fields = $this->autoDetectFields($schema, $fieldSchema);
         } else {
-            $fields = \array_values(\array_filter(
+            $fields = array_values(array_filter(
                 GeneralUtility::trimExplode(',', $fieldsSetting, true),
                 $fieldSchema->hasField(...),
             ));
@@ -110,7 +110,7 @@ final class FieldChooserConfigurationService
 
         $excludeFields = GeneralUtility::trimExplode(',', (string)($configuration['excludeFields'] ?? ''), true);
 
-        return \array_values(\array_diff($fields, $excludeFields));
+        return array_values(array_diff($fields, $excludeFields));
     }
 
     /**
@@ -125,12 +125,12 @@ final class FieldChooserConfigurationService
             $tables[$table] = ['enabled' => '1', 'fields' => self::AUTO_DETECT_FIELDS];
         }
         $configuredTables = $this->getFieldChooserTsConfig($pageId)['tables.'] ?? [];
-        foreach (\is_array($configuredTables) ? $configuredTables : [] as $key => $configuration) {
-            if (!\is_string($key) || !\str_ends_with($key, '.') || !\is_array($configuration)) {
+        foreach (is_array($configuredTables) ? $configuredTables : [] as $key => $configuration) {
+            if (!is_string($key) || !str_ends_with($key, '.') || !is_array($configuration)) {
                 continue;
             }
-            $table = \substr($key, 0, -1);
-            $tables[$table] = \array_replace($tables[$table] ?? [], $configuration);
+            $table = substr($key, 0, -1);
+            $tables[$table] = array_replace($tables[$table] ?? [], $configuration);
         }
 
         return $tables;
@@ -147,7 +147,7 @@ final class FieldChooserConfigurationService
      */
     private function getAutoEnabledTables(): array
     {
-        return $this->autoEnabledTables ??= \array_values(\array_filter(
+        return $this->autoEnabledTables ??= array_values(array_filter(
             $this->detectContentBlockTables(),
             static fn(string $table): bool => !self::isCoreTable($table),
         ));
@@ -171,7 +171,7 @@ final class FieldChooserConfigurationService
         // Content Blocks collection child convention of a
         // foreign_table_parent_uid column in the TCA.
         foreach ($GLOBALS['TCA'] ?? [] as $table => $configuration) {
-            if (\is_string($table) && \is_array($configuration) && isset($configuration['columns']['foreign_table_parent_uid'])) {
+            if (is_string($table) && is_array($configuration) && isset($configuration['columns']['foreign_table_parent_uid'])) {
                 $tables[] = $table;
             }
         }
@@ -188,10 +188,10 @@ final class FieldChooserConfigurationService
     {
         return $table === 'tt_content'
             || $table === 'pages'
-            || \str_starts_with($table, 'sys_')
-            || \str_starts_with($table, 'be_')
-            || \str_starts_with($table, 'fe_')
-            || \str_starts_with($table, 'tx_visualeditor');
+            || str_starts_with($table, 'sys_')
+            || str_starts_with($table, 'be_')
+            || str_starts_with($table, 'fe_')
+            || str_starts_with($table, 'tx_visualeditor');
     }
 
     /**
@@ -201,7 +201,7 @@ final class FieldChooserConfigurationService
     {
         $configuration = BackendUtility::getPagesTSconfig($pageId)['tx_visualeditorenhancements.']['fieldChooser.'] ?? [];
 
-        return \is_array($configuration) ? $configuration : [];
+        return is_array($configuration) ? $configuration : [];
     }
 
     /**
@@ -212,13 +212,13 @@ final class FieldChooserConfigurationService
         $blockedFields = $this->getBlockedFieldNames($schema);
         $fields = [];
         foreach ($fieldSchema->getFields() as $field) {
-            if (\in_array($field->getName(), $blockedFields, true) || ($field->getConfiguration()['readOnly'] ?? false)) {
+            if (in_array($field->getName(), $blockedFields, true) || ($field->getConfiguration()['readOnly'] ?? false)) {
                 continue;
             }
             if ($field instanceof CategoryFieldType
                 || ($field instanceof StaticSelectFieldType && $this->isSingleValueSelect($field))
                 || $field instanceof LinkFieldType
-                || ($field instanceof CheckboxFieldType && \count($field->getConfiguration()['items'] ?? []) <= 1)
+                || ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1)
                 || ($field instanceof ColorFieldType && !$field->supportsOpacity())
             ) {
                 $fields[] = $field->getName();

@@ -96,7 +96,7 @@ final class LinkViewHelper extends AbstractViewHelper
 
         if (!$record instanceof RecordInterface) {
             throw new \InvalidArgumentException(
-                'The record argument must be an instance of ' . self::RECORD_TYPE . '. Given: ' . \get_debug_type($record),
+                'The record argument must be an instance of ' . self::RECORD_TYPE . '. Given: ' . get_debug_type($record),
                 1777200011,
             );
         }
@@ -118,7 +118,7 @@ final class LinkViewHelper extends AbstractViewHelper
         if ($value instanceof \Stringable) {
             $value = (string)$value;
         }
-        if (!\is_string($value)) {
+        if (!is_string($value)) {
             $value = '';
         }
 
@@ -127,7 +127,7 @@ final class LinkViewHelper extends AbstractViewHelper
         if (!$fieldSchema instanceof LinkFieldType) {
             $table = $record->getMainType();
             throw new \InvalidArgumentException(
-                'The field "' . $table . '.' . $field . '" is not a link field (TCA type=link). Given: ' . \get_debug_type($fieldSchema),
+                'The field "' . $table . '.' . $field . '" is not a link field (TCA type=link). Given: ' . get_debug_type($fieldSchema),
                 1777200013,
             );
         }

@@ -133,7 +133,7 @@ final class DataHandlerServiceTest extends TestCase
     {
         $schema = self::createStub(TcaSchema::class);
         $schema->method('hasField')->willReturnCallback(
-            static fn(string $field): bool => \in_array($field, ['CType', 'header', 'bodytext', 'colPos'], true),
+            static fn(string $field): bool => in_array($field, ['CType', 'header', 'bodytext', 'colPos'], true),
         );
         $schemaFactory = self::createStub(TcaSchemaFactory::class);
         $schemaFactory->method('get')->willReturn($schema);

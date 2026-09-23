@@ -34,19 +34,19 @@ final readonly class DataHandlerService
 
     private function validateData(mixed $data): void
     {
-        if (!\is_array($data)) {
+        if (!is_array($data)) {
             throw new \RuntimeException('Data must be an array of table names to rows', 5781185589);
         }
 
         foreach ($data as $table => $rows) {
-            if (!\is_array($rows)) {
+            if (!is_array($rows)) {
                 throw new \RuntimeException('Rows for table "' . $table . '" must be an array of uid to fields', 8680448759);
             }
 
             $schema = $this->tcaSchema->get($table);
             foreach ($rows as $uid => $fields) {
-                $isNewRecord = \is_string($uid) && \preg_match('/^NEW[a-zA-Z0-9]+$/', $uid) === 1;
-                if (!\is_int($uid) && !$isNewRecord) {
+                $isNewRecord = is_string($uid) && preg_match('/^NEW[a-zA-Z0-9]+$/', $uid) === 1;
+                if (!is_int($uid) && !$isNewRecord) {
                     throw new \RuntimeException('Uid for table "' . $table . '" must be an integer or a NEW... placeholder, got ' . $uid, 1117271113);
                 }
 
@@ -65,22 +65,22 @@ final readonly class DataHandlerService
 
     private function validateCmd(mixed $cmd): void
     {
-        if (!\is_array($cmd)) {
+        if (!is_array($cmd)) {
             throw new \RuntimeException('Data must be an array of table names to rows', 4576273831);
         }
 
         foreach ($cmd as $table => $rows) {
-            if (!\is_array($rows)) {
+            if (!is_array($rows)) {
                 throw new \RuntimeException('Rows for table "' . $table . '" must be an array of uid to fields', 4705592477);
             }
 
             foreach ($rows as $uid => $actions) {
-                if (!\is_int($uid)) {
+                if (!is_int($uid)) {
                     throw new \RuntimeException('Uid for table "' . $table . '" must be an integer, got ' . $uid, 3903416059);
                 }
 
                 foreach ($actions as $actionName => $actionData) {
-                    if (!\in_array($actionName, ['move', 'copy', 'delete'], true)) {
+                    if (!in_array($actionName, ['move', 'copy', 'delete'], true)) {
                         throw new \RuntimeException('Unknown action "' . $actionName . '" for table "' . $table . '" and uid ' . $uid, 7473736544);
                     }
                 }
