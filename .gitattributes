@@ -1,0 +1,8 @@
+# Development-only files stay out of the archive Composer installs.
+/.gitattributes export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/Build export-ignore
+/Tests export-ignore
+/phpstan.neon export-ignore
