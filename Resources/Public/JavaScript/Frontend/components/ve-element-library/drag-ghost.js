@@ -96,13 +96,17 @@ export function setCustomDragImage(event, item) {
   try {
     const ghost = document.createElement('div');
     ghost.setAttribute('aria-hidden', 'true');
+    // Light DOM (appended to <body>), so it reads the --ve-t3-* backend
+    // tokens the theme bridge sets on the root directly: the inverted
+    // surface of the backend, like the in-panel drag chip.
     ghost.style.cssText = [
       'position:fixed', 'top:-1000px', 'left:-1000px', 'z-index:2147483647',
       'display:inline-flex', 'align-items:center', 'gap:8px',
-      'padding:7px 13px', 'border-radius:10px',
-      'background:rgba(22,22,26,0.94)', 'color:#fff',
-      'font:650 13px/1.2 system-ui,-apple-system,sans-serif',
-      'white-space:nowrap', 'box-shadow:0 8px 22px rgba(0,0,0,0.35)',
+      'padding:7px 13px', 'border-radius:var(--ve-t3-radius,6px)',
+      'background:color-mix(in srgb,var(--ve-t3-text,CanvasText) 92%,transparent)',
+      'color:var(--ve-t3-surface-raised,Canvas)',
+      'font:600 13px/1.2 var(--ve-t3-font-family,system-ui,sans-serif)',
+      'white-space:nowrap', 'box-shadow:var(--ve-t3-shadow-dialog,none)',
       'pointer-events:none',
     ].join(';');
     if (item.iconUrl) {

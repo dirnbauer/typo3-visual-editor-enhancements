@@ -1,12 +1,13 @@
 import {css} from 'lit';
+import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/theme.js';
 
-/** Styles of <ve-field-chooser>; kept apart so the component file stays readable. */
-export const styles = css`
-    :host {
-      --ve-chooser-accent: var(--ve-accent-color, #7c5ac4);
-      font-family: var(--typo3-font-family-sans, system-ui, -apple-system, sans-serif);
-    }
-
+/**
+ * Styles of <ve-field-chooser>; kept apart so the component file stays
+ * readable. The popover is drawn like a backend dropdown: component surface,
+ * backend form controls (raised surface, input border, focus ring), nav-tabs
+ * for the form's tabs - all from the backend's design tokens (Shared/theme.js).
+ */
+export const styles = [themeTokens, css`
     *,
     *::before,
     *::after {
@@ -20,13 +21,18 @@ export const styles = css`
       flex-direction: column;
       width: min(480px, calc(100vw - 24px));
       max-height: 60vh;
-      background: #fff;
-      color: #1a1a20;
-      border: 1px solid color-mix(in srgb, var(--ve-chooser-accent) 32%, #e3e3e8);
-      border-radius: var(--typo3-component-border-radius, 0.75em);
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--ve-chooser-accent) 12%, transparent);
+      background: var(--ve-surface);
+      color: var(--ve-text);
+      border: 1px solid var(--ve-border);
+      border-radius: var(--ve-radius);
+      box-shadow: var(--ve-shadow-dialog);
       font-size: 13px;
       line-height: 1.4;
+    }
+
+    /* Focus lands on the dialog itself when it opens (see openFor()). */
+    .popover:focus {
+      outline: none;
     }
 
     .header {
@@ -34,7 +40,7 @@ export const styles = css`
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
-      border-bottom: 1px solid #ececf1;
+      border-bottom: 1px solid var(--ve-border);
     }
 
     .heading {
@@ -45,61 +51,73 @@ export const styles = css`
     .elementName {
       display: block;
       overflow: hidden;
+      color: var(--ve-text-muted);
       font-size: 11px;
       font-weight: 600;
-      color: color-mix(in srgb, var(--ve-chooser-accent) 70%, #55555f);
+      letter-spacing: 0.04em;
       text-overflow: ellipsis;
+      text-transform: uppercase;
       white-space: nowrap;
     }
 
     .title {
       margin: 0;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 600;
     }
 
-    .closeButton {
+    .closeButton,
+    .iconButton,
+    .treeToggle {
+      display: inline-flex;
       flex: none;
-      width: 26px;
-      height: 26px;
+      align-items: center;
+      justify-content: center;
       padding: 0;
-      border: none;
-      border-radius: 6px;
-      background: transparent;
-      color: #55555f;
-      font-size: 18px;
-      line-height: 1;
+      color: var(--ve-text);
       cursor: pointer;
     }
 
-    .closeButton:hover {
-      background: #f0f0f4;
-      color: #1a1a20;
+    .closeButton {
+      width: 28px;
+      height: 28px;
+      border: 1px solid transparent;
+      border-radius: var(--ve-radius-small);
+      background: transparent;
+      font-size: 18px;
+      line-height: 1;
     }
 
-    .closeButton:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 2px var(--ve-chooser-accent);
+    .closeButton:hover,
+    .treeToggle:hover {
+      background: var(--ve-hover);
     }
 
+    :is(.closeButton, .iconButton, .treeToggle, .tab, .showAllButton, .colorChoose, .checkbox):focus-visible {
+      outline: 2px solid var(--ve-focus);
+      outline-offset: 1px;
+    }
+
+    /* the backend form's tabs as nav-tabs */
     .tabBar {
       display: flex;
       flex: none;
       flex-wrap: wrap;
       gap: 2px;
       padding: 0 10px;
-      border-bottom: 1px solid #ececf1;
+      border-bottom: 1px solid var(--ve-border);
     }
 
     .tab {
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      margin-bottom: -1px;
       padding: 8px 10px;
       border: 0;
       border-bottom: 2px solid transparent;
       background: none;
-      color: #55555f;
+      color: var(--ve-text-muted);
       font: inherit;
       font-size: 12px;
       font-weight: 600;
@@ -107,22 +125,26 @@ export const styles = css`
       cursor: pointer;
     }
 
+    .tab:hover {
+      color: var(--ve-text);
+    }
+
     .tab.isActive {
-      color: var(--ve-chooser-accent);
-      border-bottom-color: var(--ve-chooser-accent);
+      color: var(--ve-text);
+      border-bottom-color: var(--ve-primary-text);
     }
 
     .tab:focus-visible {
-      outline: 2px solid var(--ve-chooser-accent);
       outline-offset: -2px;
     }
 
-    .tabDirtyDot {
+    .tabDirtyDot,
+    .dirtyDot {
       flex: none;
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--ve-chooser-accent);
+      background: var(--ve-primary-text);
     }
 
     .body {
@@ -136,20 +158,20 @@ export const styles = css`
 
     .status {
       margin: 0;
-      color: #55555f;
+      color: var(--ve-text-muted);
     }
 
     .status.isError {
-      color: #b3261e;
+      color: var(--ve-danger);
     }
 
     .groupLabel {
       margin: 6px 0 -6px;
       padding-top: 8px;
-      border-top: 1px solid #ececf1;
-      color: #8a8a94;
+      border-top: 1px solid var(--ve-border);
+      color: var(--ve-text-muted);
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
@@ -172,31 +194,31 @@ export const styles = css`
       gap: 6px;
       font-size: 12px;
       font-weight: 600;
-      color: #33333c;
     }
 
-    .dirtyDot {
-      flex: none;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--ve-chooser-accent);
+    /* backend form controls: raised surface, input border, focus ring */
+    .select,
+    .linkValue,
+    .iconButton,
+    .colorInput,
+    .colorChoose {
+      border: 1px solid var(--ve-input-border);
+      border-radius: var(--ve-radius-small);
+      background: var(--ve-surface-raised);
+      color: var(--ve-text);
     }
 
     .select {
       width: 100%;
       padding: 6px 8px;
-      border: 1px solid #d4d4dc;
-      border-radius: 6px;
-      background: #fff;
-      color: inherit;
       font: inherit;
     }
 
-    .select:focus-visible {
+    .select:focus-visible,
+    .colorInput:focus-visible {
       outline: none;
-      border-color: var(--ve-chooser-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
+      border-color: var(--ve-focus);
+      box-shadow: var(--ve-focus-ring);
     }
 
     .linkRow,
@@ -212,9 +234,7 @@ export const styles = css`
       min-width: 0;
       overflow: hidden;
       padding: 6px 8px;
-      border: 1px solid #d4d4dc;
-      border-radius: 6px;
-      background: #fafafc;
+      background: var(--ve-surface-sunken);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
       text-overflow: ellipsis;
@@ -222,36 +242,19 @@ export const styles = css`
     }
 
     .linkValue.isEmpty {
-      background: #fff;
-      color: #8a8a94;
+      background: var(--ve-surface-raised);
+      color: var(--ve-text-muted);
       font-family: inherit;
     }
 
     .iconButton {
-      display: inline-flex;
-      flex: none;
-      align-items: center;
-      justify-content: center;
       width: 28px;
       height: 28px;
-      padding: 0;
-      border: 1px solid #d4d4dc;
-      border-radius: 6px;
-      background: #fff;
-      color: #55555f;
-      cursor: pointer;
     }
 
-    .iconButton:hover {
-      border-color: var(--ve-chooser-accent);
-      background: color-mix(in srgb, var(--ve-chooser-accent) 8%, #fff);
-      color: var(--ve-chooser-accent);
-    }
-
-    .iconButton:focus-visible {
-      outline: none;
-      border-color: var(--ve-chooser-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
+    .iconButton:hover,
+    .colorChoose:hover {
+      background: var(--ve-hover);
     }
 
     .checkRow {
@@ -267,16 +270,7 @@ export const styles = css`
       width: 34px;
       height: 28px;
       padding: 2px;
-      border: 1px solid #d4d4dc;
-      border-radius: 6px;
-      background: #fff;
       cursor: pointer;
-    }
-
-    .colorInput:focus-visible {
-      outline: none;
-      border-color: var(--ve-chooser-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
     }
 
     /* Kept in the DOM (not display:none) so .click() reliably opens the
@@ -298,16 +292,15 @@ export const styles = css`
       flex: none;
       width: 34px;
       height: 28px;
-      border: 1px dashed #b9b9c4;
-      border-radius: 6px;
-      background: #fff;
+      border: 1px dashed var(--ve-input-border);
+      border-radius: var(--ve-radius-small);
     }
 
     .colorNone {
       flex: 1;
       min-width: 0;
       overflow: hidden;
-      color: #8a8a94;
+      color: var(--ve-text-muted);
       font-size: 12px;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -326,25 +319,10 @@ export const styles = css`
     .colorChoose {
       flex: none;
       padding: 5px 10px;
-      border: 1px solid #d4d4dc;
-      border-radius: 6px;
-      background: #fff;
-      color: #33333c;
       font: inherit;
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
-    }
-
-    .colorChoose:hover {
-      border-color: var(--ve-chooser-accent);
-      color: var(--ve-chooser-accent);
-    }
-
-    .colorChoose:focus-visible {
-      outline: none;
-      border-color: var(--ve-chooser-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ve-chooser-accent) 35%, transparent);
     }
 
     .categoryList {
@@ -354,8 +332,9 @@ export const styles = css`
       max-height: 280px;
       overflow: auto;
       padding: 4px 6px;
-      border: 1px solid #ececf1;
-      border-radius: 6px;
+      border: 1px solid var(--ve-border);
+      border-radius: var(--ve-radius-small);
+      background: var(--ve-surface-raised);
     }
 
     .treeRow {
@@ -365,18 +344,11 @@ export const styles = css`
     }
 
     .treeToggle {
-      display: flex;
-      flex: none;
-      align-items: center;
-      justify-content: center;
       width: 18px;
       height: 18px;
-      padding: 0;
       border: none;
       border-radius: 4px;
       background: transparent;
-      color: #55555f;
-      cursor: pointer;
     }
 
     .treeToggle svg {
@@ -387,16 +359,6 @@ export const styles = css`
       transform: rotate(90deg);
     }
 
-    .treeToggle:hover {
-      background: #f0f0f4;
-      color: #1a1a20;
-    }
-
-    .treeToggle:focus-visible {
-      outline: 2px solid var(--ve-chooser-accent);
-      outline-offset: 1px;
-    }
-
     .treeSpacer {
       flex: none;
       width: 18px;
@@ -405,7 +367,7 @@ export const styles = css`
     .treeChildren {
       margin-left: 8px;
       padding-left: 8px;
-      border-left: 1px solid #e3e3e8;
+      border-left: 1px solid var(--ve-border);
     }
 
     .categoryItem {
@@ -420,18 +382,13 @@ export const styles = css`
     }
 
     .categoryItem:hover {
-      background: color-mix(in srgb, var(--ve-chooser-accent) 8%, #fff);
+      background: var(--ve-hover);
     }
 
     .checkbox {
       flex: none;
       margin: 0;
-      accent-color: var(--ve-chooser-accent);
-    }
-
-    .checkbox:focus-visible {
-      outline: 2px solid var(--ve-chooser-accent);
-      outline-offset: 1px;
+      accent-color: var(--ve-primary);
     }
 
     .categoryLabel {
@@ -442,7 +399,7 @@ export const styles = css`
 
     .truncatedNote {
       padding: 0 6px;
-      color: #8a8a94;
+      color: var(--ve-text-muted);
     }
 
     .footer {
@@ -451,8 +408,8 @@ export const styles = css`
       justify-content: space-between;
       gap: 10px;
       padding: 8px 12px;
-      border-top: 1px solid #ececf1;
-      color: #6d6d78;
+      border-top: 1px solid var(--ve-border);
+      color: var(--ve-text-muted);
       font-size: 11px;
     }
 
@@ -466,7 +423,7 @@ export const styles = css`
       border: none;
       border-radius: 3px;
       background: none;
-      color: var(--ve-chooser-accent);
+      color: var(--ve-primary-text);
       font: inherit;
       font-size: 11px;
       font-weight: 600;
@@ -477,8 +434,19 @@ export const styles = css`
       text-decoration: underline;
     }
 
-    .showAllButton:focus-visible {
-      outline: 2px solid var(--ve-chooser-accent);
-      outline-offset: 2px;
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
     }
-`;
+
+    @media (prefers-reduced-motion: reduce) {
+      .treeToggle svg { transition: none; }
+    }
+`];

@@ -7,6 +7,7 @@ import {clamp, viewportSize, ViewportTracker} from '@webconsulting/visual-editor
 import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
+import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/theme.js';
 
 /**
  * Inline editor for pure TCA type=link fields: renders a floating link icon
@@ -322,21 +323,20 @@ export class VeEditableLink extends LitElement {
     `;
   }
 
-  static styles = css`
+  static styles = [themeTokens, css`
     :host {
       display: inline-block;
       inline-size: 0;
       block-size: 0;
       vertical-align: middle;
       overflow: visible;
-      --ve-link-accent: var(--ve-accent-color, #7c5ac4);
     }
 
-    /* Icon-only square "edit link" button floating near the link it edits. It matches
-       the sibling CTA's height (shadcn h-9 = 2.25rem) and uses the button corner
-       radius, so it reads as a rounded SQUARE (not a circle, not a pill) that
-       belongs with the button. Solid brand purple + white icon stays legible on
-       both light and dark sections; 2.25rem clears the WCAG 2.5.8 target size.
+    /* Icon-only square "edit link" button floating near the link it edits. It
+       matches the sibling CTA's height (2.25rem, which also clears the WCAG 2.5.8
+       target size) and takes the site's button radius (--radius) where the site
+       defines one, so it reads as belonging to the button; colours are the
+       backend's primary pair, legible on light and dark sections alike.
 
        Hidden until the field it edits is being edited - it appears only while
        the sibling text/link field, the button itself, or the pointer is on it
@@ -356,19 +356,19 @@ export class VeEditableLink extends LitElement {
       height: 2.25rem;
       margin: 0;
       padding: 0;
-      border: 1px solid color-mix(in srgb, #fff 28%, var(--ve-link-accent));
-      border-radius: var(--radius, 0.5rem);
-      background: var(--ve-link-accent);
-      color: #fff;
+      border: 1px solid color-mix(in srgb, var(--ve-on-primary) 28%, var(--ve-primary));
+      border-radius: var(--radius, var(--ve-radius-small));
+      background: var(--ve-primary);
+      color: var(--ve-on-primary);
       cursor: pointer;
       line-height: 1;
       vertical-align: middle;
       overflow: hidden;
       opacity: 0;
       pointer-events: none;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      box-shadow: var(--ve-shadow);
       transform: scale(0.92);
-      transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+      transition: opacity 0.12s ease, transform 0.12s ease, background-color 0.12s ease;
     }
 
     .linkButton.is-active {
@@ -384,21 +384,19 @@ export class VeEditableLink extends LitElement {
     }
 
     .linkButton.is-active:hover {
-      background: color-mix(in srgb, var(--ve-link-accent) 86%, #000);
-      transform: translateY(-1px);
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
+      background: var(--ve-primary-hover);
     }
 
-    /* dual ring (white inside, brand outside) stays visible on any background */
+    /* surface ring inside, focus colour outside: visible on any background */
     .linkButton:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ve-link-accent), 0 1px 3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 0 2px var(--ve-surface-raised), 0 0 0 4px var(--ve-focus);
     }
 
     @media (prefers-reduced-motion: reduce) {
       .linkButton { transition: opacity 0.12s ease; }
     }
-  `;
+  `];
 }
 
 customElements.define('ve-editable-link', VeEditableLink);

@@ -16,6 +16,11 @@
         <source>Add content</source>
       </segment>
     </unit>
+    <unit id="frontend.library.shown">
+      <segment>
+        <source>elements shown</source>
+      </segment>
+    </unit>
     <unit id="frontend.library.open">
       <segment>
         <source>Add content from library</source>
@@ -31,34 +36,9 @@
         <source>Search elements …</source>
       </segment>
     </unit>
-    <unit id="frontend.library.includeDemo.label">
+    <unit id="frontend.library.categories">
       <segment>
-        <source>Insert with example content</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.short">
-      <segment>
-        <source>Demo content</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.pill.on">
-      <segment>
-        <source>With demo content</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.pill.off">
-      <segment>
-        <source>Without demo content</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.hint.on">
-      <segment>
-        <source>Ready-made demo text &amp; images.</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.hint.off">
-      <segment>
-        <source>Empty element to fill yourself.</source>
+        <source>Categories</source>
       </segment>
     </unit>
     <unit id="frontend.library.loading">
@@ -124,21 +104,6 @@
     <unit id="frontend.library.previewHint">
       <segment>
         <source>Hover an element to preview it here.</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout">
-      <segment>
-        <source>Layout</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout.single">
-      <segment>
-        <source>Single column with preview</source>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout.grid">
-      <segment>
-        <source>Grid with overlay preview</source>
       </segment>
     </unit>
     <unit id="frontend.library.contentAdded.title">

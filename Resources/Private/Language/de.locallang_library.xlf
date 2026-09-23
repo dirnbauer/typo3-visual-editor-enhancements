@@ -19,6 +19,12 @@
         <target>Inhalt hinzufügen</target>
       </segment>
     </unit>
+    <unit id="frontend.library.shown">
+      <segment state="final">
+        <source>elements shown</source>
+        <target>Elemente angezeigt</target>
+      </segment>
+    </unit>
     <unit id="frontend.library.open">
       <segment state="final">
         <source>Add content from library</source>
@@ -37,40 +43,10 @@
         <target>Elemente durchsuchen …</target>
       </segment>
     </unit>
-    <unit id="frontend.library.includeDemo.label">
+    <unit id="frontend.library.categories">
       <segment state="final">
-        <source>Insert with example content</source>
-        <target>Mit Beispielinhalt einfügen</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.short">
-      <segment state="final">
-        <source>Demo content</source>
-        <target>Demo-Inhalt</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.pill.on">
-      <segment state="final">
-        <source>With demo content</source>
-        <target>Mit Demo-Inhalt</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.pill.off">
-      <segment state="final">
-        <source>Without demo content</source>
-        <target>Ohne Demo-Inhalt</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.hint.on">
-      <segment state="final">
-        <source>Ready-made demo text &amp; images.</source>
-        <target>Fertige Demo-Texte &amp; Bilder.</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.includeDemo.hint.off">
-      <segment state="final">
-        <source>Empty element to fill yourself.</source>
-        <target>Leeres Element zum selbst Befüllen.</target>
+        <source>Categories</source>
+        <target>Kategorien</target>
       </segment>
     </unit>
     <unit id="frontend.library.loading">
@@ -149,24 +125,6 @@
       <segment state="final">
         <source>Hover an element to preview it here.</source>
         <target>Element überfahren, um es hier in der Vorschau zu sehen.</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout">
-      <segment state="final">
-        <source>Layout</source>
-        <target>Layout</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout.single">
-      <segment state="final">
-        <source>Single column with preview</source>
-        <target>Eine Spalte mit Vorschau</target>
-      </segment>
-    </unit>
-    <unit id="frontend.library.layout.grid">
-      <segment state="final">
-        <source>Grid with overlay preview</source>
-        <target>Raster mit Vorschau-Overlay</target>
       </segment>
     </unit>
     <unit id="frontend.library.contentAdded.title">

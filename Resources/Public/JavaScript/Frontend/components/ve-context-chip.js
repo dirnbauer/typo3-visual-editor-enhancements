@@ -2,6 +2,7 @@ import {css, html, LitElement} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/theme.js';
 
 /**
  * Singleton floating chip button shown next to the hovered (or focused)
@@ -169,7 +170,7 @@ export class VeContextChip extends LitElement {
     `;
   }
 
-  static styles = css`
+  static styles = [themeTokens, css`
     :host {
       position: fixed;
       z-index: 100001;
@@ -195,22 +196,26 @@ export class VeContextChip extends LitElement {
       margin: 0;
       padding: 0;
       border: none;
-      border-radius: 8px;
-      background: var(--ve-accent-color, #7c5ac4);
-      color: #fff;
+      border-radius: var(--ve-radius-small);
+      background: var(--ve-primary);
+      color: var(--ve-on-primary);
       cursor: pointer;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 0 0 1px var(--ve-surface-raised), var(--ve-shadow);
+    }
+
+    .chip:hover {
+      background: var(--ve-primary-hover);
     }
 
     .chip:focus-visible {
-      outline: 2px solid #fff;
-      box-shadow: 0 0 0 4px var(--ve-accent-color, #7c5ac4);
+      outline: 2px solid var(--ve-focus);
+      outline-offset: 2px;
     }
 
     @media (prefers-reduced-motion: reduce) {
       :host { transition: opacity 0.12s ease; }
     }
-  `;
+  `];
 }
 
 /** @type {VeContextChip|null} */

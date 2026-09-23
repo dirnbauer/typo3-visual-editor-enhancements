@@ -77,9 +77,11 @@ export class VeFieldChooser extends LitElement {
     };
     this.onDocumentKeydown = (event) => {
       if (event.key === 'Escape') {
-        this.close();
+        this.close({restoreFocus: true});
       }
     };
+    /** @type {HTMLElement|null} the control that had focus when the popover opened */
+    this.returnFocus = null;
     this.onDocumentPointerDown = (event) => {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
       if (path.includes(this)) {
@@ -111,8 +113,11 @@ export class VeFieldChooser extends LitElement {
   openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = ''}) {
     const sameRecord = this.table === table && this.uid === uid;
     if (this.open && sameRecord && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
-      this.close();
+      this.close({restoreFocus: true});
       return;
+    }
+    if (!this.open) {
+      this.returnFocus = deepActiveElement();
     }
     // Re-filtering an already loaded element must not refetch - but after a
     // failed load there is nothing to keep, so an error state always retries
@@ -131,15 +136,27 @@ export class VeFieldChooser extends LitElement {
     if (reload) {
       this.#load();
     }
+    // Move focus into the (non-modal) dialog so keyboard and screen-reader
+    // users land in it; Escape and the close button hand it back.
+    this.updateComplete.then(() => this.renderRoot.querySelector('.popover')?.focus({preventScroll: true}));
   }
 
-  close() {
+  /**
+   * @param {{restoreFocus?: boolean}} options restoreFocus returns focus to the
+   *   control that opened the popover (Escape, close button, toggling the
+   *   trigger) - not after a click elsewhere, which already moved it.
+   */
+  close({restoreFocus = false} = {}) {
     if (!this.open) {
       return;
     }
     this.open = false;
     this.loadSeq++;
     this.#stopListening();
+    if (restoreFocus && this.returnFocus?.isConnected) {
+      this.returnFocus.focus({preventScroll: true});
+    }
+    this.returnFocus = null;
   }
 
   #startListening() {
@@ -323,13 +340,13 @@ export class VeFieldChooser extends LitElement {
     const useTabs = tabs.length > 1;
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
-      <div class="popover" style="${this.popoverStyle}" role="dialog" aria-label="${title}">
+      <div class="popover" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
         <header class="header">
           <div class="heading">
             ${this.elementName !== '' ? html`<span class="elementName" title="${this.elementName}">${this.elementName}</span>` : ''}
             <h2 class="title">${title}</h2>
           </div>
-          <button type="button" class="closeButton" @click="${this.close}" title="${closeLabel}" aria-label="${closeLabel}">&times;</button>
+          <button type="button" class="closeButton" @click="${() => this.close({restoreFocus: true})}" title="${closeLabel}" aria-label="${closeLabel}">&times;</button>
         </header>
         ${useTabs ? this.#renderTabBar(tabs, activeTab) : ''}
         <div
@@ -476,10 +493,10 @@ export class VeFieldChooser extends LitElement {
 
   #renderBody() {
     if (this.loading) {
-      return html`<p class="status">${translate('frontend.fieldChooser.loading', 'Loading…')}</p>`;
+      return html`<p class="status" role="status">${translate('frontend.fieldChooser.loading', 'Loading…')}</p>`;
     }
     if (this.error) {
-      return html`<p class="status isError">${translate('frontend.fieldChooser.error', 'Could not load field options.')}</p>`;
+      return html`<p class="status isError" role="alert">${translate('frontend.fieldChooser.error', 'Could not load field options.')}</p>`;
     }
     // Scoped mode: only the anchor field's own attributes, flat - the popover
     // title already names the field's section, so headings would only repeat it.
@@ -513,7 +530,7 @@ export class VeFieldChooser extends LitElement {
       <div class="field">
         <span class="fieldLabel">
           ${field.label}
-          ${dirty ? html`<span class="dirtyDot" title="${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}"></span>` : ''}
+          ${dirty ? html`<span class="dirtyDot" title="${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}"></span><span class="visually-hidden">${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</span>` : ''}
         </span>
         ${this.#renderControl(field)}
       </div>
@@ -730,6 +747,19 @@ export class VeFieldChooser extends LitElement {
 
 /** @type {VeFieldChooser|null} */
 let fieldChooser = null;
+
+/**
+ * The focused element, following open shadow roots down: the trigger buttons
+ * live inside the Visual Editor's and this extension's shadow DOM.
+ * @return {HTMLElement|null}
+ */
+function deepActiveElement() {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) {
+    active = active.shadowRoot.activeElement;
+  }
+  return active instanceof HTMLElement && active !== document.body ? active : null;
+}
 
 /**
  * Stable identity of a scope for toggle comparison: null (full view) stays

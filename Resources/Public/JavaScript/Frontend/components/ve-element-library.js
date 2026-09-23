@@ -90,9 +90,17 @@ export class VeElementLibrary extends LitElement {
     this.onRecentChange = () => {
       this.recent = Array.isArray(elementLibraryRecent.get()) ? elementLibraryRecent.get() : [];
     };
+    this.previewReturnFocus = null;
     this.onKeyDown = (event) => {
-      if (event.key === 'Escape' && this.previewItem && this.columns > 1) {
+      if (!this.previewItem || this.columns === 1) {
+        return;
+      }
+      if (event.key === 'Escape') {
         this.#closePreview();
+      } else if (event.key === 'Tab') {
+        // The preview dialog is modal and its only control is the close button.
+        event.preventDefault();
+        this.shadowRoot?.querySelector('.previewClose')?.focus();
       }
     };
   }
@@ -521,7 +529,16 @@ export class VeElementLibrary extends LitElement {
    */
   #openPreview(item) {
     this.#cancelClosePreview();
+    const opensDialog = this.columns > 1 && this.previewItem === null;
+    if (opensDialog) {
+      // Grid mode opens a modal dialog: remember the trigger to hand focus
+      // back when it closes.
+      this.previewReturnFocus = this.shadowRoot?.activeElement ?? null;
+    }
     this.previewItem = item;
+    if (opensDialog) {
+      this.updateComplete.then(() => this.shadowRoot?.querySelector('.previewClose')?.focus());
+    }
   }
 
   #scheduleClosePreview() {
@@ -544,7 +561,12 @@ export class VeElementLibrary extends LitElement {
 
   #closePreview() {
     this.#cancelClosePreview();
+    const closedDialog = this.columns > 1 && this.previewItem !== null;
     this.previewItem = null;
+    if (closedDialog) {
+      this.previewReturnFocus?.focus?.();
+      this.previewReturnFocus = null;
+    }
   }
 
   /**
@@ -612,7 +634,8 @@ export class VeElementLibrary extends LitElement {
 
     return html`
       ${renderDragGhost(this.previewDragGhost)}
-      <div class=${classMap(panelClasses)} part="panel" style="${panelStyle}">
+      <div class=${classMap(panelClasses)} part="panel" style="${panelStyle}"
+           role="dialog" aria-modal="false" aria-labelledby="ve-library-title">
         <div class="header">
           <div class="headerRow">
             <div class="titleWrap">
@@ -625,8 +648,11 @@ export class VeElementLibrary extends LitElement {
                 </svg>
               </span>
               <span class="titleText">
-                <h2>${lll('frontend.library.title') || 'Add content'}</h2>
-                <span class="counter"><strong>${filtered.length}</strong> / ${this.items.length}</span>
+                <h2 id="ve-library-title">${lll('frontend.library.title') || 'Add content'}</h2>
+                <span class="counter" aria-live="polite" aria-atomic="true">
+                  <strong>${filtered.length}</strong> / ${this.items.length}
+                  <span class="visually-hidden">${lll('frontend.library.shown') || 'elements shown'}</span>
+                </span>
               </span>
             </div>
           </div>
@@ -639,6 +665,7 @@ export class VeElementLibrary extends LitElement {
                 type="search"
                 .value="${this.searchTerm}"
                 placeholder="${lll('frontend.library.search') || 'Search elements …'}"
+                aria-label="${lll('frontend.library.search') || 'Search elements …'}"
                 @input="${this.#onSearchInput}"
               />
             </div>
@@ -646,7 +673,7 @@ export class VeElementLibrary extends LitElement {
 
           ${this.#renderSuggestions()}
 
-          <div class="chips">
+          <div class="chips" role="group" aria-label="${lll('frontend.library.categories') || 'Categories'}">
             ${hasFilters ? html`
               <button type="button" class="chip chip--clear" @click="${this.#clearFilters}">
                 ${lll('frontend.library.allCategories') || 'All'}
@@ -655,6 +682,7 @@ export class VeElementLibrary extends LitElement {
               <button
                 type="button"
                 class="chip ${this.selectedGroups.has(category) ? 'active' : ''}"
+                aria-pressed="${this.selectedGroups.has(category) ? 'true' : 'false'}"
                 @click="${() => this.#toggleGroup(category)}"
               >${category}</button>
             `)}
@@ -683,13 +711,13 @@ export class VeElementLibrary extends LitElement {
    */
   #renderList(filtered) {
     if (this.loading) {
-      return html`<div class="status"><span class="spinner"></span>${lll('frontend.library.loading') || 'Loading …'}</div>`;
+      return html`<div class="status" role="status"><span class="spinner" aria-hidden="true"></span>${lll('frontend.library.loading') || 'Loading …'}</div>`;
     }
     if (this.error) {
-      return html`<p class="status error">${this.error}</p>`;
+      return html`<p class="status error" role="alert">${this.error}</p>`;
     }
     if (filtered.length === 0) {
-      return html`<p class="status">${lll('frontend.library.empty') || 'No elements match the current filter.'}</p>`;
+      return html`<p class="status" role="status">${lll('frontend.library.empty') || 'No elements match the current filter.'}</p>`;
     }
 
     const showRecent = this.searchTerm.trim() === '' && this.selectedGroups.size === 0;
@@ -699,7 +727,7 @@ export class VeElementLibrary extends LitElement {
 
     return html`
       ${recentItems.length ? html`
-        <div class="sectionHead" role="presentation">
+        <div class="sectionHead" role="heading" aria-level="3">
           <svg class="sectionIcon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/>
           </svg>
@@ -709,7 +737,7 @@ export class VeElementLibrary extends LitElement {
         ${repeat(recentItems, (item) => 'recent-' + item.cType, (item) => this.#renderCard(item))}
       ` : ''}
       ${recentItems.length && rest.length ? html`
-        <div class="sectionHead" role="presentation">
+        <div class="sectionHead" role="heading" aria-level="3">
           <span>${lll('frontend.library.allElements') || 'All elements'}</span>
           <span class="sectionCount">${rest.length}</span>
         </div>` : ''}
@@ -816,7 +844,9 @@ export class VeElementLibrary extends LitElement {
       // (backdrop or chrome) falls through to here and closes it; ✕ and Escape
       // close it too.
       return html`
-        <div class="previewModal ${this.dragging ? 'dragging' : ''}" part="preview" @click="${this.#closePreview}">
+        <div class="previewModal ${this.dragging ? 'dragging' : ''}" part="preview"
+             role="dialog" aria-modal="true" aria-label="${previewLabel}: ${item.title}"
+             @click="${this.#closePreview}">
           ${inner}
         </div>`;
     }
