@@ -6,7 +6,7 @@ import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shar
  * turns itself off in that case, so an upstream release never gets patched
  * twice.
  *
- * Audited against friendsoftypo3/visual-editor 1.10.2: ve-editable-rich-text
+ * Audited against friendsoftypo3/visual-editor 1.10.3: ve-editable-rich-text
  * has no toolbar placement logic and editable.css pins the CKEditor toolbar to
  * `bottom: 100%` with no viewport-top handling and no escape from an
  * `overflow: hidden` ancestor - see Documentation/Compatibility.rst.

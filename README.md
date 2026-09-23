@@ -15,8 +15,14 @@ without forking it.
   written by its own save.
 - **Editor UI bridges** — a link button for TCA `type=link` fields
   (`f:render.link`), a CKEditor toolbar that survives `overflow: hidden`
-  ancestors and the top of the viewport, the backend accent color in the edit
+  ancestors and the top of the viewport, the backend's theme in the edit
   frame, and a partial element refresh after saving.
+
+The panels and buttons look like the TYPO3 backend, not like the site they
+float over: the backend frame hands its resolved design tokens (theme, light
+or dark scheme, font, radius) to the edit frame, and without them the chrome
+falls back to the system colours of the user's scheme. Dialogs, labels, live
+regions and focus handling follow WCAG 2.2 AA.
 
 ## Requirements
 
@@ -24,7 +30,7 @@ without forking it.
 |---|---|
 | TYPO3 | 14.3.7+ |
 | PHP | 8.4+ |
-| `friendsoftypo3/visual-editor` | 1.10.2+ |
+| `friendsoftypo3/visual-editor` | 1.10.2+ (audited against 1.10.3) |
 | `friendsoftypo3/content-blocks` | optional — auto-enables Content Blocks tables |
 
 Distributed through Composer and Git only; there is no TER release.
@@ -113,7 +119,7 @@ Full manual in [`Documentation/`](Documentation/Index.rst): installation,
 configuration, usage, [developer reference](Documentation/Developer.rst),
 [known problems](Documentation/KnownProblems.rst), and a feature-by-feature
 [compatibility audit](Documentation/Compatibility.rst) against Visual Editor
-1.10.2. Changes per release: [CHANGELOG.md](CHANGELOG.md).
+1.10.3. Changes per release: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

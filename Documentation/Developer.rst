@@ -79,6 +79,41 @@ integer uids - see :ref:`compatibility-audit`. Access is inherited from the
 only ``data`` and ``cmdArray``, only TCA columns (plus ``pid`` on new
 records), only ``move`` / ``copy`` / ``delete`` commands.
 
+..  _developer-theme:
+
+Theme bridge
+============
+
+The edit frame renders the site, so TYPO3's backend stylesheet and its
+``--typo3-*`` tokens are not loaded there. To still look like the backend -
+theme ("fresh", "modern", "classic"), light or dark, font and radius - the
+chrome is themed over a small bridge:
+
+1.  The edit frame posts ``requestTheme`` to its parent when it starts.
+2.  The backend frame (:file:`Backend/index.js`) resolves the tokens listed in
+    ``THEME_TOKENS`` (:file:`Shared/theme-bridge.js`) in its own document -
+    each through a hidden probe, so the edit frame receives computed values
+    such as ``rgb(…)`` or ``9px``, never ``var()`` references - and answers
+    with ``veTheme``: ``{scheme: 'light'|'dark', tokens: {name: value}}``.
+    It sends again whenever ``data-color-scheme`` or ``data-theme`` of its
+    root changes, and when the operating system switches between light and
+    dark (for the backend's "auto" scheme).
+3.  The edit frame sets every known token as ``--ve-t3-<name>`` and the
+    scheme as ``--ve-t3-color-scheme`` on its root; unknown names are
+    ignored. Custom properties inherit into shadow roots.
+4.  Every component includes ``themeTokens`` (:file:`Shared/theme.js`) first
+    in its ``static styles``. It defines the ``--ve-*`` aliases the component
+    CSS reads (``--ve-surface``, ``--ve-text``, ``--ve-primary``,
+    ``--ve-primary-text``, ``--ve-focus-ring``, …), each falling back to a CSS
+    system colour (``Canvas``, ``CanvasText``, ``Highlight``, ``LinkText``)
+    that follows ``color-scheme``.
+
+Until the backend answers - or when the edit frame is opened outside the
+module - the fallback is used, in the backend user's colour scheme setting
+(``window.visualEditorEnhancements.colorScheme``: ``auto``, ``light`` or
+``dark``). A new component only needs ``themeTokens`` and the ``--ve-*``
+names; no colour value belongs in a component stylesheet.
+
 ..  _developer-catalog:
 
 The element library catalog contract
@@ -175,7 +210,7 @@ Layout:
 ..  code-block:: none
 
     Backend/index.js              backend-frame bridge: link browser modal,
-                                  notifications, accent color
+                                  notifications, theme tokens
     Frontend/index.js             edit-frame entry point and injection sweep
     Frontend/components/          <ve-element-library>, <ve-field-chooser>,
                                   <ve-editable-link>, <ve-context-chip>, …
@@ -188,7 +223,8 @@ Layout:
     Frontend/visual-editor-patches.js
                                   the self-detecting upstream patches
     Shared/                       config, DOM helpers, icons, caches,
-                                  overflow-clipping
+                                  overflow-clipping, theme-bridge (token
+                                  hand-over), theme (the --ve-* CSS tokens)
 
 The component files stay browsable on purpose: the panel and the popover both
 keep their Lit component in one file and push everything that does not touch

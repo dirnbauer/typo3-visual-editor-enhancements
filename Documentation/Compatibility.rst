@@ -8,13 +8,21 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.1.0 is audited against
-**friendsoftypo3/visual-editor 1.10.2** — re-checked on Packagist at release
-time and still the newest published version, unchanged since 1.0.0.
+of it is audited against a concrete upstream version. 1.2.0 is audited against
+**friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
+published version at release time; the test suites run against it.
+
+1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
+edit mode keeps the preview simulator's decision about hidden pages and
+scheduled records instead of resetting it, so hidden pages - and content
+sliding below them - render correctly in the editor. No JavaScript,
+stylesheet or save path changed, so every verdict below still holds. The
+constraint stays ``^1.10.2``; a project should require ``^1.10.3`` for the
+fix itself.
 
 ..  _compatibility-audit:
 
-Feature audit against 1.10.2
+Feature audit against 1.10.3
 ============================
 
 ..  list-table::
@@ -28,7 +36,7 @@ Feature audit against 1.10.2
     *   -   RTE toolbar clipping and below-flip
         -   Keep
         -   1.10.0 ("Prevent editable text style collisions", PR #122) only
-            scoped :file:`editable.css` selectors. At 1.10.2
+            scoped :file:`editable.css` selectors. At 1.10.3
             :file:`ve-editable-rich-text.js` still has no toolbar placement
             logic at all, and :file:`editable.css` still pins the toolbar to
             ``bottom: 100%`` with no viewport-top handling and no clipping
@@ -45,7 +53,7 @@ Feature audit against 1.10.2
 
     *   -   Drop-zone ``tx_container_parent``
         -   Dropped
-        -   1.10.2 :file:`ve-drop-zone.js` still writes
+        -   1.10.3 :file:`ve-drop-zone.js` still writes
             ``tx_container_parent`` for any integer value, including 0. Rather
             than keep patching upstream's drop zone for that, the library's own
             drop handler
@@ -55,7 +63,7 @@ Feature audit against 1.10.2
 
     *   -   ``/visual-editor/save`` override
         -   Keep
-        -   1.10.2 ``DataHandlerService::validateData()`` still requires
+        -   1.10.3 ``DataHandlerService::validateData()`` still requires
             ``is_int($uid)``, so a ``NEW…`` placeholder is rejected - and a
             library drop is exactly that. A functional test covers the
             placeholder path, so the day upstream accepts it the override can
@@ -125,6 +133,21 @@ Feature audit against 1.10.2
         -   No impact
         -   Backend module chrome this package does not touch.
 
+    *   -   Hidden pages in edit mode (1.10.3)
+        -   No impact
+        -   Changes which records the page renders in edit mode, not the
+            scripts or the save path this package builds on. The element
+            refresh re-fetches the page in edit mode and simply receives the
+            same, now correct, rendering.
+
+    *   -   Editor chrome theme
+        -   New in 1.2.0
+        -   The Visual Editor paints its own action bar in fixed colours and
+            has no theming hook for extensions. This package's chrome takes
+            the backend's resolved design tokens over its own message pair
+            (``requestTheme``/``veTheme``, see :ref:`developer-theme`), so
+            nothing upstream is patched for it.
+
 ..  _compatibility-not-here:
 
 What lives elsewhere
@@ -150,6 +173,11 @@ Version support
         -   PHP
         -   Visual Editor
 
+    *   -   1.2.x
+        -   14.3.7+
+        -   8.4, 8.5
+        -   1.10.2+ (audited: 1.10.3)
+
     *   -   1.0.x, 1.1.x
         -   14.3.7+
         -   8.4+
@@ -163,6 +191,12 @@ Version support
 Upgrading from 0.8 requires no configuration change. The only externally
 visible move is the ``f:render.link`` ViewHelper's PHP namespace, which
 templates never reference by class name.
+
+Upgrading from 1.1 requires no configuration change. The chrome now draws
+its colours from the backend (see :ref:`developer-theme`); a site stylesheet
+or script that set ``--ve-accent-color`` on the edit frame has no effect any
+more, and the ``requestAccent``/``veAccent`` messages were replaced by
+``requestTheme``/``veTheme``.
 
 Upgrading from 1.0 requires no configuration change either. Site JavaScript
 that read the legacy keys ``elementLibraryLinks`` or ``fieldChooserEnabled``

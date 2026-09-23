@@ -81,7 +81,7 @@ bridges** that keep the editing chrome usable: a link button for TCA
 
     ..  card:: Compatibility
 
-        What this package does against Visual Editor 1.10.2, feature by
+        What this package does against Visual Editor 1.10.3, feature by
         feature, and why each part still exists.
 
         ..  card-footer:: :ref:`Check compatibility <compatibility>`
