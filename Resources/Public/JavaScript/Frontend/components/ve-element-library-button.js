@@ -87,25 +87,36 @@ export class VeElementLibraryButton extends LitElement {
       cursor: pointer;
       /* the surface-coloured ring separates the button from any site background */
       box-shadow: 0 0 0 2px var(--ve-surface-raised), var(--ve-shadow);
-      transition: background-color 0.14s ease, top 0.22s cubic-bezier(0.22, 1, 0.36, 1), right 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: background-color 0.14s ease, transform 0.12s ease;
     }
     .fab:hover { background: var(--ve-primary-hover); }
     .fab:focus-visible {
       outline: 2px solid var(--ve-focus);
       outline-offset: 3px;
     }
+    /* pressed: the button dips in place; scale keeps its centre, so it
+       never leaves its spot */
+    .fab:active { transform: scale(0.9); }
 
-    .icon { transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
-    .fab.open .icon { transform: rotate(135deg); }
-    /* open: the "x" rests inside the panel's top-right corner */
-    .fab.open {
-      top: 20px;
-      right: 20px;
-      background: var(--ve-primary-hover);
+    /* The button stays where it is — its closed spot already sits inside
+       the panel's top-right corner (the panel starts at 12px). Only the
+       icon moves: it grows a little under the pointer and turns into the
+       "x" with a spring that overshoots and settles (the second easing
+       value above 1 does that). */
+    .icon {
+      transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
+      will-change: transform;
     }
+    .fab:hover .icon { transform: scale(1.15); }
+    .fab.open .icon { transform: rotate(135deg); }
+    .fab.open:hover .icon { transform: rotate(135deg) scale(1.15); }
+    .fab.open { background: var(--ve-primary-hover); }
 
     @media (prefers-reduced-motion: reduce) {
       .fab, .icon { transition: none !important; }
+      .fab:active { transform: none; }
+      .fab:hover .icon { transform: none; }
+      .fab.open:hover .icon { transform: rotate(135deg); }
     }
   `];
 }

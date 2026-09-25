@@ -84,9 +84,19 @@ test('the element library FAB opens and closes the panel', async ({page}) => {
     {timeout: 60000},
   ).toBe(1);
 
+  // The button turns its "+" into an "x" but stays where it is: its spot is
+  // fixed, and the "x" has to sit in the same place the "+" was.
+  const fabRect = () => frame.evaluate(() => {
+    const rect = document.querySelector('ve-element-library-button').shadowRoot.querySelector('button').getBoundingClientRect();
+    return {top: Math.round(rect.top), right: Math.round(rect.right), width: Math.round(rect.width)};
+  });
+  const closedRect = await fabRect();
+
   await openLibrary(frame);
   await expect.poll(async () => (await panelState(frame)).open, {timeout: 60000}).toBe(true);
   await expect.poll(async () => (await panelState(frame)).items, {timeout: 90000}).toBeGreaterThan(0);
+  await page.waitForTimeout(400); // the icon's spring settles
+  expect(await fabRect(), 'the button does not move when the panel opens').toEqual(closedRect);
 
   const opened = await panelState(frame);
   expect(opened.keywordChips, 'entries show keyword chips').toBeGreaterThan(0);
