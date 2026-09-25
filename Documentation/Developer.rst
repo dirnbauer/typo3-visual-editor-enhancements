@@ -234,8 +234,9 @@ Layout:
     Frontend/visual-editor-patches.js
                                   the self-detecting upstream patches
     Shared/                       config, DOM helpers, icons, caches,
-                                  overflow-clipping, theme-bridge (token
-                                  hand-over), theme (the --ve-* CSS tokens)
+                                  overflow-clipping, toolbar-placement (the
+                                  rich-text toolbar's geometry), theme-bridge
+                                  (token hand-over), theme (the --ve-* tokens)
 
 The component files stay browsable on purpose: the panel and the popover both
 keep their Lit component in one file and push everything that does not touch
@@ -270,7 +271,7 @@ against MariaDB 10.11 by setting the usual ``typo3Database*`` environment
 variables.
 
 :file:`Tests/JavaScript/` covers the Lit-free modules - the search client, the
-fallback filter, the ``?veFieldOptions`` cache and the reader of
+fallback filter, the ``?veFieldOptions`` cache, the rich-text toolbar geometry and the reader of
 ``window.visualEditorEnhancements`` - with the Node test runner, so it needs
 neither a browser nor an :file:`npm install`.
 

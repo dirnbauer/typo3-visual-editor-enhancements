@@ -8,8 +8,8 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.2.0 and 1.3.0 are
-audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
+of it is audited against a concrete upstream version. 1.2.0, 1.3.0 and
+1.3.1 are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
 published version at release time; the test suites run against it.
 
 1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
@@ -33,16 +33,19 @@ Feature audit against 1.10.3
         -   Verdict
         -   Reasoning
 
-    *   -   RTE toolbar clipping and below-flip
+    *   -   RTE toolbar placement
         -   Keep
         -   1.10.0 ("Prevent editable text style collisions", PR #122) only
             scoped :file:`editable.css` selectors. At 1.10.3
             :file:`ve-editable-rich-text.js` still has no toolbar placement
             logic at all, and :file:`editable.css` still pins the toolbar to
-            ``bottom: 100%`` with no viewport-top handling and no clipping
-            escape. The patch self-detects (it looks for ``ve-toolbar-below``
-            in upstream's ``firstUpdated``) and turns itself off the day
-            upstream ships this.
+            ``bottom: 100%; left: 0`` with no viewport handling and no
+            clipping escape. Since 1.3.1 the patch keeps the toolbar inside
+            the viewport on all four sides - above, below or over the
+            editable, shifted sideways as needed; the geometry is
+            :file:`Shared/toolbar-placement.js`. It self-detects (it looks
+            for ``ve-toolbar-below`` in upstream's ``firstUpdated``) and
+            turns itself off the day upstream ships this.
 
     *   -   CKEditor style overrides
         -   Rewrite

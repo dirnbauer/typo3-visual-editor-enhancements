@@ -265,34 +265,30 @@ test('the field chooser resolves select and category fields for a record', async
   await frame.evaluate(() => document.querySelector('ve-field-chooser')?.close?.());
 });
 
-test('the rich-text toolbar stays visible on focus, also near the viewport top', async ({page}) => {
-  const count = await frame.evaluate(() => document.querySelectorAll('ve-editable-rich-text').length);
-  test.skip(count === 0, 'the test page renders no rich-text editable');
-
-  // Scroll the editable right under the top edge of the edit frame, the
-  // position where a toolbar placed above the editable would be cut off.
-  await frame.evaluate(() => document.querySelector('ve-editable-rich-text').scrollIntoView({block: 'start'}));
-  await page.waitForTimeout(1500);
-
-  // CKEditor only builds its toolbar on a real focus change, so this has to be
-  // an actual click, not element.focus().
-  await frame.locator('ve-editable-rich-text').first().click({force: true});
-  await page.waitForTimeout(3000);
-
-  const placement = await frame.evaluate(() => {
+/**
+ * Where the CKEditor toolbar of the first rich-text editable ended up after a
+ * real click into it, in viewport coordinates, plus the viewport itself.
+ */
+async function measureToolbar(frame) {
+  return frame.evaluate(() => {
     const editable = document.querySelector('ve-editable-rich-text');
     const toolbar = editable.querySelector('.ck-toolbar') ?? document.querySelector('.ck-toolbar');
     if (toolbar === null) {
       return null;
     }
     const box = toolbar.getBoundingClientRect();
+    const editor = editable.querySelector('.ck-editor');
 
     return {
       top: box.top,
+      left: box.left,
+      right: box.right,
+      bottom: box.bottom,
       height: box.height,
       width: box.width,
+      viewport: {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight},
       buttons: toolbar.querySelectorAll('button').length,
-      flippedBelow: editable.querySelector('.ck-editor')?.classList.contains('ve-toolbar-below') === true,
+      side: editor?.classList.contains('ve-toolbar-inside') ? 'inside' : editor?.classList.contains('ve-toolbar-below') ? 'below' : 'above',
       // While the editable has focus the patch lifts `overflow: hidden` off
       // every ancestor, otherwise the floating toolbar is clipped away.
       clippingAncestors: (() => {
@@ -308,13 +304,52 @@ test('the rich-text toolbar stays visible on focus, also near the viewport top',
       })(),
     };
   });
+}
 
+function expectToolbarInsideViewport(placement) {
   expect(placement, 'a CKEditor toolbar exists once the editable has focus').not.toBeNull();
   expect(placement.height, 'the toolbar has a rendered height').toBeGreaterThan(0);
   expect(placement.width, 'the toolbar has a rendered width').toBeGreaterThan(0);
   expect(placement.buttons, 'the toolbar shows its buttons').toBeGreaterThan(0);
   expect(placement.top, 'the toolbar is not cut off above the viewport').toBeGreaterThan(-1);
+  expect(placement.left, 'the toolbar is not cut off left of the viewport').toBeGreaterThan(-1);
+  expect(placement.right, 'the toolbar does not run past the right edge of the viewport').toBeLessThanOrEqual(placement.viewport.width);
+  expect(placement.bottom, 'the toolbar does not run past the bottom edge of the viewport').toBeLessThanOrEqual(placement.viewport.height);
   expect(placement.clippingAncestors, 'no ancestor clips the floating toolbar while the editable has focus').toBe(0);
+}
+
+test('the rich-text toolbar stays visible on focus, also near the viewport top', async ({page}) => {
+  const count = await frame.evaluate(() => document.querySelectorAll('ve-editable-rich-text').length);
+  test.skip(count === 0, 'the test page renders no rich-text editable');
+
+  // Scroll the editable right under the top edge of the edit frame, the
+  // position where a toolbar placed above the editable would be cut off.
+  await frame.evaluate(() => document.querySelector('ve-editable-rich-text').scrollIntoView({block: 'start'}));
+  await page.waitForTimeout(1500);
+
+  // CKEditor only builds its toolbar on a real focus change, so this has to be
+  // an actual click, not element.focus().
+  await frame.locator('ve-editable-rich-text').first().click({force: true});
+  await page.waitForTimeout(3000);
+
+  expectToolbarInsideViewport(await measureToolbar(frame));
+  await page.waitForTimeout(500);
+});
+
+test('the rich-text toolbar stays visible near the bottom edge of the viewport', async ({page}) => {
+  const count = await frame.evaluate(() => document.querySelectorAll('ve-editable-rich-text').length);
+  test.skip(count === 0, 'the test page renders no rich-text editable');
+
+  // The editable's bottom on the bottom edge of the edit frame: a toolbar
+  // flipped below it would be below the fold.
+  await frame.evaluate(() => document.querySelector('ve-editable-rich-text').scrollIntoView({block: 'end'}));
+  await page.waitForTimeout(1500);
+  await frame.locator('ve-editable-rich-text').first().click({force: true});
+  await page.waitForTimeout(3000);
+
+  const placement = await measureToolbar(frame);
+  expectToolbarInsideViewport(placement);
+  expect(placement.side, 'with the editable at the bottom the toolbar sits above it').toBe('above');
   await page.waitForTimeout(500);
 });
 

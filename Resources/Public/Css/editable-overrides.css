@@ -17,12 +17,20 @@ ve-editable-rich-text:focus-within {
   z-index: 2147482999 !important;
 }
 
-/* Upstream stretches the toolbar across the editable (left: 0; right: 0);
-   size it to its content instead so it stays readable on wide elements. */
+/* Upstream stretches the toolbar across the editable (left: 0; right: 0) and
+   pins it above (bottom: 100%). Size it to its content instead, and let
+   visual-editor-patches.js drive where it goes through three custom
+   properties set on the .ck-editor: --ve-toolbar-left shifts it sideways so
+   it ends inside the viewport, --ve-toolbar-max-width wraps it before it can
+   run past the viewport, --ve-toolbar-top places it in the "inside" case.
+   Without the script the toolbar behaves as before: above, left-aligned. */
 ve-editable-rich-text .ck-editor__top {
+  --ve-toolbar-gap: 10px; /* mirrors TOOLBAR_GAP in Shared/toolbar-placement.js */
   right: auto !important;
+  left: var(--ve-toolbar-left, 0px) !important;
   width: max-content !important;
-  max-width: min(96vw, 960px) !important;
+  max-width: var(--ve-toolbar-max-width, min(96vw, 960px)) !important;
+  margin-bottom: var(--ve-toolbar-gap) !important;
   z-index: 2147483000 !important;
 }
 
@@ -31,7 +39,16 @@ ve-editable-rich-text .ck-editor__top {
 ve-editable-rich-text .ck-editor.ve-toolbar-below .ck-editor__top {
   bottom: auto !important;
   top: 100% !important;
-  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  margin-top: var(--ve-toolbar-gap) !important;
+}
+
+/* Set when neither side has room - the editable fills the viewport - so the
+   toolbar lies over its first lines instead of leaving the viewport. */
+ve-editable-rich-text .ck-editor.ve-toolbar-inside .ck-editor__top {
+  bottom: auto !important;
+  top: var(--ve-toolbar-top, 0px) !important;
+  margin: 0 !important;
 }
 
 ve-editable-rich-text .ck-editor__top .ck-toolbar,

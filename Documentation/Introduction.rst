@@ -41,7 +41,8 @@ Field chooser
 Editor UI bridges
     A floating link button for TCA ``type=link`` fields (``f:render.link``),
     a CKEditor toolbar that lifts ``overflow: hidden`` off its ancestors and
-    flips below the editable near the top of the viewport, the backend's
+    stays inside the viewport (above, below or over the editable, never past
+    an edge), the backend's
     theme (colours, light or dark scheme, font) carried into the edit frame,
     and a partial element refresh that swaps only the changed elements after
     a save instead of reloading the frame.
