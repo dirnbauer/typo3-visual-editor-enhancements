@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] — 2026-09-25
+
+### Fixed
+
+- **The rich-text toolbar stays inside the viewport.** The Visual Editor
+  pins the CKEditor toolbar above the editable, anchored to its left edge;
+  in the right-hand card of a row it ran past the right edge of the edit
+  frame, so the last groups of buttons could not be reached, and a toolbar
+  flipped below an editable near the bottom vanished below the fold. The
+  toolbar now goes above the editable when there is room, below it when
+  there is not, and over its first lines when the editable fills the
+  viewport; it is shifted sideways so it ends inside the viewport, wraps
+  before it can outgrow it, and keeps a 10px gap to the editable's box. It
+  is placed again on scroll and resize, and when its own size changes. The
+  geometry is `Shared/toolbar-placement.js`, covered by Node tests.
+
 ## [1.3.0] — 2026-09-25
 
 ### Added
