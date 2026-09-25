@@ -1,0 +1,6 @@
+"pages",,,,,,,,,,
+,"uid","pid","sorting","deleted","hidden","title","slug","doktype","is_siteroot","TSconfig"
+,1,0,256,0,0,"Home","/",1,1,""
+,666,1,256,0,0,"Toolbar switched off","/toolbar-off",1,0,"tx_visualeditorenhancements.toolbar.viewModeSelector = 0
+tx_visualeditorenhancements.toolbar.autoSave = 0"
+,667,1,512,0,0,"Toolbar as delivered","/toolbar-default",1,0,""

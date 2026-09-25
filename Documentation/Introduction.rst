@@ -46,6 +46,11 @@ Editor UI bridges
     and a partial element refresh that swaps only the changed elements after
     a save instead of reloading the frame.
 
+*   **Toolbar switches.** Page TSconfig takes the single/multi-language view
+    switch and the autosave toggle out of the module's toolbar, for a page
+    tree or - through TSconfig conditions - for a user group. The Visual
+    Editor itself has no setting for either.
+
 ..  _introduction-scope:
 
 What it is not

@@ -174,6 +174,47 @@ The Visual Editor's own placeholders (``__COL_POS__``, ``__UID_PID__``,
 ``__TX_CONTAINER_PARENT__``) and its ``returnUrl`` are preserved unless a key
 of the same name is set here. Without this TSconfig nothing changes.
 
+..  _configuration-toolbar:
+
+Module toolbar
+==============
+
+The Visual Editor has no setting for the controls in the toolbar of
+:guilabel:`Web > Edit`: the autosave toggle appears whenever EXT:workspaces is
+installed, the *single language / multi language* view switch whenever the
+page has translations. Both can be taken out with the page TSconfig of the
+edited page:
+
+..  code-block:: typoscript
+    :caption: Page TSconfig
+
+    tx_visualeditorenhancements.toolbar {
+      # The "single language / multi language" view switch (default: 1)
+      viewModeSelector = 0
+
+      # The autosave toggle (default: 1)
+      autoSave = 0
+    }
+
+``viewModeSelector = 0`` removes the switch and keeps the module in its
+single-language view - also for a user who had switched to the multi-language
+view before, so nobody is left in a view they can no longer leave.
+
+``autoSave = 0`` removes the toggle, and with it every automatic save: the
+Visual Editor saves on its own only through that toggle, which defaults to on
+inside a workspace. Changes are then written by the :guilabel:`Save` button
+alone.
+
+Both keys default to on, and a TSconfig condition keeps a control for some
+users:
+
+..  code-block:: typoscript
+
+    tx_visualeditorenhancements.toolbar.autoSave = 0
+    [backend.user.isAdmin]
+      tx_visualeditorenhancements.toolbar.autoSave = 1
+    [END]
+
 ..  _configuration-previews:
 
 Previews

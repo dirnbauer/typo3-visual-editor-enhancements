@@ -165,6 +165,16 @@ listened to by ``NewContentWizardParameterListener``, which merges page
 TSconfig into the wizard parameters (:ref:`configuration-wizard`). Register
 your own listener after it if you need to react to the result.
 
+Core's ``ModifyButtonBarEvent`` is listened to by ``PageEditToolbarListener``
+on the ``web_edit`` route only. It removes the autosave toggle (the
+``GenericButton`` tagged ``ve-auto-save-toggle``) and the view-mode switch
+(the module's doc-header menu, which Core renders as a ``DropDownButton``
+whose links carry ``viewMode``) when the page TSconfig says so
+(:ref:`configuration-toolbar`). ``PageEditViewModeMiddleware``, registered
+after Core's module validator, sets the request's ``ModuleData`` back to the
+single-language view while the switch is hidden; the module persists that
+data itself.
+
 ..  _developer-configuration-pipeline:
 
 How a feature is switched on
@@ -178,7 +188,8 @@ Three layers decide it, and all three have to agree:
 #.  the backend user's own setting from the *Visual editor* tab of User
     settings, stored in ``be_users.uc``,
 #.  for the field chooser, the page TSconfig of the edited page, resolved by
-    ``Service\FieldChooserConfigurationService``.
+    ``Service\FieldChooserConfigurationService``; for the module toolbar the
+    same page TSconfig, resolved by ``Service\ToolbarConfigurationService``.
 
 ``Service\FrontendConfiguration`` combines them into the object that
 ``EditModeEnhancementsMiddleware`` inlines as

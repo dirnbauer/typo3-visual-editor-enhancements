@@ -5,11 +5,21 @@ declare(strict_types=1);
 use Webconsulting\VisualEditorEnhancements\Middleware\BackendEnhancementsMiddleware;
 use Webconsulting\VisualEditorEnhancements\Middleware\EditModeEnhancementsMiddleware;
 use Webconsulting\VisualEditorEnhancements\Middleware\FieldOptionsMiddleware;
+use Webconsulting\VisualEditorEnhancements\Middleware\PageEditViewModeMiddleware;
 
 return [
     'backend' => [
         'webconsulting/visual-editor-enhancements/backend-assets' => [
             'target' => BackendEnhancementsMiddleware::class,
+            'after' => [
+                'typo3/cms-backend/backend-module-validator',
+            ],
+            'before' => [
+                'typo3/cms-core/response-propagation',
+            ],
+        ],
+        'webconsulting/visual-editor-enhancements/page-edit-view-mode' => [
+            'target' => PageEditViewModeMiddleware::class,
             'after' => [
                 'typo3/cms-backend/backend-module-validator',
             ],

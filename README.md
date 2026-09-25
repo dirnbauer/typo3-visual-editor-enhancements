@@ -17,6 +17,9 @@ without forking it.
   (`f:render.link`), a CKEditor toolbar that survives `overflow: hidden`
   ancestors and the top of the viewport, the backend's theme in the edit
   frame, and a partial element refresh after saving.
+- **Toolbar switches** — page TSconfig takes the single/multi-language view
+  switch and the autosave toggle out of the *Web > Edit* toolbar, per page
+  tree or per user group.
 
 The panels and buttons look like the TYPO3 backend, not like the site they
 float over: the backend frame hands its resolved design tokens (theme, light
@@ -78,6 +81,10 @@ tx_visualeditorenhancements.fieldChooser {
 
 # Wizard parameters, through the Visual Editor 1.10.0 extension point
 tx_visualeditorenhancements.newContentWizard.parameters.defVals.tt_content.header_layout = 2
+
+# Web > Edit toolbar: no single/multi-language view switch, no autosave toggle
+tx_visualeditorenhancements.toolbar.viewModeSelector = 0
+tx_visualeditorenhancements.toolbar.autoSave = 0
 ```
 
 The element library additionally needs a **catalog provider** extension that

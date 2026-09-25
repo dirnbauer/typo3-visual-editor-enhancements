@@ -8,8 +8,8 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.2.0 is audited against
-**friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
+of it is audited against a concrete upstream version. 1.2.0 and 1.3.0 are
+audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
 published version at release time; the test suites run against it.
 
 1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
@@ -148,6 +148,20 @@ Feature audit against 1.10.3
             (``requestTheme``/``veTheme``, see :ref:`developer-theme`), so
             nothing upstream is patched for it.
 
+    *   -   Toolbar switches
+        -   New in 1.3.0
+        -   1.10.3 ``PageEditController`` adds the autosave toggle whenever
+            EXT:workspaces is installed and the view-mode menu whenever the
+            page has translations, with no setting for either. Both end up in
+            Core's button bar - the toggle as the ``GenericButton`` tagged
+            ``ve-auto-save-toggle``, the menu as the ``DropDownButton`` Core
+            builds from the doc-header menu registry - so Core's
+            ``ModifyButtonBarEvent`` removes them without a patch. The
+            single-language pin relies on the module reading ``viewMode``
+            from its ``ModuleData`` (``1`` = single language since the view
+            was introduced). Should upstream grow a setting of its own, this
+            listener becomes redundant and can go.
+
 ..  _compatibility-not-here:
 
 What lives elsewhere
@@ -173,7 +187,7 @@ Version support
         -   PHP
         -   Visual Editor
 
-    *   -   1.2.x
+    *   -   1.2.x, 1.3.x
         -   14.3.7+
         -   8.4, 8.5
         -   1.10.2+ (audited: 1.10.3)
@@ -191,6 +205,10 @@ Version support
 Upgrading from 0.8 requires no configuration change. The only externally
 visible move is the ``f:render.link`` ViewHelper's PHP namespace, which
 templates never reference by class name.
+
+Upgrading from 1.2 requires no configuration change: the two toolbar keys
+(:ref:`configuration-toolbar`) default to on, so the toolbar looks as before
+until a page TSconfig switches something off.
 
 Upgrading from 1.1 requires no configuration change. The chrome now draws
 its colours from the backend (see :ref:`developer-theme`); a site stylesheet

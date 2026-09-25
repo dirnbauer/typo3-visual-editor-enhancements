@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-09-25
+
+### Added
+
+- **Toolbar switches.** Page TSconfig takes two controls out of the
+  *Web > Edit* toolbar the Visual Editor has no setting for:
+  `tx_visualeditorenhancements.toolbar.viewModeSelector = 0` removes the
+  single/multi-language view switch and keeps the module in its
+  single-language view (also for a user who had switched to the
+  multi-language view before), `tx_visualeditorenhancements.toolbar.autoSave
+  = 0` removes the autosave toggle, and with it every automatic save. Both
+  default to on. Done through Core's `ModifyButtonBarEvent`
+  (`PageEditToolbarListener`) and a small backend middleware
+  (`PageEditViewModeMiddleware`), nothing upstream patched.
+
+### Changed
+
+- The "is this the Visual Editor module" check moved from the backend
+  assets middleware into `Service\PageEditModuleRequest`, shared by the
+  listener and both backend middlewares.
+
 ## [1.2.1] — 2026-09-25
 
 ### Fixed

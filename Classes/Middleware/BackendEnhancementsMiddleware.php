@@ -8,10 +8,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use TYPO3\CMS\Backend\Module\ModuleInterface;
-use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use Webconsulting\VisualEditorEnhancements\Service\PageEditModuleRequest;
 
 /**
  * Loads the backend-frame bridge (link browser modal, notifications, accent
@@ -21,29 +20,18 @@ final readonly class BackendEnhancementsMiddleware implements MiddlewareInterfac
 {
     public function __construct(
         private PageRenderer $pageRenderer,
+        private PageEditModuleRequest $moduleRequest,
     ) {}
 
     #[\Override]
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if ($this->isVisualEditorModuleRequest($request)) {
+        if ($this->moduleRequest->isPageEditModule($request)) {
             $this->pageRenderer->getJavaScriptRenderer()->addJavaScriptModuleInstruction(
                 JavaScriptModuleInstruction::create('@webconsulting/visual-editor-enhancements/Backend/index.js'),
             );
         }
 
         return $handler->handle($request);
-    }
-
-    private function isVisualEditorModuleRequest(ServerRequestInterface $request): bool
-    {
-        $module = $request->getAttribute('module');
-        if ($module instanceof ModuleInterface && $module->getIdentifier() === 'web_edit') {
-            return true;
-        }
-
-        $route = $request->getAttribute('route');
-
-        return $route instanceof Route && $route->getOption('_identifier') === 'web_edit';
     }
 }
