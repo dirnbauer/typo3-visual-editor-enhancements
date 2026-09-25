@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-09-25
+
+### Fixed
+
+- The element library's "+" button no longer moves when the panel opens.
+  It slid 6px down and 2px left while turning into the "x"; now only the
+  icon moves. It grows a little under the pointer, turns with a spring
+  that overshoots and settles, and the button dips in place while
+  pressed. With reduced motion the icon still turns, without the rest.
+
 ## [1.2.0] — 2026-09-23
 
 Audited against `friendsoftypo3/visual-editor` **1.10.3** (21 September 2026).
