@@ -54,6 +54,15 @@
     "lint:php": "find Classes Configuration Tests ext_localconf.php -name '*.php' -print0 | xargs -0 -n1 -P4 php -l",
     "phpstan": "phpstan analyse --memory-limit=512M",
     "test": ["@test:unit", "@test:js"],
+    "test:e2e": [
+      "Composer\\Config::disableProcessTimeout",
+      "@test:e2e:install",
+      "node_modules/.bin/playwright test --config Tests/E2E"
+    ],
+    "test:e2e:install": [
+      "npm install --prefix . --no-save --no-package-lock --no-audit --no-fund --silent $(node -p \"Object.entries(require('./Tests/E2E/package.json').devDependencies).map(([name, version]) => name + '@' + version).join(' ')\")",
+      "node_modules/.bin/playwright install chromium"
+    ],
     "test:functional": "phpunit -c Build/phpunit/FunctionalTests.xml",
     "test:js": "node --test 'Tests/JavaScript/*.test.js'",
     "test:unit": "phpunit -c Build/phpunit/UnitTests.xml"

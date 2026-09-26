@@ -14,17 +14,28 @@ TYPO3 instance there.
 | `VEE_BACKEND_USER`     | `admin`                                       | Backend user with access to the Visual Editor module. |
 | `VEE_BACKEND_PASSWORD` | *(empty — must be set)*                       | That user's password. |
 | `VEE_PAGE_ID`          | `666`                                         | A `doktype=1` page that renders content elements, at least one rich-text and one plain-text editable. |
+| `VEE_RTE_PAGE_ID`      | `VEE_PAGE_ID`                                 | The page for the rich-text toolbar specs (tagged `@rte`). Best one with rich-text editables side by side, cards in a row; in the lab that is `505`. |
 | `VEE_SEARCH_TERM`      | `hero`                                        | A term the catalog provider is expected to match. |
 | `VEE_SEARCH_TYPO`      | `heor`                                        | A misspelling of it that should yield a suggestion or a did-you-mean. |
 
 ## Run
 
+From the package root:
+
 ```bash
-cd Tests/E2E
-npm install
-npx playwright install chromium
-VEE_BACKEND_PASSWORD='…' npx playwright test
+VEE_BACKEND_PASSWORD='…' composer test:e2e
 ```
+
+`composer test:e2e` installs Playwright into the package root's
+`node_modules/` (`--no-save`, the version from `Tests/E2E/package.json`),
+fetches Chromium and runs `playwright test --config Tests/E2E`. Run only the
+toolbar specs with `node_modules/.bin/playwright test --config Tests/E2E
+--grep @rte`.
+
+Playwright has to load **this directory's config**: it defines the `setup`
+project that signs in. Started without it - `npx playwright test` in the
+package root - every spec meets the login form; the specs now say so at once
+instead of timing out.
 
 ## What is covered
 
@@ -36,8 +47,10 @@ VEE_BACKEND_PASSWORD='…' npx playwright test
 - lazily loaded previews over the cached `?elPreview` route
 - the field chooser: injected button, `?veFieldOptions` answering with `select`
   **and** `category` fields, popover rendering controls
-- the rich-text toolbar staying visible when the editable sits at the top of
-  the viewport
+- the rich-text toolbar - CKEditor's InlineEditor balloon panel - staying
+  inside the viewport with every button clickable: at the top edge, at the
+  bottom edge (stays above), for the right-hand editable of a row, and for a
+  long text scrolled past its top (pinned to the top of the viewport)
 - plain-text editables being rendered as editable outputs
 
 ## Notes

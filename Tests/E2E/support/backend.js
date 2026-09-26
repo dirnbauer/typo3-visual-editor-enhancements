@@ -21,6 +21,9 @@ export const config = {
   user: process.env.VEE_BACKEND_USER ?? 'admin',
   password: process.env.VEE_BACKEND_PASSWORD ?? '',
   pageId: Number(process.env.VEE_PAGE_ID ?? 666),
+  // The rich-text toolbar specs want rich-text editables side by side (cards
+  // in a row) - a page the general specs do not need. Defaults to pageId.
+  rtePageId: Number(process.env.VEE_RTE_PAGE_ID ?? process.env.VEE_PAGE_ID ?? 666),
   // A term the catalog provider is expected to match, and a misspelling of it
   // that it is expected to answer with a suggestion or a did-you-mean. Both
   // depend on the site's own element inventory, hence the override.
@@ -91,14 +94,23 @@ async function isSignedIn(page, timeout = 60000) {
 }
 
 /**
- * Opens the Visual Editor module on the configured page and returns the
- * innermost frame, the one that renders the frontend in edit mode.
+ * Opens the Visual Editor module on a page and returns the innermost frame,
+ * the one that renders the frontend in edit mode.
+ *
+ * Without a backend session TYPO3 answers with its login form. That is said
+ * at once instead of waiting minutes for a frame that cannot appear: it means
+ * the `setup` project did not run, which happens when Playwright is started
+ * without this directory's config (see README.md, `composer test:e2e`).
  *
  * @param {import('@playwright/test').Page} page
+ * @param {number} [pageId]
  * @return {Promise<import('@playwright/test').Frame>}
  */
-export async function openEditFrame(page) {
-  await page.goto(`${config.baseUrl}/typo3/module/web/edit?id=${config.pageId}`, {waitUntil: 'domcontentloaded'});
+export async function openEditFrame(page, pageId = config.pageId) {
+  await page.goto(`${config.baseUrl}/typo3/module/web/edit?id=${pageId}`, {waitUntil: 'domcontentloaded'});
+  if (page.url().includes('/typo3/login') || await page.locator('#t3-username').count() > 0) {
+    throw new Error('not signed in to the TYPO3 backend - run the suite with `composer test:e2e` (or from Tests/E2E) so the setup project signs in first');
+  }
   let frame = null;
   for (let i = 0; i < 90 && frame === null; i++) {
     await page.waitForTimeout(2000);

@@ -8,7 +8,11 @@ import {test as setup} from '@playwright/test';
 import {AUTH_STATE, config, login} from './support/backend.js';
 
 setup('authenticate', async ({page}) => {
-  setup.skip(config.password === '', 'VEE_BACKEND_PASSWORD is not set');
+  // Failing here stops the run with one clear message; skipping would let
+  // every spec run without a session and time out on the login form.
+  if (config.password === '') {
+    throw new Error('VEE_BACKEND_PASSWORD is not set - the suite cannot sign in to the TYPO3 backend');
+  }
   await login(page);
   await page.context().storageState({path: AUTH_STATE});
 });
