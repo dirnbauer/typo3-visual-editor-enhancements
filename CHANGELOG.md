@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] — 2026-09-26
+
+### Changed
+
+- **The rich-text toolbar is one row.** The buttons that do not fit the
+  field's width go into CKEditor's "Show more items" (⋮) menu instead of
+  wrapping into further rows - CKEditor's default, and how its InlineEditor
+  behaves. The floating toolbar is built the way the InlineEditor builds its
+  own (a floating `ToolbarView` with grouping on, filled from the editor's
+  toolbar configuration and registered with `addToolbar()` for focus and
+  Alt+F10): the ClassicEditor's toolbar, which TYPO3 configures to wrap,
+  cannot switch to grouping once built. The backend's form editor keeps its
+  wrapping toolbar.
+- The "Show more items" menu opens on the side that fits the viewport
+  (`panelPosition: 'auto'`, CKEditor's default for every other dropdown);
+  ToolbarView pins it to open leftwards, which ran off-screen for a field at
+  the left edge.
+
 ## [1.3.2] — 2026-09-26
 
 ### Changed
