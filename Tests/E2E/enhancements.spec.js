@@ -333,8 +333,12 @@ function measureToolbar(target, index) {
     const box = toolbar.getBoundingClientRect();
     const editableBox = editable.getBoundingClientRect();
     const viewport = {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight};
-    const buttons = [...toolbar.querySelectorAll('.ck-toolbar__items > *')]
-      .filter((item) => !item.matches('.ck-toolbar__separator, .ck-toolbar__line-break'));
+    // The one row: the items that fit plus the "Show more items" button.
+    const more = toolbar.querySelector(':scope > .ck-toolbar__grouped-dropdown');
+    const buttons = [...toolbar.querySelectorAll(':scope > .ck-toolbar__items > *')]
+      .filter((item) => !item.matches('.ck-toolbar__separator, .ck-toolbar__line-break'))
+      .concat(more === null ? [] : [more]);
+    // A CKEditor tooltip on top is transient hover UI, not a covered button.
     const clickable = buttons.filter((item) => {
       const rect = item.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
@@ -344,7 +348,7 @@ function measureToolbar(target, index) {
       }
       const hit = document.elementFromPoint(x, y);
 
-      return hit !== null && item.contains(hit);
+      return hit !== null && (item.contains(hit) || hit.closest('.ck-tooltip') !== null);
     });
 
     return {
@@ -358,6 +362,8 @@ function measureToolbar(target, index) {
       viewport,
       buttons: buttons.length,
       clickable: clickable.length,
+      rows: new Set(buttons.map((item) => Math.round(item.getBoundingClientRect().top / 6))).size,
+      overflowMenu: more !== null,
       // 'over' is InlineEditor's sticky case: pinned to the top of the
       // viewport while a long editable is scrolled past its top.
       side: box.bottom <= editableBox.top ? 'above' : box.top >= editableBox.bottom ? 'below' : 'over',
@@ -374,6 +380,46 @@ function expectToolbarInsideViewport(placement) {
   expect(placement.right, 'the toolbar does not run past the right edge of the viewport').toBeLessThanOrEqual(placement.viewport.width);
   expect(placement.bottom, 'the toolbar does not run past the bottom edge of the viewport').toBeLessThanOrEqual(placement.viewport.height);
   expect(placement.clickable, 'every toolbar button can be clicked').toBe(placement.buttons);
+  expect(placement.rows, 'the toolbar is one row').toBe(1);
+}
+
+/**
+ * Opens "Show more items" when the toolbar has one and checks its panel: it
+ * opens on the side that fits, inside the viewport, every item clickable.
+ */
+async function expectOverflowMenuInsideViewport(page) {
+  const button = frame.locator('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__grouped-dropdown > button');
+  if (await button.count() === 0) {
+    return;
+  }
+  await button.click();
+  await page.waitForTimeout(500);
+  const menu = await frame.evaluate(() => {
+    const panel = document.querySelector('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__grouped-dropdown .ck-dropdown__panel-visible');
+    if (panel === null) {
+      return null;
+    }
+    const viewport = {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight};
+    const box = panel.getBoundingClientRect();
+    const items = [...panel.querySelectorAll('.ck-toolbar__items > *')]
+      .filter((item) => !item.matches('.ck-toolbar__separator, .ck-toolbar__line-break'));
+    const clickable = items.filter((item) => {
+      const rect = item.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+      return rect.width > 0 && hit !== null && (item.contains(hit) || hit.closest('.ck-tooltip') !== null);
+    });
+
+    return {
+      inside: box.left >= 0 && box.top >= 0 && box.right <= viewport.width && box.bottom <= viewport.height,
+      items: items.length,
+      clickable: clickable.length,
+    };
+  });
+  await page.keyboard.press('Escape');
+  expect(menu, 'the "Show more items" menu opens').not.toBeNull();
+  expect(menu.inside, 'the "Show more items" menu opens inside the viewport').toBe(true);
+  expect(menu.clickable, 'every item in the "Show more items" menu can be clicked').toBe(menu.items);
 }
 
 test('the rich-text toolbar stays in view for an editable at the top edge of the viewport', {tag: '@rte'}, async ({page}) => {
@@ -389,6 +435,7 @@ test('the rich-text toolbar stays in view for an editable at the top edge of the
   if (placement.editor.top < placement.height + 18) {
     expect(placement.side, 'no room above, so the toolbar goes below or over the editable').not.toBe('above');
   }
+  await expectOverflowMenuInsideViewport(page);
 });
 
 test('the rich-text toolbar stays above an editable at the bottom edge of the viewport', {tag: '@rte'}, async ({page}) => {
@@ -406,7 +453,7 @@ test('the rich-text toolbar stays above an editable at the bottom edge of the vi
   }
 });
 
-test('the rich-text toolbar of the right-hand editable stays inside the viewport', {tag: '@rte'}, async ({page}) => {
+test('the rich-text toolbar of the right-hand editable and its overflow menu stay inside the viewport', {tag: '@rte'}, async ({page}) => {
   const index = await pickRichText(frame, 'right');
   test.skip(index < 0, `page ${config.rtePageId} renders no rich-text editable`);
 
@@ -416,6 +463,7 @@ test('the rich-text toolbar of the right-hand editable stays inside the viewport
   await scrollRichText(page, index, 'center');
 
   expectToolbarInsideViewport(await measureToolbar(frame, index));
+  await expectOverflowMenuInsideViewport(page);
 });
 
 test('the rich-text toolbar stays at the top of the viewport while a long text is scrolled past its top', {tag: '@rte'}, async ({page}) => {

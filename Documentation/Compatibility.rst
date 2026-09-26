@@ -46,7 +46,12 @@ Feature audit against 1.10.3
             shown while the editor has focus and pinned to the editable with
             the InlineEditor's positions (CKEditor 47.6
             ``InlineEditorUIView``/``InlineEditorUI``), as wide as the
-            editable. TYPO3 ships no ``@ckeditor/ckeditor5-editor-inline``,
+            editable. Since 1.3.3 that toolbar is built the way the
+            InlineEditor builds its own - a floating ``ToolbarView`` with
+            grouping on, one row plus "Show more items" - because the
+            ClassicEditor's toolbar cannot switch from TYPO3's wrapping mode
+            once built; its overflow dropdown opens with ``panelPosition:
+            'auto'``, CKEditor's default for every other dropdown. TYPO3 ships no ``@ckeditor/ckeditor5-editor-inline``,
             so the wiring is repeated with the classes from
             ``@ckeditor/ckeditor5-ui`` and ``-utils``. It is set up on the
             first focus of each field - by then the editor exists, whichever

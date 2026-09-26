@@ -47,10 +47,12 @@ instead of timing out.
 - lazily loaded previews over the cached `?elPreview` route
 - the field chooser: injected button, `?veFieldOptions` answering with `select`
   **and** `category` fields, popover rendering controls
-- the rich-text toolbar - CKEditor's InlineEditor balloon panel - staying
-  inside the viewport with every button clickable: at the top edge, at the
-  bottom edge (stays above), for the right-hand editable of a row, and for a
-  long text scrolled past its top (pinned to the top of the viewport)
+- the rich-text toolbar - CKEditor's InlineEditor balloon panel, one row
+  with "Show more items" - staying inside the viewport with every button
+  clickable: at the top edge, at the bottom edge (stays above), for the
+  right-hand editable of a row, and for a long text scrolled past its top
+  (pinned to the top of the viewport); its "Show more items" menu opens
+  inside the viewport too
 - plain-text editables being rendered as editable outputs
 
 ## Notes

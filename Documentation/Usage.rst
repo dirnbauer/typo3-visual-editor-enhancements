@@ -71,9 +71,10 @@ Rich text
 
 The Visual Editor edits rich text with CKEditor's ClassicEditor and shows
 its toolbar floating above the field. This extension gives it the toolbar of
-CKEditor's own InlineEditor instead: a balloon panel, as wide as the field,
-that CKEditor pins to it - above when there is room, at the top of the
-viewport while a long text is scrolled past its top, below otherwise. The
+CKEditor's own InlineEditor instead: one row, as wide as the field, with the
+buttons that do not fit behind "Show more items" (⋮), in a balloon panel
+that CKEditor pins to the field - above when there is room, at the top of
+the viewport while a long text is scrolled past its top, below otherwise. The
 panel lives in ``<body>``, so an ``overflow: hidden`` ancestor - which
 nearly every card, teaser or slider has - cannot clip it, and it never ends
 up off-screen.
