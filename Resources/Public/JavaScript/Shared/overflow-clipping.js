@@ -1,11 +1,10 @@
 /**
  * Temporarily lifts `overflow: hidden|clip` off an element's ancestors.
  *
- * Both floating affordances of this extension render OUTSIDE the box they
- * belong to: the CKEditor toolbar floats above its editable, the link button
- * floats next to its anchor. A single `overflow: hidden` anywhere up the tree
- * - every card, teaser and slider has one - clips them away, which reads as
- * "the toolbar has no icons to click" rather than as a CSS problem.
+ * The link button renders OUTSIDE the box it belongs to, floating next to its
+ * anchor. A single `overflow: hidden` anywhere up the tree - every card,
+ * teaser and slider has one - clips it away. (The rich-text toolbar used this
+ * too until 1.3.2; it now lives in a CKEditor balloon panel in <body>.)
  *
  * Lifting is scoped to the interaction: lift() on focus, restore() on blur,
  * so the page keeps its own clipping the rest of the time. Both calls are

@@ -42,15 +42,16 @@ and pages where the user may not create content.
 The rich-text toolbar has no icons to click
 ===========================================
 
-Almost always an ancestor with ``overflow: hidden`` or ``overflow: clip``
-clipping the floating toolbar away, or an editable so close to the top of the
-viewport that the toolbar renders off-screen. This extension handles both
-while the field has focus (:ref:`usage-rte`), but the toolbar only appears on
-a *real* focus event - a synthetic click from an automated test will not open
-it.
+With the Visual Editor alone that is an ancestor with ``overflow: hidden``
+or ``overflow: clip`` clipping the simulated toolbar away, or an editable so
+close to the top of the viewport that the toolbar renders off-screen. Since
+1.3.2 the toolbar is CKEditor's InlineEditor balloon panel in ``<body>``
+(:ref:`usage-rte`), which no ancestor can clip and CKEditor keeps in view.
+It only appears on a *real* focus event - a synthetic click from an
+automated test will not open it.
 
-If it still happens, check for an ancestor whose clipping cannot be lifted,
-for example one with ``contain: paint`` or a transformed containing block.
+If it still happens, check the site's stylesheets for rules on
+``.ck-balloon-panel`` or ``.ck-toolbar`` that hide or move them.
 
 ..  _known-problems-field-chooser-empty:
 

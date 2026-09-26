@@ -37,8 +37,9 @@ picking a name out of a wizard list. A **field chooser** that opens the
 category - in a popover, grouped like the backend form, staged on the same
 pending-change list as an inline text edit. And a set of small **editor UI
 bridges** that keep the editing chrome usable: a link button for TCA
-``type=link`` fields, a CKEditor toolbar that does not disappear behind an
-``overflow: hidden`` ancestor, and a partial element refresh after saving.
+``type=link`` fields, CKEditor's inline toolbar for rich-text fields, which
+stays in view and cannot be clipped, and a partial element refresh after
+saving.
 
 ----
 

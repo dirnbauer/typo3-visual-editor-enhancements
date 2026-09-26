@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'dependencies' => ['backend', 'visual_editor'],
+    'dependencies' => ['backend', 'rte_ckeditor', 'visual_editor'],
     'imports' => [
         // Every module of this extension is imported with its .js suffix, so
         // one prefix entry covers the whole directory.

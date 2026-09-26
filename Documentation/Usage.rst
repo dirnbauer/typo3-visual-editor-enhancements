@@ -69,11 +69,13 @@ with ``f:render.text``.
 Rich text
 =========
 
-The CKEditor toolbar floats above the editable. Two things this extension
-fixes there, both invisible when they work: an ``overflow: hidden`` ancestor -
-which nearly every card, teaser or slider has - would clip the toolbar away,
-so the clipping is lifted for as long as the field has focus; and an editable
-close to the top of the viewport gets its toolbar below instead of above,
-where it would be off-screen.
+The Visual Editor edits rich text with CKEditor's ClassicEditor and shows
+its toolbar floating above the field. This extension gives it the toolbar of
+CKEditor's own InlineEditor instead: a balloon panel, as wide as the field,
+that CKEditor pins to it - above when there is room, at the top of the
+viewport while a long text is scrolled past its top, below otherwise. The
+panel lives in ``<body>``, so an ``overflow: hidden`` ancestor - which
+nearly every card, teaser or slider has - cannot clip it, and it never ends
+up off-screen.
 
 If a toolbar still looks empty, see :ref:`known-problems`.

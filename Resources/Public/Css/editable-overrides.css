@@ -9,52 +9,11 @@
  * backend form opened in a modal above the edit frame, for example.
  */
 
-/* Raise the focused editable onto its own stacking layer so the floating
-   toolbar is not covered by later siblings. */
-ve-editable-rich-text .ck-editor:has(.ck-focused),
-ve-editable-rich-text:focus-within {
-  position: relative;
-  z-index: 2147482999 !important;
-}
-
-/* Upstream stretches the toolbar across the editable (left: 0; right: 0) and
-   pins it above (bottom: 100%). Size it to its content instead, and let
-   visual-editor-patches.js drive where it goes through three custom
-   properties set on the .ck-editor: --ve-toolbar-left shifts it sideways so
-   it ends inside the viewport, --ve-toolbar-max-width wraps it before it can
-   run past the viewport, --ve-toolbar-top places it in the "inside" case.
-   Without the script the toolbar behaves as before: above, left-aligned. */
-ve-editable-rich-text .ck-editor__top {
-  --ve-toolbar-gap: 10px; /* mirrors TOOLBAR_GAP in Shared/toolbar-placement.js */
-  right: auto !important;
-  left: var(--ve-toolbar-left, 0px) !important;
-  width: max-content !important;
-  max-width: var(--ve-toolbar-max-width, min(96vw, 960px)) !important;
-  margin-bottom: var(--ve-toolbar-gap) !important;
-  z-index: 2147483000 !important;
-}
-
-/* Set by visual-editor-patches.js when the editable sits too close to the top
-   of the viewport for a toolbar floating above it. */
-ve-editable-rich-text .ck-editor.ve-toolbar-below .ck-editor__top {
-  bottom: auto !important;
-  top: 100% !important;
-  margin-bottom: 0 !important;
-  margin-top: var(--ve-toolbar-gap) !important;
-}
-
-/* Set when neither side has room - the editable fills the viewport - so the
-   toolbar lies over its first lines instead of leaving the viewport. */
-ve-editable-rich-text .ck-editor.ve-toolbar-inside .ck-editor__top {
-  bottom: auto !important;
-  top: var(--ve-toolbar-top, 0px) !important;
-  margin: 0 !important;
-}
-
-ve-editable-rich-text .ck-editor__top .ck-toolbar,
-ve-editable-rich-text .ck-editor__top .ck-toolbar > .ck-toolbar__items {
-  flex-wrap: wrap;
-  row-gap: var(--ck-spacing-small, 4px);
+/* Since 1.3.2 the toolbar of a focused field moves into a CKEditor balloon
+   panel (visual-editor-patches.js marks the field). Upstream still shows the
+   ClassicEditor's top panel on focus; it is empty then, so it stays hidden. */
+ve-editable-rich-text[data-ve-inline-toolbar] .ck-editor__top {
+  display: none !important;
 }
 
 /* Deliberately NOT scoped: CKEditor appends balloon panels and dropdown

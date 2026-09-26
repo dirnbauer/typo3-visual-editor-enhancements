@@ -234,9 +234,8 @@ Layout:
     Frontend/visual-editor-patches.js
                                   the self-detecting upstream patches
     Shared/                       config, DOM helpers, icons, caches,
-                                  overflow-clipping, toolbar-placement (the
-                                  rich-text toolbar's geometry), theme-bridge
-                                  (token hand-over), theme (the --ve-* tokens)
+                                  overflow-clipping, theme-bridge (token
+                                  hand-over), theme (the --ve-* CSS tokens)
 
 The component files stay browsable on purpose: the panel and the popover both
 keep their Lit component in one file and push everything that does not touch
@@ -265,19 +264,21 @@ Tests and quality
     composer test:unit
     composer test:js         # node --test, no dependencies
     composer test:functional # sqlite by default
+    composer test:e2e        # Playwright against a running TYPO3, see below
 
 Functional tests use ``typo3/testing-framework``; CI additionally runs them
 against MariaDB 10.11 by setting the usual ``typo3Database*`` environment
 variables.
 
 :file:`Tests/JavaScript/` covers the Lit-free modules - the search client, the
-fallback filter, the ``?veFieldOptions`` cache, the rich-text toolbar geometry and the reader of
+fallback filter, the ``?veFieldOptions`` cache and the reader of
 ``window.visualEditorEnhancements`` - with the Node test runner, so it needs
 neither a browser nor an :file:`npm install`.
 
 :file:`Tests/E2E/` holds a Playwright suite that drives a **running** TYPO3
 installation through the whole editor surface: the FAB, the ranked search and
 its suggestions, the cached previews, the field chooser with ``select`` and
-``category`` fields, the rich-text toolbar near the top of the viewport and
-the plain-text editables. It is not part of CI - see
-:file:`Tests/E2E/README.md` for the four environment variables it needs.
+``category`` fields, the rich-text toolbar at every edge of the viewport and
+on a long text, and the plain-text editables. It is not part of CI. Run it
+with ``VEE_BACKEND_PASSWORD=… composer test:e2e``; :file:`Tests/E2E/README.md`
+lists the environment variables it reads.

@@ -14,9 +14,10 @@ without forking it.
   editable output. Changes are staged on the editor's pending-change list and
   written by its own save.
 - **Editor UI bridges** — a link button for TCA `type=link` fields
-  (`f:render.link`), a CKEditor toolbar that survives `overflow: hidden`
-  ancestors and stays inside the viewport on every side, the backend's theme
-  in the edit frame, and a partial element refresh after saving.
+  (`f:render.link`), CKEditor's InlineEditor toolbar for rich-text fields (a
+  balloon panel pinned to the field, never clipped, never off-screen), the
+  backend's theme in the edit frame, and a partial element refresh after
+  saving.
 - **Toolbar switches** — page TSconfig takes the single/multi-language view
   switch and the autosave toggle out of the *Web > Edit* toolbar, per page
   tree or per user group.

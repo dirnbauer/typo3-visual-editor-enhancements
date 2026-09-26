@@ -8,8 +8,8 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.2.0, 1.3.0 and
-1.3.1 are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
+of it is audited against a concrete upstream version. 1.2.0 and every
+1.3 release are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
 published version at release time; the test suites run against it.
 
 1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
@@ -33,19 +33,26 @@ Feature audit against 1.10.3
         -   Verdict
         -   Reasoning
 
-    *   -   RTE toolbar placement
+    *   -   RTE toolbar
         -   Keep
-        -   1.10.0 ("Prevent editable text style collisions", PR #122) only
-            scoped :file:`editable.css` selectors. At 1.10.3
-            :file:`ve-editable-rich-text.js` still has no toolbar placement
-            logic at all, and :file:`editable.css` still pins the toolbar to
-            ``bottom: 100%; left: 0`` with no viewport handling and no
-            clipping escape. Since 1.3.1 the patch keeps the toolbar inside
-            the viewport on all four sides - above, below or over the
-            editable, shifted sideways as needed; the geometry is
-            :file:`Shared/toolbar-placement.js`. It self-detects (it looks
-            for ``ve-toolbar-below`` in upstream's ``firstUpdated``) and
-            turns itself off the day upstream ships this.
+        -   At 1.10.3 :file:`ve-editable-rich-text.js` mounts a
+            ClassicEditor (the InlineEditor import is commented out, "TODO
+            fix issues with inline editor"), and :file:`editable.css`
+            "simulates" the InlineEditor by pinning the classic toolbar to
+            ``bottom: 100%`` - cut off at the top of the viewport and by any
+            ``overflow: hidden`` ancestor. Since 1.3.2 the patch gives the
+            ClassicEditor what CKEditor's InlineEditor has: the toolbar moves
+            into a ``BalloonPanelView`` in the editor's body collection,
+            shown while the editor has focus and pinned to the editable with
+            the InlineEditor's positions (CKEditor 47.6
+            ``InlineEditorUIView``/``InlineEditorUI``), as wide as the
+            editable. TYPO3 ships no ``@ckeditor/ckeditor5-editor-inline``,
+            so the wiring is repeated with the classes from
+            ``@ckeditor/ckeditor5-ui`` and ``-utils``. It is set up on the
+            first focus of each field - by then the editor exists, whichever
+            module loaded first - and only acts on a ClassicEditor, so an
+            upstream switch to the InlineEditor turns it off. (1.3.0 and 1.3.1 placed the toolbar with code of their
+            own; 1.3.2 removes it.)
 
     *   -   CKEditor style overrides
         -   Rewrite

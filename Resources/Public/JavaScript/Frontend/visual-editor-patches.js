@@ -1,6 +1,5 @@
-import {createClippingLift} from '@webconsulting/visual-editor-enhancements/Shared/overflow-clipping.js';
-import {ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
-import {placeToolbar, toolbarMaxWidth} from '@webconsulting/visual-editor-enhancements/Shared/toolbar-placement.js';
+import {BalloonPanelView} from '@ckeditor/ckeditor5-ui';
+import {Rect, ResizeObserver, toUnit} from '@ckeditor/ckeditor5-utils';
 
 /**
  * The one place this extension reaches into the Visual Editor's own runtime.
@@ -9,118 +8,120 @@ import {placeToolbar, toolbarMaxWidth} from '@webconsulting/visual-editor-enhanc
  * twice.
  *
  * Audited against friendsoftypo3/visual-editor 1.10.3: ve-editable-rich-text
- * has no toolbar placement logic and editable.css pins the CKEditor toolbar to
- * `bottom: 100%; left: 0` with no viewport handling and no escape from an
- * `overflow: hidden` ancestor - see Documentation/Compatibility.rst.
+ * mounts a ClassicEditor, and editable.css "simulates" CKEditor's
+ * InlineEditor by pinning the classic toolbar above the editable
+ * (`position: absolute; bottom: 100%`). That toolbar is cut off at the top of
+ * the viewport and by every `overflow: hidden` ancestor - see
+ * Documentation/Compatibility.rst.
  */
-patchRichTextToolbarPlacement();
+const toPx = toUnit('px');
 
-function patchRichTextToolbarPlacement() {
-  customElements.whenDefined('ve-editable-rich-text').then(() => {
-    const EditableRichText = customElements.get('ve-editable-rich-text');
-    if (!EditableRichText?.prototype?.firstUpdated || EditableRichText.prototype.firstUpdated.visualEditorEnhancementsWrapped) {
-      return;
-    }
+/**
+ * Space between the toolbar and the editable: the Visual Editor draws a 4px
+ * focus outline outside the editable, plus 4px of air.
+ */
+const TOOLBAR_GAP = 8;
 
-    const currentFirstUpdated = Function.prototype.toString.call(EditableRichText.prototype.firstUpdated);
-    if (currentFirstUpdated.includes('ve-toolbar-below')) {
-      return;
-    }
+// Installed on the first focus of each rich-text field rather than by
+// wrapping the component's firstUpdated: this module and the Visual Editor's
+// load in no fixed order, and when theirs came first no editor on the page got
+// the toolbar. On focus the editor exists, whatever the order was.
+document.addEventListener('focusin', (event) => {
+  const host = event.target instanceof Element ? event.target.closest('ve-editable-rich-text') : null;
+  if (host !== null) {
+    installInlineToolbar(host);
+  }
+}, {capture: true});
 
-    const originalFirstUpdated = EditableRichText.prototype.firstUpdated;
-    const patchedFirstUpdated = async function (...args) {
-      await originalFirstUpdated.apply(this, args);
-      installToolbarPlacement(this);
-    };
-    patchedFirstUpdated.visualEditorEnhancementsWrapped = true;
-    EditableRichText.prototype.firstUpdated = patchedFirstUpdated;
-  });
+const alreadyFocused = document.activeElement?.closest?.('ve-editable-rich-text');
+if (alreadyFocused) {
+  installInlineToolbar(alreadyFocused);
 }
 
 /**
- * The part of the viewport a toolbar can be seen in: the document's client
- * box, which excludes a classic scrollbar (window.innerWidth includes it).
- * @return {{width: number, height: number}}
+ * Gives the ClassicEditor the toolbar of CKEditor's InlineEditor - the editor
+ * editable.css simulates. TYPO3 ships no @ckeditor/ckeditor5-editor-inline,
+ * so this does what InlineEditorUIView and InlineEditorUI (CKEditor 47.6) do,
+ * with CKEditor's own classes: the toolbar moves into a BalloonPanelView in
+ * the editor's body collection - outside the page, where no `overflow:
+ * hidden` ancestor can clip it - which is shown while the editor has focus
+ * and pinned to the editable. CKEditor's positioning picks the side that fits
+ * the viewport and follows scrolling and resizing.
+ *
+ * Only a ClassicEditor has its toolbar in a sticky panel; should upstream
+ * switch to InlineEditor, this does nothing. Runs once per field.
  */
-const visibleViewport = () => ({
-  width: document.documentElement.clientWidth || window.innerWidth,
-  height: document.documentElement.clientHeight || window.innerHeight,
-});
-
-/**
- * While the editable has focus: lift `overflow: hidden` off its ancestors so
- * the floating toolbar is not clipped away, and keep the toolbar inside the
- * viewport - above the editable when there is room, below it otherwise, over
- * its first lines when neither fits, and never past the left or right edge.
- * The geometry is Shared/toolbar-placement.js; the result reaches the CSS in
- * editable-overrides.css as the `ve-toolbar-below` / `ve-toolbar-inside`
- * classes and the `--ve-toolbar-*` custom properties on the .ck-editor.
- */
-function installToolbarPlacement(editableRichText) {
-  if (editableRichText.visualEditorEnhancementsToolbarInstalled) {
+function installInlineToolbar(editableRichText) {
+  const editor = editableRichText.editor;
+  const ui = editor?.ui;
+  const view = ui?.view;
+  const toolbar = view?.toolbar;
+  const editableElement = ui?.getEditableElement();
+  if (editableRichText.visualEditorEnhancementsToolbarInstalled || !toolbar || !view.stickyPanel || !view.body || !editableElement) {
     return;
   }
-
-  const ckEditorEl = editableRichText.querySelector('.ck-editor');
-  const toolbarPanel = ckEditorEl?.querySelector('.ck-editor__top');
-  const focusTracker = editableRichText.editor?.ui?.focusTracker;
-  if (!ckEditorEl || !toolbarPanel || !focusTracker) {
-    return;
-  }
-
   editableRichText.visualEditorEnhancementsToolbarInstalled = true;
-  const clipping = createClippingLift(editableRichText);
+  // editable-overrides.css hides the then empty top panel of exactly these
+  // editors; any other keeps the Visual Editor's own toolbar.
+  editableRichText.setAttribute('data-ve-inline-toolbar', '');
 
-  const place = () => {
-    const viewport = visibleViewport();
-    // The width comes first: it decides how many rows the toolbar wraps
-    // into, and the rows decide whether it still fits above.
-    ckEditorEl.style.setProperty('--ve-toolbar-max-width', `${toolbarMaxWidth(viewport)}px`);
-    const toolbar = (toolbarPanel.querySelector('.ck-toolbar') ?? toolbarPanel).getBoundingClientRect();
-    if (toolbar.width === 0 || toolbar.height === 0) {
-      // Not shown yet (upstream displays it once CKEditor marks the editable
-      // focused); the ResizeObserver below calls again when it is laid out.
-      return;
-    }
+  // InlineEditorUIView#constructor and #render.
+  const panel = new BalloonPanelView(editor.locale);
+  panel.extendTemplate({attributes: {class: 'ck-toolbar-container'}});
+  view.body.add(panel);
+  view.stickyPanel.content.remove(toolbar);
+  panel.content.add(toolbar);
 
-    const editor = ckEditorEl.getBoundingClientRect();
-    const placement = placeToolbar({editor, toolbar, viewport});
-    // The shift is corrected from where the toolbar really is, so a border or
-    // padding on the containing block can never accumulate an error.
-    const shift = parseFloat(ckEditorEl.style.getPropertyValue('--ve-toolbar-left')) || 0;
-    ckEditorEl.style.setProperty('--ve-toolbar-left', `${Math.round(shift + placement.left - toolbar.left)}px`);
-    ckEditorEl.style.setProperty('--ve-toolbar-top', `${Math.round(placement.top - editor.top)}px`);
-    ckEditorEl.classList.toggle('ve-toolbar-below', placement.side === 'below');
-    ckEditorEl.classList.toggle('ve-toolbar-inside', placement.side === 'inside');
+  // InlineEditorUIView#render: the toolbar is as wide as the editable. Set
+  // once right away as well - the observer reports asynchronously, and the
+  // first pin below must already measure the wrapped toolbar.
+  const matchEditableWidth = () => {
+    toolbar.maxWidth = toPx(new Rect(editableElement).width);
   };
+  matchEditableWidth();
+  const resizeObserver = new ResizeObserver(editableElement, matchEditableWidth);
+  editor.on('destroy', () => resizeObserver.destroy());
 
-  let frame = 0;
-  const schedule = () => {
-    if (frame) {
-      return;
+  // InlineEditorUIView#_getPanelPositionTop and #_getPanelPositions, plus the
+  // gap: above the editable when it fits, at the top of the viewport while a
+  // long editable is scrolled past its top, below it otherwise.
+  const panelTop = (editableRect, panelRect) => {
+    const viewportTop = ui.viewportOffset?.visualTop || 0;
+    if (editableRect.top > panelRect.height + TOOLBAR_GAP + viewportTop) {
+      return editableRect.top - panelRect.height - TOOLBAR_GAP;
     }
-    frame = requestAnimationFrame(() => {
-      frame = 0;
-      place();
-    });
+    if (editableRect.bottom > panelRect.height + viewportTop + 50) {
+      return viewportTop;
+    }
+
+    return editableRect.bottom + TOOLBAR_GAP;
   };
-  const viewportTracker = new ViewportTracker(schedule);
-  const sizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null;
+  const positions = [
+    (editableRect, panelRect) => ({
+      top: panelTop(editableRect, panelRect),
+      left: editableRect.left,
+      name: 'toolbar_west',
+      config: {withArrow: false},
+    }),
+    (editableRect, panelRect) => ({
+      top: panelTop(editableRect, panelRect),
+      left: editableRect.left + editableRect.width - panelRect.width,
+      name: 'toolbar_east',
+      config: {withArrow: false},
+    }),
+  ];
+  if (editor.locale.uiLanguageDirection !== 'ltr') {
+    positions.reverse();
+  }
 
-  focusTracker.on('change:isFocused', (_evt, _name, isFocused) => {
-    if (isFocused) {
-      clipping.lift();
-      place();
-      viewportTracker.start();
-      sizeObserver?.observe(toolbarPanel);
-    } else {
-      viewportTracker.stop();
-      sizeObserver?.disconnect();
-      if (frame) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-      }
-      clipping.restore();
+  // InlineEditorUI#_initToolbar, plus one pin right away: this runs while
+  // the field is getting focus, so it is visible already.
+  const pin = () => {
+    if (panel.isVisible) {
+      panel.pin({target: editableElement, positions});
     }
-  });
+  };
+  panel.bind('isVisible').to(ui.focusTracker, 'isFocused');
+  panel.listenTo(ui, 'update', pin);
+  pin();
 }
