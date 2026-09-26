@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] — 2026-09-26
+
+### Changed
+
+- **The rich-text toolbar is CKEditor's InlineEditor toolbar.** The Visual
+  Editor mounts a ClassicEditor and only simulates an inline toolbar with
+  CSS. 1.3.2 gives the ClassicEditor the real thing, built from CKEditor's
+  own classes the way CKEditor 47.6's InlineEditor does it: the toolbar
+  moves into a `BalloonPanelView` in the editor's body collection, is shown
+  while the editor has focus and is pinned to the editable - above it when
+  there is room, at the top of the viewport while a long text is scrolled
+  past its top, below it otherwise - and is as wide as the editable, 8px
+  away from its focus outline. CKEditor follows scrolling and resizing, and
+  living in `<body>` the panel is never clipped by an `overflow: hidden`
+  ancestor.
+- The toolbar is set up when a rich-text field first gets focus, no longer
+  by wrapping the component's `firstUpdated`. This module and the Visual
+  Editor's load in no fixed order; in about one page load in five theirs
+  came first and no field on the page got the patch. Fields that never get
+  the balloon keep the Visual Editor's own toolbar.
+- The placement code of 1.3.0 and 1.3.1 is gone: `Shared/toolbar-placement.js`
+  and its test, the lifted `overflow: hidden` for rich-text fields, the
+  toolbar classes and custom properties in `editable-overrides.css`. Its
+  content-sized toolbar was what ran past the right edge of a row's last
+  card and collapsed to a few pixels on a long text scrolled past its top.
+  Checked with the real CKEditor 47.6, with TYPO3's wrapping toolbar and
+  with CKEditor's grouping one.
+- `composer test:e2e` runs the Playwright suite with its own config, the
+  only way the `setup` project signs in. The specs fail at once with a
+  clear message when there is no backend session or no password, instead of
+  timing out on the login form. The toolbar specs run on their own page
+  (`VEE_RTE_PAGE_ID`), check every edge of the viewport, the right-hand
+  card of a row and a long text, and require every button to be clickable.
+
 ## [1.3.1] — 2026-09-25
 
 ### Fixed
