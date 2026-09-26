@@ -333,11 +333,10 @@ function measureToolbar(target, index) {
     const box = toolbar.getBoundingClientRect();
     const editableBox = editable.getBoundingClientRect();
     const viewport = {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight};
-    // The one row: the items that fit plus the "Show more items" button.
-    const more = toolbar.querySelector(':scope > .ck-toolbar__grouped-dropdown');
+    // The one row: the always-visible buttons and the "Show more items" group.
+    const more = toolbar.querySelector(':scope > .ck-toolbar__items > .ck-toolbar__nested-toolbar-dropdown');
     const buttons = [...toolbar.querySelectorAll(':scope > .ck-toolbar__items > *')]
-      .filter((item) => !item.matches('.ck-toolbar__separator, .ck-toolbar__line-break'))
-      .concat(more === null ? [] : [more]);
+      .filter((item) => !item.matches('.ck-toolbar__separator, .ck-toolbar__line-break'));
     // A CKEditor tooltip on top is transient hover UI, not a covered button.
     const clickable = buttons.filter((item) => {
       const rect = item.getBoundingClientRect();
@@ -381,6 +380,7 @@ function expectToolbarInsideViewport(placement) {
   expect(placement.bottom, 'the toolbar does not run past the bottom edge of the viewport').toBeLessThanOrEqual(placement.viewport.height);
   expect(placement.clickable, 'every toolbar button can be clicked').toBe(placement.buttons);
   expect(placement.rows, 'the toolbar is one row').toBe(1);
+  expect(placement.buttons - (placement.overflowMenu ? 1 : 0), 'at most four buttons are always visible').toBeLessThanOrEqual(4);
 }
 
 /**
@@ -388,14 +388,14 @@ function expectToolbarInsideViewport(placement) {
  * opens on the side that fits, inside the viewport, every item clickable.
  */
 async function expectOverflowMenuInsideViewport(page) {
-  const button = frame.locator('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__grouped-dropdown > button');
+  const button = frame.locator('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__nested-toolbar-dropdown > button');
   if (await button.count() === 0) {
     return;
   }
   await button.click();
   await page.waitForTimeout(500);
   const menu = await frame.evaluate(() => {
-    const panel = document.querySelector('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__grouped-dropdown .ck-dropdown__panel-visible');
+    const panel = document.querySelector('.ck-balloon-panel_visible.ck-toolbar-container .ck-toolbar__nested-toolbar-dropdown .ck-dropdown__panel-visible');
     if (panel === null) {
       return null;
     }

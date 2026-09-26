@@ -51,7 +51,11 @@ Feature audit against 1.10.3
             grouping on, one row plus "Show more items" - because the
             ClassicEditor's toolbar cannot switch from TYPO3's wrapping mode
             once built; its overflow dropdown opens with ``panelPosition:
-            'auto'``, CKEditor's default for every other dropdown. TYPO3 ships no ``@ckeditor/ckeditor5-editor-inline``,
+            'auto'``, CKEditor's default for every other dropdown. Since
+            1.3.4 the row is fixed: bold, italic, link and bulleted list (the
+            ones the preset configures), then one standard toolbar group
+            (``{label, icon: 'threeVerticalDots', items}``) holding the rest
+            - see :file:`Shared/floating-toolbar-items.js`. TYPO3 ships no ``@ckeditor/ckeditor5-editor-inline``,
             so the wiring is repeated with the classes from
             ``@ckeditor/ckeditor5-ui`` and ``-utils``. It is set up on the
             first focus of each field - by then the editor exists, whichever
