@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] — 2026-09-26
+
+### Changed
+
+- **The rich-text toolbar always shows the same four buttons.** Bold,
+  italic, link and bulleted list are always in the row, whatever the
+  field's width; every other button of the RTE preset is behind "Show more
+  items" (⋮), in configuration order. A button the preset does not configure
+  is left out, never added. The group is CKEditor's standard nested toolbar
+  group (`{label, icon: 'threeVerticalDots', items}`), so its menu opens on
+  the side that fits like every CKEditor dropdown. The row is about 190px
+  wide, so it fits even narrow cards; the width cap and the grouped-dropdown
+  override of 1.3.3 are gone. The item list lives in
+  `Shared/floating-toolbar-items.js`, covered by Node tests.
+
 ## [1.3.3] — 2026-09-26
 
 ### Changed
