@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] — 2026-10-10
+
+### Fixed
+
+- **Rich-text fields work again on TYPO3 14.3.8.** 14.3.8 upgrades to
+  CKEditor 48, which no longer injects its styles from JavaScript; they ship
+  in `EXT:rte_ckeditor/Resources/Public/Css/editor.css`, and only the
+  backend form loaded that file. In the edit frame every rich-text field
+  showed "Rich Text Editor" above its text and the toolbar fell, unstyled,
+  to the end of the page. The edit frame now loads the file, before this
+  package's overrides and the Visual Editor's `editable.css`. A field looks
+  exactly as it did on 14.3.7; only CKEditor 48's redrawn toolbar icons
+  differ. A new `@rte` end-to-end test checks both symptoms.
+
 ## [1.3.4] — 2026-09-26
 
 ### Changed
