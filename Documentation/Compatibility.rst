@@ -70,6 +70,20 @@ Feature audit against 1.10.3
             did not mount. Balloon and dropdown panels stay unscoped on
             purpose - CKEditor appends those to ``<body>``.
 
+    *   -   CKEditor stylesheet
+        -   Add
+        -   TYPO3 14.3.8 upgrades to CKEditor 48, whose bundles no longer
+            inject CKEditor's styles; they ship in
+            :file:`EXT:rte_ckeditor/Resources/Public/Css/editor.css`, which
+            the backend form adds next to every rich-text field
+            (``RichTextElement``). 1.10.3 mounts CKEditor in the edit frame
+            without it, so every field showed its "Rich Text Editor" voice
+            label and the toolbar balloon fell to the end of the page. Since
+            1.3.5 the edit frame loads that file, ahead of this package's
+            overrides and the Visual Editor's :file:`editable.css`. On older
+            TYPO3 versions the file holds only TYPO3's few additions and
+            is harmless.
+
     *   -   Drop-zone ``tx_container_parent``
         -   Dropped
         -   1.10.3 :file:`ve-drop-zone.js` still writes

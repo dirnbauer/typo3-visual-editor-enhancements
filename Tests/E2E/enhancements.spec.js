@@ -422,6 +422,27 @@ async function expectOverflowMenuInsideViewport(page) {
   expect(menu.clickable, 'every item in the "Show more items" menu can be clicked').toBe(menu.items);
 }
 
+test('CKEditor\'s own stylesheet reaches the edit frame', {tag: '@rte'}, async ({page}) => {
+  const index = await pickRichText(frame, 'first');
+  test.skip(index < 0, `page ${config.rtePageId} renders no rich-text editable`);
+
+  // Since TYPO3 14.3.8 (CKEditor 48) CKEditor's styles ship in
+  // EXT:rte_ckeditor's editor.css instead of being injected by its
+  // JavaScript. Without that file every field shows its "Rich Text Editor"
+  // voice label and the toolbar balloon is not positioned at all.
+  const visibleLabels = await frame.evaluate(() => [...document.querySelectorAll('ve-editable-rich-text .ck-voice-label')]
+    .filter((label) => getComputedStyle(label).display !== 'none').length);
+  expect(visibleLabels, 'no "Rich Text Editor" voice label is visible').toBe(0);
+
+  await focusRichText(page, index);
+  const position = await frame.evaluate(() => {
+    const panel = document.querySelector('.ck-balloon-panel.ck-toolbar-container.ck-balloon-panel_visible');
+
+    return panel === null ? null : getComputedStyle(panel).position;
+  });
+  expect(position, 'CKEditor\'s stylesheet positions the toolbar balloon').toBe('absolute');
+});
+
 test('the rich-text toolbar stays in view for an editable at the top edge of the viewport', {tag: '@rte'}, async ({page}) => {
   const index = await pickRichText(frame, 'top');
   test.skip(index < 0, `page ${config.rtePageId} renders no rich-text editable`);

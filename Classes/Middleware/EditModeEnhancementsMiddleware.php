@@ -44,6 +44,15 @@ final readonly class EditModeEnhancementsMiddleware implements MiddlewareInterfa
 
         $languageService = $this->languageServiceFactory->createFromUserPreferences($backendUser);
 
+        // Since TYPO3 14.3.8 (CKEditor 48) CKEditor's own UI and content styles
+        // ship in this file instead of being injected by its JavaScript. The
+        // backend form adds it next to every rich-text field (RichTextElement);
+        // the Visual Editor mounts CKEditor without it, which leaves toolbars,
+        // balloons and the hidden "Rich Text Editor" label unstyled.
+        $this->assetCollector->addStyleSheet(
+            'visual-editor-enhancements-rte-ckeditor',
+            'EXT:rte_ckeditor/Resources/Public/Css/editor.css',
+        );
         $this->assetCollector->addStyleSheet(
             'visual-editor-enhancements-editable-overrides',
             'EXT:visual_editor_enhancements/Resources/Public/Css/editable-overrides.css',
