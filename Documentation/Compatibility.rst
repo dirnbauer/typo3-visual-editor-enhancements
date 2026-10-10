@@ -8,8 +8,8 @@ Compatibility
 =============
 
 This package sits close to the Visual Editor's own runtime, so every release
-of it is audited against a concrete upstream version. 1.2.0 and every
-1.3 release are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
+of it is audited against a concrete upstream version. 1.2.0, every
+1.3 release and 1.4.0 are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
 published version at release time; the test suites run against it.
 
 1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
@@ -220,7 +220,7 @@ Version support
         -   PHP
         -   Visual Editor
 
-    *   -   1.2.x, 1.3.x
+    *   -   1.2.x - 1.4.x
         -   14.3.7+
         -   8.4, 8.5
         -   1.10.2+ (audited: 1.10.3)

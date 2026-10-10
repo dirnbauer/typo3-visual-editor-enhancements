@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-10-10
+
+### Fixed
+
+- **The field chooser offers what the backend form offers - nothing more.**
+  Its payload was assembled by hand and ignored most of what shapes the
+  backend edit form. It is now built by the FormEngine data providers
+  themselves (`FormDataCompiler` with `TcaDatabaseRecord`), so:
+  - the **category tree** is the backend's tree (`TcaSelectTreeAjaxFieldData`,
+    as `FormSelectTreeAjaxController` loads it): default-language and
+    all-languages categories only. Before, every `sys_category` row of every
+    language was listed - each category once per translation. It also honours
+    `treeConfig.startingPoints` from TCA, `TCEFORM` and site settings, and the
+    user's category mounts;
+  - fields the form hides are no longer offered: `TCEFORM.<table>.<field>.disabled`
+    (the lab disables `tt_content.categories`, `layout`, `space_*` and more
+    on every site - the chooser showed them all), failing `displayCond`,
+    `config.readOnly` from TSconfig, select/category fields without any
+    selectable item, and on translated records `l10n_mode = exclude` and
+    `l10n_display = defaultAsReadonly`;
+  - labels and items are the form's: `TCEFORM` `label` overrides, `authMode`,
+    and the "invalid value" item for a stored value that is no longer among
+    the items (the select showed the first item instead).
+- The endpoint answers 403 when the backend form would refuse the record (for
+  example no content-edit permission on its page) and 404 for a record
+  deleted in the current workspace.
+
+### Changed
+
+- Category tree nodes the tree configuration makes unselectable
+  (`nonSelectableLevels`) are shown as structure, without a checkbox.
+
 ## [1.3.5] — 2026-10-10
 
 ### Fixed
