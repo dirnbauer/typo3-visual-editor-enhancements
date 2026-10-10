@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-10-10
+
+### Fixed
+
+- **Category titles in the language being edited.** On a translated record
+  the field chooser listed the default-language titles. It now shows each
+  category's translation in the record's language, falls back along the
+  site language's fallback chain and then to the default title, and sorts
+  siblings by the title shown - the tree is sorted by title. Values stay the
+  default-language uids, as in the backend form. Titles are resolved with
+  `PageRepository::getLanguageOverlay()` ("mixed" overlay), as the frontend
+  resolves them.
+
 ## [1.4.0] — 2026-10-10
 
 ### Fixed
