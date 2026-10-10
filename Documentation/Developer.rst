@@ -66,7 +66,8 @@ own per-field permission checks decide what is in the payload:
 A ``category`` field's ``items`` are the backend category tree, depth-first
 (``{"value": "12", "label": "News", "depth": 0, "selectable": true}``),
 without the tree's virtual root node; its ``value`` is the list of assigned
-category uids.
+category uids. Values are always default-language uids; on a translated
+record the labels are that language's titles.
 ``fieldGroups`` and ``fieldPalettes`` cover every field of the record type's
 ``showitem``, not only the ones in ``fields``, so a client can resolve the form
 section of any editable output.

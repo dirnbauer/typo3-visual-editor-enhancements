@@ -11,7 +11,13 @@ use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordWorkspaceDeletePlaceholderExc
 use TYPO3\CMS\Backend\Form\FormDataCompiler;
 use TYPO3\CMS\Backend\Form\FormDataGroup\TcaDatabaseRecord;
 use TYPO3\CMS\Backend\Form\FormDataGroup\TcaSelectTreeAjaxFieldData;
+use TYPO3\CMS\Core\Context\LanguageAspect;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Domain\RecordFactory;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
@@ -22,6 +28,7 @@ use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\Field\StaticSelectFieldType;
 use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\VisualEditor\Service\EditModeService;
 
@@ -32,7 +39,8 @@ use TYPO3\CMS\VisualEditor\Service\EditModeService;
  * page TSconfig (disabled, label, keepItems, removeItems, addItems,
  * altLabels, treeConfig), displayCond, itemsProcFunc, authMode, the rules for
  * translated records, and the category tree with its language filter,
- * starting points and category mounts.
+ * starting points and category mounts. Category titles are shown in the
+ * language of the record being edited.
  */
 final readonly class FieldOptionsService
 {
@@ -49,6 +57,8 @@ final readonly class FieldOptionsService
         private LanguageServiceFactory $languageServiceFactory,
         private LinkBrowserUrlService $linkBrowserUrl,
         private BackendUserProvider $backendUserProvider,
+        private ConnectionPool $connectionPool,
+        private SiteFinder $siteFinder,
     ) {}
 
     /**
@@ -115,6 +125,7 @@ final readonly class FieldOptionsService
                 $payload = $this->buildSelectField($field, $label, $column, $row);
             } elseif ($field instanceof CategoryFieldType) {
                 $payload = $this->buildCategoryField($table, $uid, $field, $label, (string)($formData['recordTypeValue'] ?? ''), $request, $languageService);
+                $payload['items'] = $this->localizeCategoryItems($payload['items'], $this->getLanguageId($schema, $row), $pageId);
             } elseif ($field instanceof LinkFieldType) {
                 $payload = $this->buildLinkField($table, $uid, $field, $label, $row);
             } elseif ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1) {
@@ -244,6 +255,19 @@ final readonly class FieldOptionsService
         }
 
         return true;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function getLanguageId(TcaSchema $schema, array $row): int
+    {
+        if (!$schema->hasCapability(TcaSchemaCapability::Language)) {
+            return 0;
+        }
+        $languageField = $schema->getCapability(TcaSchemaCapability::Language)->getLanguageField()->getName();
+
+        return (int)($row[$languageField] ?? 0);
     }
 
     /**
@@ -401,7 +425,7 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{name: string, label: string, type: string, value: list<string>, items: list<array{value: string, label: string, depth: int, selectable: bool}>, truncated?: bool, truncatedNote?: string}
      */
     private function buildCategoryField(
         string $table,
@@ -468,5 +492,113 @@ final readonly class FieldOptionsService
         }
 
         return [$items, $hiddenCount];
+    }
+
+    /**
+     * Category titles in the language of the record being edited, resolved
+     * the way the frontend resolves them: PageRepository's "mixed" overlay
+     * takes the translation, else the site language's fallback chain, else
+     * keeps the default-language title of the tree. As the backend tree is
+     * sorted by title, siblings are re-sorted by the title now shown.
+     *
+     * @param list<array{value: string, label: string, depth: int, selectable: bool}> $items
+     *
+     * @return list<array{value: string, label: string, depth: int, selectable: bool}>
+     */
+    private function localizeCategoryItems(array $items, int $languageId, int $pageId): array
+    {
+        $languageAspect = $languageId > 0 && $items !== [] ? $this->getLanguageAspect($languageId, $pageId) : null;
+        if ($languageAspect === null) {
+            return $items;
+        }
+
+        $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
+        $titles = [];
+        foreach ($this->getCategoryRows(array_map(intval(...), array_column($items, 'value'))) as $categoryRow) {
+            $overlay = $pageRepository->getLanguageOverlay('sys_category', $categoryRow, $languageAspect);
+            if (isset($overlay['_LOCALIZED_UID']) && is_string($overlay['title'] ?? null) && $overlay['title'] !== '') {
+                $titles[(string)$categoryRow['uid']] = $overlay['title'];
+            }
+        }
+        if ($titles === []) {
+            return $items;
+        }
+
+        $items = array_map(static function (array $item) use ($titles): array {
+            $item['label'] = $titles[$item['value']] ?? $item['label'];
+            return $item;
+        }, $items);
+
+        return $this->sortCategorySiblings($items);
+    }
+
+    private function getLanguageAspect(int $languageId, int $pageId): ?LanguageAspect
+    {
+        try {
+            $siteLanguage = $this->siteFinder->getSiteByPageId($pageId)->getLanguageById($languageId);
+        } catch (SiteNotFoundException|\InvalidArgumentException) {
+            return null;
+        }
+
+        return new LanguageAspect($languageId, $languageId, LanguageAspect::OVERLAYS_MIXED, $siteLanguage->getFallbackLanguageIds());
+    }
+
+    /**
+     * The default-language rows behind the tree items, hidden ones included
+     * like in the tree.
+     *
+     * @param list<int> $uids
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function getCategoryRows(array $uids): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_category');
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        return array_values($queryBuilder
+            ->select('*')
+            ->from('sys_category')
+            ->where($queryBuilder->expr()->in('uid', $queryBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
+            ->executeQuery()
+            ->fetchAllAssociative());
+    }
+
+    /**
+     * Re-sorts the depth-first item list so that siblings follow each other by
+     * title while every node keeps its subtree directly below it.
+     *
+     * @param list<array{value: string, label: string, depth: int, selectable: bool}> $items
+     *
+     * @return list<array{value: string, label: string, depth: int, selectable: bool}>
+     */
+    private function sortCategorySiblings(array $items): array
+    {
+        // Each item's sort key is the path of (title, original position) from
+        // its root down to itself; comparing paths orders siblings by title
+        // and keeps children right after their parent.
+        $paths = [];
+        $ancestors = [];
+        foreach ($items as $index => $item) {
+            $ancestors = array_slice($ancestors, 0, $item['depth']);
+            $ancestors[] = [$item['label'], $index];
+            $paths[$index] = $ancestors;
+        }
+        $order = array_keys($items);
+        usort($order, static function (int $a, int $b) use ($paths): int {
+            foreach ($paths[$a] as $level => [$label, $position]) {
+                if (!isset($paths[$b][$level])) {
+                    return 1;
+                }
+                $comparison = strnatcasecmp($label, $paths[$b][$level][0]) ?: $position <=> $paths[$b][$level][1];
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+            }
+
+            return count($paths[$a]) <=> count($paths[$b]);
+        });
+
+        return array_map(static fn(int $index): array => $items[$index], $order);
     }
 }

@@ -178,6 +178,24 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
     }
 
     /**
+     * On a translated record the categories carry the titles of that language:
+     * the translation where one exists, the default title otherwise, siblings
+     * sorted by the title shown. Values stay the default-language uids.
+     */
+    #[Test]
+    public function categoryTitlesFollowTheLanguageOfTheRecord(): void
+    {
+        $this->loginEditor();
+
+        $categories = $this->field($this->fieldOptions('tt_content', 2), 'categories');
+
+        self::assertSame(
+            [['3', 'All languages', 0], ['1', 'Standardsprache', 0], ['4', 'Child category', 1]],
+            array_map(static fn(array $item): array => [$item['value'], $item['label'], $item['depth']], $categories['items']),
+        );
+    }
+
+    /**
      * What page TSconfig hides or changes in the backend form is hidden or
      * changed in the chooser as well.
      */

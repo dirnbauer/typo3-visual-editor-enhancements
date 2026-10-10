@@ -130,8 +130,11 @@ same record, because it is built by the same FormEngine data providers:
     stored value that is no longer among the items;
 *   category fields show the backend category tree: default-language and
     all-languages categories only (never their translations), limited by
-    ``treeConfig.startingPoints`` (TCA, ``TCEFORM`` or site settings) and the
-    user's category mounts.
+    ``treeConfig.startingPoints`` (TCA, ``TCEFORM`` or site settings), the
+    field's ``foreign_table_where`` and the user's category mounts. The
+    titles are shown in the language of the record being edited - its
+    translation, else the site language's fallback chain, else the default
+    title - and siblings are sorted by the title shown.
 
 The Visual Editor's own per-field permission checks apply as well.
 

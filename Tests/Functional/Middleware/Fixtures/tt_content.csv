@@ -1,3 +1,4 @@
-"tt_content",,,,,,,,
-,"uid","pid","sorting","deleted","hidden","CType","header","colPos"
-,1,666,256,0,0,"text","A headline",0
+"tt_content",,,,,,,,,,
+,"uid","pid","sorting","deleted","hidden","CType","header","colPos","sys_language_uid","l18n_parent"
+,1,666,256,0,0,"text","A headline",0,0,0
+,2,666,256,0,0,"text","Eine Überschrift",0,1,1
