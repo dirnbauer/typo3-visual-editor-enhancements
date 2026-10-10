@@ -46,7 +46,8 @@ instead of timing out.
   and did-you-mean for a misspelled term
 - lazily loaded previews over the cached `?elPreview` route
 - the field chooser: injected button, `?veFieldOptions` answering with `select`
-  **and** `category` fields, popover rendering controls
+  fields (category fields only where the backend form shows them, checked for
+  the tree's shape), popover rendering controls
 - the rich-text toolbar - CKEditor's InlineEditor balloon panel, one row of
   at most four buttons plus "Show more items" - staying inside the viewport
   with every button clickable: at the top edge, at the bottom edge (stays above), for the

@@ -14,7 +14,9 @@ use TYPO3\CMS\Core\Context\UserAspect;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\FormProtection\FormProtectionFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -51,6 +53,7 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/Fixtures/be_users.csv');
         $this->importCSVDataSet(__DIR__ . '/Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/Fixtures/tt_content.csv');
+        $this->importCSVDataSet(__DIR__ . '/Fixtures/sys_category.csv');
         $this->writeTestSiteConfiguration();
     }
 
@@ -147,6 +150,93 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
         self::assertSame('text', $payload['recordType']);
         self::assertIsArray($payload['fields']);
         self::assertNotSame([], $payload['fields'], 'A text element has choice fields (layout, frame_class, …).');
+        self::assertContains('layout', array_column($payload['fields'], 'name'));
+        self::assertContains('categories', array_column($payload['fields'], 'name'));
+    }
+
+    /**
+     * The category tree is the backend form's tree: default-language and
+     * all-languages categories only - never their translations - nested by
+     * parent, without deleted ones and without the tree's virtual root node.
+     */
+    #[Test]
+    public function categoryFieldOffersTheBackendCategoryTree(): void
+    {
+        $this->loginEditor();
+
+        $categories = $this->field($this->fieldOptions('tt_content', 1), 'categories');
+
+        $depthByUid = array_column($categories['items'], 'depth', 'value');
+        self::assertEqualsCanonicalizing(['1', '3', '4'], array_map(\strval(...), array_keys($depthByUid)));
+        self::assertSame(0, $depthByUid[1]);
+        self::assertSame(1, $depthByUid[4], 'A child category sits one level below its parent.');
+        self::assertSame(0, $depthByUid[3]);
+        $order = array_column($categories['items'], 'value');
+        self::assertSame(array_search('1', $order, true) + 1, array_search('4', $order, true), 'Depth-first: the child follows its parent.');
+        self::assertTrue($categories['items'][0]['selectable']);
+        self::assertSame([], $categories['value']);
+    }
+
+    /**
+     * What page TSconfig hides or changes in the backend form is hidden or
+     * changed in the chooser as well.
+     */
+    #[Test]
+    public function fieldChooserFollowsTceformPageTsConfig(): void
+    {
+        $this->setPageTsConfig(666, implode("\n", [
+            'TCEFORM.tt_content.layout.disabled = 1',
+            'TCEFORM.tt_content.categories.disabled = 1',
+            'TCEFORM.tt_content.frame_class.removeItems = ruler-before',
+            'TCEFORM.tt_content.header_layout.altLabels.1 = Big title',
+            'TCEFORM.tt_content.header_layout.label = Heading level',
+        ]));
+        $this->loginEditor();
+
+        $payload = $this->fieldOptions('tt_content', 1);
+
+        $names = array_column($payload['fields'], 'name');
+        self::assertNotContains('layout', $names);
+        self::assertNotContains('categories', $names);
+        $frameClassValues = array_column($this->field($payload, 'frame_class')['items'], 'value');
+        self::assertContains('default', $frameClassValues);
+        self::assertNotContains('ruler-before', $frameClassValues);
+        $headerLayout = $this->field($payload, 'header_layout');
+        self::assertSame('Heading level', $headerLayout['label']);
+        self::assertSame('Big title', array_column($headerLayout['items'], 'label', 'value')['1']);
+    }
+
+    /**
+     * A stored value that is no longer among the items is shown as the
+     * backend form shows it, instead of silently displaying the first item.
+     */
+    #[Test]
+    public function aStoredValueOutsideTheItemsIsMarkedInvalid(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tt_content')
+            ->update('tt_content', ['frame_class' => 'no-longer-there'], ['uid' => 1]);
+        $this->loginEditor();
+
+        $frameClass = $this->field($this->fieldOptions('tt_content', 1), 'frame_class');
+
+        self::assertSame('no-longer-there', $frameClass['value']);
+        self::assertContains('no-longer-there', array_column($frameClass['items'], 'value'));
+    }
+
+    /**
+     * Fields excluded from translations (l10n_mode=exclude) are edited on the
+     * default language record only, exactly like in the backend form.
+     */
+    #[Test]
+    public function translatedRecordsDoNotOfferFieldsExcludedFromTranslation(): void
+    {
+        $this->loginEditor();
+
+        $defaultLanguage = array_column($this->fieldOptions('pages', 666)['fields'], 'name');
+        $translation = array_column($this->fieldOptions('pages', 667)['fields'], 'name');
+
+        self::assertContains('layout', $defaultLanguage);
+        self::assertNotContains('layout', $translation);
     }
 
     /**
@@ -217,20 +307,75 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
                     'navigationTitle' => 'English',
                     'flag' => 'us',
                 ],
+                [
+                    'languageId' => 1,
+                    'title' => 'German',
+                    'locale' => 'de_DE.UTF-8',
+                    'base' => '/de/',
+                    'navigationTitle' => 'Deutsch',
+                    'flag' => 'de',
+                    'fallbackType' => 'strict',
+                ],
             ],
         ]);
+    }
+
+    private function setPageTsConfig(int $pageId, string $tsConfig): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('pages')
+            ->update('pages', ['TSconfig' => $tsConfig], ['uid' => $pageId]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fieldOptions(string $table, int $uid): array
+    {
+        $response = $this->process($this->authorizedRequest($table, $uid));
+        self::assertSame(200, $response->getStatusCode(), (string)$response->getBody());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function field(array $payload, string $name): array
+    {
+        foreach ($payload['fields'] as $field) {
+            if ($field['name'] === $name) {
+                return $field;
+            }
+        }
+        self::fail(sprintf('The payload has no field "%s"; it has: %s.', $name, implode(', ', array_column($payload['fields'], 'name'))));
     }
 
     private function loginEditor(int $uid = 1): void
     {
         $backendUser = $this->setUpBackendUser($uid);
         $this->get(Context::class)->setAspect('backend.user', new UserAspect($backendUser));
+        // The frontend's BackendUserAuthenticator middleware, which runs
+        // before the endpoint, provides the backend user's LanguageService.
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
     }
 
     private function endpointRequest(string $table, int $uid): ServerRequest
     {
-        return new ServerRequest('https://vee.test/editing-test-page')
+        $request = new ServerRequest('https://vee.test/editing-test-page', 'GET', null, [], [
+            'HTTP_HOST' => 'vee.test',
+            'HTTPS' => 'on',
+            'SCRIPT_NAME' => '/index.php',
+        ]);
+
+        // The attributes the frontend middleware stack has set by the time
+        // the endpoint runs.
+        return $request
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_FE)
+            ->withAttribute('normalizedParams', NormalizedParams::createFromRequest($request))
             ->withQueryParams([
                 'veFieldOptions' => '1',
                 'editMode' => '1',

@@ -684,7 +684,9 @@ export class VeFieldChooser extends LitElement {
   /**
    * Rebuilds the nested tree from the endpoint's depth-first flat item list:
    * an item is a child of the nearest preceding item with a smaller depth.
-   * @param {Array<{value: string, label: string, depth?: number}>} items
+   * Items with selectable === false (the tree configuration's
+   * nonSelectableLevels) are structure only and get no checkbox.
+   * @param {Array<{value: string, label: string, depth?: number, selectable?: boolean}>} items
    * @return {Array<{item: object, children: Array}>}
    */
   #buildCategoryTree(items) {
@@ -723,15 +725,21 @@ export class VeFieldChooser extends LitElement {
               @click="${() => this.#toggleCategoryNode(value)}"
             ><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3l5 5-5 5"/></svg></button>
           ` : html`<span class="treeSpacer"></span>`}
-          <label class="categoryItem">
-            <input
-              type="checkbox"
-              class="checkbox"
-              .checked="${selected.has(value)}"
-              @change="${(event) => this.#stageCategory(field, node.item, event.target.checked)}"
-            >
-            <span class="categoryLabel" title="${node.item.label}">${node.item.label}</span>
-          </label>
+          ${node.item.selectable === false ? html`
+            <span class="categoryItem isStructure">
+              <span class="categoryLabel" title="${node.item.label}">${node.item.label}</span>
+            </span>
+          ` : html`
+            <label class="categoryItem">
+              <input
+                type="checkbox"
+                class="checkbox"
+                .checked="${selected.has(value)}"
+                @change="${(event) => this.#stageCategory(field, node.item, event.target.checked)}"
+              >
+              <span class="categoryLabel" title="${node.item.label}">${node.item.label}</span>
+            </label>
+          `}
         </div>
         ${isOpen ? html`
           <div class="treeChildren">

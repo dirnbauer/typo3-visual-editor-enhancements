@@ -115,10 +115,25 @@ Excluded: the record-type field (for example ``CType``), ``colPos``,
 ``transOrigPointerField`` and translation-source fields, the ``hidden`` and
 ``editlock`` fields, ``readOnly`` fields, and relation selects.
 
-Visibility on top of that still follows the Visual Editor's own per-field
-permission checks, and select item lists honor ``TCEFORM`` TSconfig
-(``keepItems``, ``addItems``, ``removeItems``, ``altLabels``) as well as
-``itemsProcFunc`` and ``itemsProcessors``.
+On top of that, the chooser offers what the backend edit form offers for the
+same record, because it is built by the same FormEngine data providers:
+
+*   a field the form hides is not offered: ``TCEFORM.<table>.<field>.disabled``,
+    a failing ``displayCond``, a field missing from the record type's
+    ``showitem``, a select or category field without any selectable item,
+    ``readOnly`` (also via ``TCEFORM.<table>.<field>.config.readOnly``), and on
+    translated records ``l10n_mode = exclude`` and
+    ``l10n_display = defaultAsReadonly``;
+*   labels and items are the form's: ``TCEFORM`` ``label``, ``keepItems``,
+    ``addItems``, ``removeItems``, ``altLabels``, ``itemsProcFunc``,
+    ``itemsProcessors``, ``authMode``, and the "invalid value" item for a
+    stored value that is no longer among the items;
+*   category fields show the backend category tree: default-language and
+    all-languages categories only (never their translations), limited by
+    ``treeConfig.startingPoints`` (TCA, ``TCEFORM`` or site settings) and the
+    user's category mounts.
+
+The Visual Editor's own per-field permission checks apply as well.
 
 ..  _configuration-content-blocks:
 

@@ -191,7 +191,7 @@ test('previews load lazily through the cached ?elPreview route', async ({page}) 
   expect(previewUrls.some((url) => url.includes('elPreview')), `preview iframes use the ?elPreview route: ${previewUrls[0]}`).toBe(true);
 });
 
-test('the field chooser resolves select and category fields for a record', async ({page}) => {
+test('the field chooser resolves the fields the backend form offers', async ({page}) => {
   const configuration = await enhancementConfig(frame);
   test.skip(configuration.fieldChooserMode === 'disabled', 'the field chooser is off for this user or page');
 
@@ -202,8 +202,9 @@ test('the field chooser resolves select and category fields for a record', async
   expect(candidates, 'the field-chooser button is injected into at least one element').toBeGreaterThan(0);
 
   // Ask the endpoint for every element that offers the chooser and collect the
-  // field types it resolves. Whether one particular record carries a category
-  // field is content-dependent, so the assertion is made across the page.
+  // field types it resolves. Category fields only appear where the backend
+  // form shows them (every lab site disables tt_content.categories in page
+  // TSconfig), so they are checked for shape, not required.
   const resolved = await frame.evaluate(async () => {
     const records = [...document.querySelectorAll('ve-content-element')]
       .filter((element) => element.shadowRoot?.querySelector('[data-ve-enhancement="field-chooser"]'))
@@ -212,6 +213,7 @@ test('the field chooser resolves select and category fields for a record', async
 
     const types = new Set();
     const statuses = [];
+    const categoryItems = [];
     for (const record of records) {
       const response = await fetch(
         `${window.location.pathname}?veFieldOptions=1&editMode=1&table=${encodeURIComponent(record.table)}&uid=${record.uid}`,
@@ -219,16 +221,23 @@ test('the field chooser resolves select and category fields for a record', async
       );
       statuses.push(response.status);
       const payload = await response.json();
-      (payload.fields ?? []).forEach((field) => types.add(field.type));
+      (payload.fields ?? []).forEach((field) => {
+        types.add(field.type);
+        if (field.type === 'category') {
+          categoryItems.push(...field.items);
+        }
+      });
     }
 
-    return {types: [...types], statuses};
+    return {types: [...types], statuses, categoryItems};
   });
 
   expect(resolved.statuses.length, 'at least one record was queried').toBeGreaterThan(0);
   expect([...new Set(resolved.statuses)], '?veFieldOptions answers 200').toEqual([200]);
   expect(resolved.types, 'the endpoint resolves select fields').toContain('select');
-  expect(resolved.types, 'the endpoint resolves category fields').toContain('category');
+  // The backend category tree without its virtual root node.
+  expect(resolved.categoryItems.filter((item) => item.value === '0'), 'no virtual root node').toEqual([]);
+  expect(resolved.categoryItems.every((item) => typeof item.selectable === 'boolean'), 'category items carry selectable').toBe(true);
 
   // The popover itself opens and renders the record's fields.
   await frame.evaluate(() => {

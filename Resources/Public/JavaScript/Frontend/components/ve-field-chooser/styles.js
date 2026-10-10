@@ -385,6 +385,15 @@ export const styles = [themeTokens, css`
       background: var(--ve-hover);
     }
 
+    .categoryItem.isStructure {
+      cursor: default;
+      color: var(--ve-text-muted);
+    }
+
+    .categoryItem.isStructure:hover {
+      background: none;
+    }
+
     .checkbox {
       flex: none;
       margin: 0;

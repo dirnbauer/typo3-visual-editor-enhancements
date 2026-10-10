@@ -63,6 +63,10 @@ own per-field permission checks decide what is in the payload:
     }
 
 ``type`` is one of ``select``, ``category``, ``link``, ``check`` or ``color``.
+A ``category`` field's ``items`` are the backend category tree, depth-first
+(``{"value": "12", "label": "News", "depth": 0, "selectable": true}``),
+without the tree's virtual root node; its ``value`` is the list of assigned
+category uids.
 ``fieldGroups`` and ``fieldPalettes`` cover every field of the record type's
 ``showitem``, not only the ones in ``fields``, so a client can resolve the form
 section of any editable output.
@@ -278,8 +282,8 @@ neither a browser nor an :file:`npm install`.
 
 :file:`Tests/E2E/` holds a Playwright suite that drives a **running** TYPO3
 installation through the whole editor surface: the FAB, the ranked search and
-its suggestions, the cached previews, the field chooser with ``select`` and
-``category`` fields, the rich-text toolbar at every edge of the viewport and
+its suggestions, the cached previews, the field chooser and its endpoint,
+the rich-text toolbar at every edge of the viewport and
 on a long text, and the plain-text editables. It is not part of CI. Run it
 with ``VEE_BACKEND_PASSWORD=… composer test:e2e``; :file:`Tests/E2E/README.md`
 lists the environment variables it reads.

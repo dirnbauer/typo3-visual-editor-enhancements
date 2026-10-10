@@ -5,30 +5,35 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use Psr\Http\Message\ServerRequestInterface;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
-use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
-use TYPO3\CMS\Core\Database\RelationHandler;
-use TYPO3\CMS\Core\DataHandling\ItemProcessingService;
-use TYPO3\CMS\Core\DataHandling\ItemsProcessorContext;
+use TYPO3\CMS\Backend\Form\Exception\AccessDeniedException;
+use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException;
+use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordWorkspaceDeletePlaceholderException;
+use TYPO3\CMS\Backend\Form\FormDataCompiler;
+use TYPO3\CMS\Backend\Form\FormDataGroup\TcaDatabaseRecord;
+use TYPO3\CMS\Backend\Form\FormDataGroup\TcaSelectTreeAjaxFieldData;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
 use TYPO3\CMS\Core\Schema\Field\CategoryFieldType;
 use TYPO3\CMS\Core\Schema\Field\CheckboxFieldType;
 use TYPO3\CMS\Core\Schema\Field\ColorFieldType;
 use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\Field\StaticSelectFieldType;
-use TYPO3\CMS\Core\Schema\Struct\SelectItem;
-use TYPO3\CMS\Core\Schema\Struct\SelectItemCollection;
+use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
-use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\MathUtility;
 use TYPO3\CMS\VisualEditor\Service\EditModeService;
 
+/**
+ * Builds the field chooser payload from the FormEngine data providers - the
+ * pipeline behind the backend edit form and its category tree - so the
+ * chooser offers what the backend form offers for the same record: TCEFORM
+ * page TSconfig (disabled, label, keepItems, removeItems, addItems,
+ * altLabels, treeConfig), displayCond, itemsProcFunc, authMode, the rules for
+ * translated records, and the category tree with its language filter,
+ * starting points and category mounts.
+ */
 final readonly class FieldOptionsService
 {
     // Guard against pathological installs only — like the backend category
@@ -40,8 +45,7 @@ final readonly class FieldOptionsService
         private RecordFactory $recordFactory,
         private EditModeService $editModeService,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
-        private ItemProcessingService $itemProcessingService,
-        private ConnectionPool $connectionPool,
+        private FormDataCompiler $formDataCompiler,
         private LanguageServiceFactory $languageServiceFactory,
         private LinkBrowserUrlService $linkBrowserUrl,
         private BackendUserProvider $backendUserProvider,
@@ -51,6 +55,10 @@ final readonly class FieldOptionsService
      * @param array<string, mixed> $row the record, workspace-overlaid, as the endpoint resolved it
      *
      * @return array{table: string, uid: int, recordType: string, fieldGroups: array<string, string>, fieldPalettes: array<string, string>, fields: list<array<string, mixed>>}
+     *
+     * @throws AccessDeniedException when the backend form would refuse to open the record
+     * @throws DatabaseRecordException when the record is gone
+     * @throws DatabaseRecordWorkspaceDeletePlaceholderException when the record is deleted in the current workspace
      */
     public function buildFieldOptions(string $table, int $uid, array $row, ServerRequestInterface $request): array
     {
@@ -67,7 +75,7 @@ final readonly class FieldOptionsService
 
         $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
         $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
-        $languageService = $this->languageServiceFactory->createFromUserPreferences($this->getBackendUser());
+        $languageService = $this->languageServiceFactory->createFromUserPreferences($this->backendUserProvider->getOrThrow());
 
         $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
         // Every showitem field mapped to its localized group label and its
@@ -82,18 +90,31 @@ final readonly class FieldOptionsService
             }
             $fieldPalettes[$groupFieldName] = $group['palette'];
         }
-        $fields = [];
+
+        $candidates = [];
         foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId) as $fieldName) {
-            if (!$fieldSchema->hasField($fieldName) || !$this->editModeService->canEditField($record, $fieldName, $request)) {
+            if ($fieldSchema->hasField($fieldName) && $this->editModeService->canEditField($record, $fieldName, $request)) {
+                $candidates[] = $fieldName;
+            }
+        }
+
+        $fields = [];
+        $formData = $candidates !== [] ? $this->compileFormData($table, $uid, $candidates, $request) : [];
+        $isTranslation = $this->isTranslation($schema, $row);
+        foreach ($candidates as $fieldName) {
+            // A column the providers removed (displayCond, not in showitem,
+            // no selectable items) is not in the backend form either.
+            $column = $formData['processedTca']['columns'][$fieldName] ?? null;
+            if (!is_array($column) || !$this->isEditableInBackendForm($formData, $table, $fieldName, $column, $isTranslation)) {
                 continue;
             }
 
             $field = $fieldSchema->getField($fieldName);
-            $label = $languageService->sL(trim($field->getLabel()));
+            $label = $languageService->sL(trim((string)($column['label'] ?? $field->getLabel())));
             if ($field instanceof StaticSelectFieldType) {
-                $payload = $this->buildSelectField($table, $recordType, $field, $label, $row, $pageId, $languageService);
+                $payload = $this->buildSelectField($field, $label, $column, $row);
             } elseif ($field instanceof CategoryFieldType) {
-                $payload = $this->buildCategoryField($table, $field, $label, $row, $languageService);
+                $payload = $this->buildCategoryField($table, $uid, $field, $label, (string)($formData['recordTypeValue'] ?? ''), $request, $languageService);
             } elseif ($field instanceof LinkFieldType) {
                 $payload = $this->buildLinkField($table, $uid, $field, $label, $row);
             } elseif ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1) {
@@ -121,34 +142,146 @@ final readonly class FieldOptionsService
     }
 
     /**
+     * The record as the backend edit form compiles it, restricted to the
+     * given columns.
+     *
+     * @param list<string> $fieldNames
+     *
+     * @return array<string, mixed>
+     */
+    private function compileFormData(string $table, int $uid, array $fieldNames, ServerRequestInterface $request): array
+    {
+        return $this->formDataCompiler->compile([
+            'request' => $request,
+            'tableName' => $table,
+            'vanillaUid' => $uid,
+            'command' => 'edit',
+            'processedTca' => $this->getReducedTca($table, $fieldNames),
+        ], GeneralUtility::makeInstance(TcaDatabaseRecord::class));
+    }
+
+    /**
+     * The category tree exactly as the backend form's tree loads it - this is
+     * what FormSelectTreeAjaxController compiles for the field.
+     *
+     * @return array{items: list<array<string, mixed>>, value: list<string>}
+     */
+    private function compileCategoryTree(string $table, int $uid, string $fieldName, string $recordTypeValue, ServerRequestInterface $request): array
+    {
+        $processedTca = $this->getReducedTca($table, [$fieldName]);
+        $processedTca['types'][$recordTypeValue]['showitem'] = $fieldName;
+        $formData = $this->formDataCompiler->compile([
+            'request' => $request,
+            'tableName' => $table,
+            'vanillaUid' => $uid,
+            'command' => 'edit',
+            'processedTca' => $processedTca,
+            'recordTypeValue' => $recordTypeValue,
+            'selectTreeCompileItems' => true,
+        ], GeneralUtility::makeInstance(TcaSelectTreeAjaxFieldData::class));
+
+        $items = $formData['processedTca']['columns'][$fieldName]['config']['items'] ?? [];
+        $value = $formData['databaseRow'][$fieldName] ?? [];
+
+        return [
+            'items' => is_array($items) ? array_values(array_filter($items, is_array(...))) : [],
+            'value' => is_array($value) ? array_values(array_map(\strval(...), $value)) : [],
+        ];
+    }
+
+    /**
+     * The table's TCA with only the given columns, as FormSelectTreeAjaxController
+     * prepares it: the providers then resolve items and trees for those alone.
+     * Type-specific columnsOverrides of other columns would otherwise come
+     * back as half-configured columns.
+     *
+     * @param list<string> $fieldNames
+     *
+     * @return array<string, mixed>
+     */
+    private function getReducedTca(string $table, array $fieldNames): array
+    {
+        $tca = $GLOBALS['TCA'][$table] ?? [];
+        if (!is_array($tca)) {
+            return [];
+        }
+        $keep = array_flip($fieldNames);
+        $tca['columns'] = array_intersect_key(is_array($tca['columns'] ?? null) ? $tca['columns'] : [], $keep);
+        foreach (is_array($tca['types'] ?? null) ? $tca['types'] : [] as $type => $typeConfiguration) {
+            if (is_array($typeConfiguration) && is_array($typeConfiguration['columnsOverrides'] ?? null)) {
+                $tca['types'][$type]['columnsOverrides'] = array_intersect_key($typeConfiguration['columnsOverrides'], $keep);
+            }
+        }
+
+        return $tca;
+    }
+
+    /**
+     * The early returns of FormEngine's SingleFieldContainer: a field the
+     * backend form hides, or shows read-only, is not offered for editing.
+     *
+     * @param array<string, mixed> $formData
+     * @param array<string, mixed> $column
+     */
+    private function isEditableInBackendForm(array $formData, string $table, string $fieldName, array $column, bool $isTranslation): bool
+    {
+        $fieldTsConfig = $formData['pageTsConfig']['TCEFORM.'][$table . '.'][$fieldName . '.'] ?? [];
+        $fieldTsConfig = is_array($fieldTsConfig) ? $fieldTsConfig : [];
+        if ($fieldTsConfig['disabled'] ?? false) {
+            return false;
+        }
+        if (($column['config']['readOnly'] ?? false) || ($fieldTsConfig['config.']['readOnly'] ?? false)) {
+            return false;
+        }
+        if ($isTranslation) {
+            // defaultAsReadonly shows the default language value read-only;
+            // l10n_mode=exclude hides the field on translations altogether.
+            if (GeneralUtility::inList((string)($column['l10n_display'] ?? ''), 'defaultAsReadonly')
+                || ($column['l10n_mode'] ?? '') === 'exclude'
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function isTranslation(TcaSchema $schema, array $row): bool
+    {
+        if (!$schema->hasCapability(TcaSchemaCapability::Language)) {
+            return false;
+        }
+        $pointerField = $schema->getCapability(TcaSchemaCapability::Language)->getTranslationOriginPointerField()->getName();
+
+        return (int)($row[$pointerField] ?? 0) > 0;
+    }
+
+    /**
+     * The items as TcaSelectItems resolved them: static, foreign-table and
+     * itemsProcFunc items, TSconfig keepItems/removeItems/addItems/altLabels,
+     * authMode, translated labels, and the "invalid value" item for a stored
+     * value that is no longer among them.
+     *
+     * @param array<string, mixed> $column
      * @param array<string, mixed> $row
      *
      * @return array<string, mixed>
      */
-    private function buildSelectField(
-        string $table,
-        string $recordType,
-        StaticSelectFieldType $field,
-        string $label,
-        array $row,
-        int $pageId,
-        LanguageService $languageService,
-    ): array {
-        $fieldTsConfig = $this->getFieldTsConfig($table, $field->getName(), $recordType, $pageId);
-        $items = $this->processSelectItems($table, $field, $row, $pageId, $fieldTsConfig);
-        $items = $this->applySelectItemsTsConfig($items, $fieldTsConfig);
-
-        $altLabels = is_array($fieldTsConfig['altLabels.'] ?? null) ? $fieldTsConfig['altLabels.'] : [];
+    private function buildSelectField(StaticSelectFieldType $field, string $label, array $column, array $row): array
+    {
         $options = [];
-        foreach ($items as $item) {
-            $value = $item->getValue();
-            if ($value === null || (string)$value === '--div--') {
+        $items = $column['config']['items'] ?? [];
+        foreach (is_array($items) ? $items : [] as $item) {
+            $value = is_array($item) ? ($item['value'] ?? null) : null;
+            if (!is_scalar($value) || (string)$value === '--div--') {
                 continue;
             }
-            $altLabel = $altLabels[$value] ?? null;
             $options[] = [
                 'value' => (string)$value,
-                'label' => $languageService->sL(trim(is_string($altLabel) && $altLabel !== '' ? $altLabel : $item->getLabel())),
+                'label' => (string)($item['label'] ?? ''),
             ];
         }
 
@@ -159,99 +292,6 @@ final readonly class FieldOptionsService
             'value' => (string)($row[$field->getName()] ?? ''),
             'items' => $options,
         ];
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     * @param array<string, mixed> $fieldTsConfig
-     *
-     * @return list<SelectItem>
-     */
-    private function processSelectItems(
-        string $table,
-        StaticSelectFieldType $field,
-        array $row,
-        int $pageId,
-        array $fieldTsConfig,
-    ): array {
-        $items = array_values($field->getItems());
-        $configuration = $field->getConfiguration();
-        if (empty($configuration['itemsProcFunc']) && empty($configuration['itemsProcessors'])) {
-            return $items;
-        }
-
-        try {
-            return array_values($this->itemProcessingService->processItems(
-                SelectItemCollection::createFromArray($items, 'select'),
-                new ItemsProcessorContext(
-                    table: $table,
-                    field: $field->getName(),
-                    row: $row,
-                    fieldConfiguration: $configuration,
-                    processorParameters: [],
-                    realPid: (int)($row['pid'] ?? $pageId),
-                    site: $this->itemProcessingService->resolveSite($pageId),
-                    fieldTSconfig: $fieldTsConfig,
-                ),
-            )->toArray());
-        } catch (\Throwable) {
-            return $items;
-        }
-    }
-
-    /**
-     * @param list<SelectItem> $items
-     * @param array<string, mixed> $fieldTsConfig
-     *
-     * @return list<SelectItem>
-     */
-    private function applySelectItemsTsConfig(array $items, array $fieldTsConfig): array
-    {
-        $keepItems = $fieldTsConfig['keepItems'] ?? null;
-        if (is_string($keepItems)) {
-            if ($keepItems === '') {
-                $items = [];
-            } else {
-                $keep = array_flip(GeneralUtility::trimExplode(',', $keepItems, true));
-                $items = array_filter($items, static fn(SelectItem $item): bool => isset($keep[(string)$item->getValue()]));
-            }
-        }
-
-        $addItems = is_array($fieldTsConfig['addItems.'] ?? null) ? $fieldTsConfig['addItems.'] : [];
-        foreach ($addItems as $value => $itemLabel) {
-            $value = (string)$value;
-            if (str_ends_with($value, '.') || !is_string($itemLabel)) {
-                continue;
-            }
-            $items[] = SelectItem::fromTcaItemArray(['label' => $itemLabel, 'value' => $value]);
-        }
-
-        $removeItems = $fieldTsConfig['removeItems'] ?? null;
-        if (is_string($removeItems) && $removeItems !== '') {
-            $remove = array_flip(GeneralUtility::trimExplode(',', $removeItems, true));
-            $items = array_filter($items, static fn(SelectItem $item): bool => !isset($remove[(string)$item->getValue()]));
-        }
-
-        return array_values($items);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function getFieldTsConfig(string $table, string $fieldName, string $recordType, int $pageId): array
-    {
-        $fieldTsConfig = BackendUtility::getPagesTSconfig($pageId)['TCEFORM.'][$table . '.'][$fieldName . '.'] ?? [];
-        if (!is_array($fieldTsConfig)) {
-            return [];
-        }
-
-        $typeSpecific = $recordType !== '' ? ($fieldTsConfig['types.'][$recordType . '.'] ?? null) : null;
-        unset($fieldTsConfig['types.']);
-        if (is_array($typeSpecific)) {
-            ArrayUtility::mergeRecursiveWithOverrule($fieldTsConfig, $typeSpecific);
-        }
-
-        return $fieldTsConfig;
     }
 
     /**
@@ -361,24 +401,25 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @param array<string, mixed> $row
-     *
      * @return array<string, mixed>
      */
     private function buildCategoryField(
         string $table,
+        int $uid,
         CategoryFieldType $field,
         string $label,
-        array $row,
+        string $recordTypeValue,
+        ServerRequestInterface $request,
         LanguageService $languageService,
     ): array {
-        [$items, $hiddenCount] = $this->getCategoryItems($field);
+        $tree = $this->compileCategoryTree($table, $uid, $field->getName(), $recordTypeValue, $request);
+        [$items, $hiddenCount] = $this->flattenCategoryTree($tree['items']);
 
         $result = [
             'name' => $field->getName(),
             'label' => $label,
             'type' => 'category',
-            'value' => $this->getOrderedCategoryUids($table, $field, $row),
+            'value' => $tree['value'],
             'items' => $items,
         ];
         if ($hiddenCount > 0) {
@@ -396,123 +437,36 @@ final readonly class FieldOptionsService
     }
 
     /**
-     * @param array<string, mixed> $row
+     * The core tree's depth-first node list without its virtual root node
+     * (identifier 0, the table title, never selectable): the popover shows
+     * the field label as the heading instead. Nodes the tree configuration
+     * makes unselectable (nonSelectableLevels) stay in as structure.
      *
-     * @return list<string>
+     * @param list<array<string, mixed>> $treeItems
+     *
+     * @return array{0: list<array{value: string, label: string, depth: int, selectable: bool}>, 1: int}
      */
-    private function getOrderedCategoryUids(string $table, CategoryFieldType $field, array $row): array
+    private function flattenCategoryTree(array $treeItems): array
     {
-        $relationHandler = GeneralUtility::makeInstance(RelationHandler::class);
-        $relationHandler->initializeForField($table, $field, $row, $row[$field->getName()] ?? null);
-
-        return array_values(array_map(\strval(...), $relationHandler->getValueArray()));
-    }
-
-    /**
-     * @return array{0: list<array{value: string, label: string, depth: int}>, 1: int}
-     */
-    private function getCategoryItems(CategoryFieldType $field): array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_category');
-        $queryBuilder->getRestrictions()
-            ->removeAll()
-            ->add(GeneralUtility::makeInstance(DeletedRestriction::class))
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, (int)$this->getBackendUser()->workspace));
-        $categoryRows = $queryBuilder
-            ->select('uid', 'parent', 'title')
-            ->from('sys_category')
-            ->orderBy('parent')
-            ->addOrderBy('sorting')
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        $titlesByUid = [];
-        $childrenByParent = [];
-        foreach ($categoryRows as $categoryRow) {
-            $categoryUid = (int)$categoryRow['uid'];
-            $titlesByUid[$categoryUid] = (string)$categoryRow['title'];
-            $childrenByParent[(int)$categoryRow['parent']][] = $categoryUid;
-        }
-
         $items = [];
-        $visited = [];
         $hiddenCount = 0;
-        foreach ($this->getCategoryRootUids($field, $childrenByParent) as $rootUid) {
-            $this->appendCategorySubtree($rootUid, 0, $titlesByUid, $childrenByParent, $items, $visited, $hiddenCount);
+        foreach ($treeItems as $treeItem) {
+            $identifier = (string)($treeItem['identifier'] ?? '');
+            if ($identifier === '' || $identifier === '0') {
+                continue;
+            }
+            if (count($items) >= self::CATEGORY_ITEM_LIMIT) {
+                $hiddenCount++;
+                continue;
+            }
+            $items[] = [
+                'value' => $identifier,
+                'label' => (string)($treeItem['name'] ?? ''),
+                'depth' => max(0, (int)($treeItem['depth'] ?? 1) - 1),
+                'selectable' => (bool)($treeItem['selectable'] ?? false),
+            ];
         }
 
         return [$items, $hiddenCount];
-    }
-
-    /**
-     * @param array<int, list<int>> $childrenByParent
-     *
-     * @return list<int>
-     */
-    private function getCategoryRootUids(CategoryFieldType $field, array $childrenByParent): array
-    {
-        $mountPoints = [];
-        foreach ($this->getBackendUser()->getCategoryMountPoints() as $mountPoint) {
-            if ((int)$mountPoint > 0) {
-                $mountPoints[] = (int)$mountPoint;
-            }
-        }
-        if ($mountPoints !== []) {
-            return $mountPoints;
-        }
-
-        $startingPoints = [];
-        $configuredStartingPoints = (string)($field->getTreeConfiguration()['startingPoints'] ?? '');
-        foreach (GeneralUtility::trimExplode(',', $configuredStartingPoints, true) as $startingPoint) {
-            if (MathUtility::canBeInterpretedAsInteger($startingPoint) && (int)$startingPoint > 0) {
-                $startingPoints[] = (int)$startingPoint;
-            }
-        }
-        if ($startingPoints !== []) {
-            return $startingPoints;
-        }
-
-        return $childrenByParent[0] ?? [];
-    }
-
-    /**
-     * Past the item limit the traversal keeps running without appending, so
-     * the exact number of hidden categories is known for the truncation note.
-     *
-     * @param array<int, string> $titlesByUid
-     * @param array<int, list<int>> $childrenByParent
-     * @param list<array{value: string, label: string, depth: int}> $items
-     * @param array<int, bool> $visited
-     */
-    private function appendCategorySubtree(
-        int $categoryUid,
-        int $depth,
-        array $titlesByUid,
-        array $childrenByParent,
-        array &$items,
-        array &$visited,
-        int &$hiddenCount,
-    ): void {
-        if (!isset($titlesByUid[$categoryUid]) || isset($visited[$categoryUid])) {
-            return;
-        }
-        $visited[$categoryUid] = true;
-        if (count($items) >= self::CATEGORY_ITEM_LIMIT) {
-            $hiddenCount++;
-        } else {
-            $items[] = [
-                'value' => (string)$categoryUid,
-                'label' => $titlesByUid[$categoryUid],
-                'depth' => $depth,
-            ];
-        }
-        foreach ($childrenByParent[$categoryUid] ?? [] as $childUid) {
-            $this->appendCategorySubtree($childUid, $depth + 1, $titlesByUid, $childrenByParent, $items, $visited, $hiddenCount);
-        }
-    }
-
-    private function getBackendUser(): BackendUserAuthentication
-    {
-        return $this->backendUserProvider->getOrThrow();
     }
 }

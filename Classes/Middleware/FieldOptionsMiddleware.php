@@ -8,6 +8,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use TYPO3\CMS\Backend\Form\Exception\AccessDeniedException;
+use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException;
+use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordWorkspaceDeletePlaceholderException;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -19,7 +22,8 @@ use Webconsulting\VisualEditorEnhancements\Service\FieldOptionsService;
 /**
  * Frontend JSON endpoint for the visual editor field chooser: ?veFieldOptions=1
  * returns the editable select and category fields of a single record together
- * with their possible options, labels localized to the backend user's language.
+ * with their possible options, labels localized to the backend user's language,
+ * resolved by the same FormEngine data providers as the backend edit form.
  *
  * Access requires a logged-in backend user, the visual editor request token
  * (window.veInfo.token, scope visual_editor/save) in X-Request-Token, and
@@ -62,7 +66,7 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         $uid = is_numeric($uidParam) ? (int)$uidParam : 0;
         $row = $uid > 0 ? BackendUtility::getRecordWSOL($table, $uid) : null;
         if ($row === null) {
-            return new JsonResponse(['error' => 'Record not found'], 404, ['Cache-Control' => 'private, no-store']);
+            return $this->recordNotFoundResponse();
         }
 
         $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
@@ -70,10 +74,21 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
             return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
         }
 
-        return new JsonResponse(
-            $this->fieldOptionsService->buildFieldOptions($table, $uid, $row, $request),
-            200,
-            ['Cache-Control' => 'private, no-store'],
-        );
+        try {
+            $fieldOptions = $this->fieldOptionsService->buildFieldOptions($table, $uid, $row, $request);
+        } catch (AccessDeniedException) {
+            // The backend form would refuse this record as well, e.g. no
+            // content-edit permission on its page.
+            return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+        } catch (DatabaseRecordException|DatabaseRecordWorkspaceDeletePlaceholderException) {
+            return $this->recordNotFoundResponse();
+        }
+
+        return new JsonResponse($fieldOptions, 200, ['Cache-Control' => 'private, no-store']);
+    }
+
+    private function recordNotFoundResponse(): ResponseInterface
+    {
+        return new JsonResponse(['error' => 'Record not found'], 404, ['Cache-Control' => 'private, no-store']);
     }
 }
