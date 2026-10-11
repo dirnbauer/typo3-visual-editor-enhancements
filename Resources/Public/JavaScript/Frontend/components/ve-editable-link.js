@@ -62,6 +62,24 @@ export class VeEditableLink extends LitElement {
       }
       this.#scheduleSync();
     };
+    this.onClick = (event) => {
+      if (!isEditableLinksEnabled()) {
+        return;
+      }
+      const previous = this.previousElementSibling;
+      const anchor = this.#anchorFromEvent(event);
+      if (previous === null || anchor === null || !anchor.matches('a[href]')
+        || (anchor !== previous && !previous.contains(anchor))) {
+        return;
+      }
+      // A translated label has no editable text to suppress its link's native
+      // click. Keep the page open while the adjacent link editor is activated,
+      // including when the anchor is activated with Enter.
+      event.preventDefault();
+      this.pointerActivated = true;
+      this.focusAnchor = anchor;
+      this.#scheduleSync();
+    };
   }
 
   connectedCallback() {
@@ -71,12 +89,14 @@ export class VeEditableLink extends LitElement {
     document.addEventListener('focusin', this.onFocusChange);
     document.addEventListener('focusout', this.onFocusChange);
     document.addEventListener('pointerdown', this.onPointerDown, true);
+    document.addEventListener('click', this.onClick, true);
   }
 
   disconnectedCallback() {
     document.removeEventListener('focusin', this.onFocusChange);
     document.removeEventListener('focusout', this.onFocusChange);
     document.removeEventListener('pointerdown', this.onPointerDown, true);
+    document.removeEventListener('click', this.onClick, true);
     this.viewportTracker.stop();
     this.clipping.restore();
     if (this.syncRaf) {

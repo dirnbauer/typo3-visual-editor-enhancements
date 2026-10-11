@@ -15,3 +15,6 @@ defined('TYPO3') or die();
  * feature off by setting its key to false in its own ext_localconf.php.
  */
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['fluid']['namespaces']['f'][] = 'Webconsulting\\VisualEditorEnhancements\\ViewHelpers';
+
+$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_pagerenderer.php']['render-postProcess']['visual-editor-enhancements-module-loading']
+    = \Webconsulting\VisualEditorEnhancements\Hooks\FrontendModuleLoading::class . '->process';

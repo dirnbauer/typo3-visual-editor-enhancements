@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Domain\Exception\RecordPropertyNotFoundException;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
+use TYPO3\CMS\Core\LinkHandling\TypolinkParameter;
 use TYPO3\CMS\Core\Schema\Field\LinkFieldType;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -103,6 +104,11 @@ final class LinkViewHelper extends AbstractViewHelper
 
         try {
             $value = $record->get($field) ?? '';
+            if ($value instanceof TypolinkParameter) {
+                // Resolved link fields are objects in TYPO3 v14. The browser
+                // needs the stored typolink, including target, title and params.
+                $value = $record->getRawRecord()?->get($field) ?? '';
+            }
         } catch (RecordPropertyNotFoundException $recordPropertyNotFoundException) {
             if ($this->arguments['optional']) {
                 return '';

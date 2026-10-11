@@ -27,11 +27,14 @@ export default defineConfig({
   expect: {timeout: 30000},
   reporter: [['list']],
   projects: [
+    // Isolated real-browser component coverage needs no backend or sign-in.
+    {name: 'components', testMatch: /.*-component\.spec\.js$/, use: shared},
     // Signing in once costs one TYPO3 bootstrap instead of one per test.
     {name: 'setup', testMatch: /auth\.setup\.js$/, use: shared},
     {
       name: 'enhancements',
       testMatch: /.*\.spec\.js$/,
+      testIgnore: /.*-component\.spec\.js$/,
       dependencies: ['setup'],
       use: {...shared, storageState: AUTH_STATE},
     },

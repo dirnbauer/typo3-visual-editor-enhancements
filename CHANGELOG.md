@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-10-11
+
+### Fixed
+
+- Keep button links on the editing page when selected, including translated
+  labels without an editable text field and keyboard activation.
+
+- Initialize frontend editing after the page configuration has been parsed.
+  Cached asynchronous module entrypoints could start before `window.veInfo`
+  existed, leaving button labels and other inline fields unresponsive.
+- Preserve the stored typolink value when opening the link picker for a
+  transformed TYPO3 record, including the destination, target, class and title.
+
 ## [1.4.1] — 2026-10-10
 
 ### Fixed
