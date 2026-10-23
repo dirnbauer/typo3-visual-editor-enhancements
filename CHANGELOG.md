@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.4.3 — 2026-10-23
+
+- Update the E2E browser test runner to Playwright 1.64.1.
+
 ## [1.4.2] — 2026-10-11
 
 ### Fixed
