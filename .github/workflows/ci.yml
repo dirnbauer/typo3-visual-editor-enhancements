@@ -75,11 +75,13 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26.12.1'
 
       # The shipped JavaScript has no build step and the unit tests use the
       # Node test runner, so there is nothing to install. The Playwright
       # end-to-end suite in Tests/E2E needs a running TYPO3 and stays out of CI.
+      - name: Pin npm 12.2.1
+        run: npm install --global npm@12.2.1
       - name: JavaScript unit tests
         run: node --test 'Tests/JavaScript/*.test.js'
 
