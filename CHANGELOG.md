@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] — 2026-10-25
+
+### Fixed
+
+- **Group names in the element library show as written.** The category
+  filter title-cased every word (`text-transform: capitalize`), so
+  "Büro und Notizen" read "Büro Und Notizen" and "iOS-Apps" read
+  "IOS-Apps". The panel now shows each group exactly as the catalog
+  provider sends it; Desiderio 4.25.1 sends its groups by their registered
+  titles instead of their keys.
+- A remembered category filter that the catalog does not offer - a group of
+  another site, or one a provider has renamed - is dropped when the panel
+  loads. Before, it emptied the list and left no chip to unselect.
+
 ## 1.4.3 — 2026-10-23
 
 - Update the E2E browser test runner to Playwright 1.64.1.
