@@ -110,7 +110,9 @@ export const styles = [themeTokens, css`
     }
     .suggChip:hover { border-style: solid; border-color: var(--ve-primary-text); }
 
-    /* Category filter: backend "default" buttons that stay pressed. */
+    /* Category filter: backend "default" buttons that stay pressed. Group
+       names show as authored: no text-transform, since title-casing every
+       word is wrong in German ("Büro Und Notizen") and in English. */
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .chip {
       padding: 3px 10px;
@@ -119,7 +121,6 @@ export const styles = [themeTokens, css`
       background: var(--ve-surface-raised);
       color: var(--ve-text);
       font: inherit; font-size: 12px;
-      text-transform: capitalize;
       cursor: pointer;
       transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
     }

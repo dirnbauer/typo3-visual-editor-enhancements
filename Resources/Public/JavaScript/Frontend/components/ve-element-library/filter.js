@@ -39,3 +39,20 @@ export function filterItems(items, selectedGroups, searchTerm) {
     return haystack.includes(term);
   });
 }
+
+/**
+ * The remembered category selection narrowed to the categories the catalog
+ * offers. The selection persists across pages and sites, so it can name a
+ * group this catalog does not have (another site's group, or one a catalog
+ * provider has since renamed); kept, it would empty the list with no chip
+ * left to unselect.
+ *
+ * @param {Set<string>} selectedGroups
+ * @param {string[]} categories
+ * @return {Set<string>}
+ */
+export function offeredGroups(selectedGroups, categories) {
+  const offered = new Set(categories);
+
+  return new Set([...selectedGroups].filter((group) => offered.has(group)));
+}

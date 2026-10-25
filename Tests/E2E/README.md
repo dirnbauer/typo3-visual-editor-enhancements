@@ -42,6 +42,9 @@ instead of timing out.
 - the configuration `EditModeEnhancementsMiddleware` inlines into the edit frame
 - the element library FAB opening and closing the panel, with keyword chips on
   the cards
+- the panel's category filter showing group names exactly as authored, with
+  no title-casing (`element-library-styles-component.spec.js`, needs no
+  backend)
 - the server-ranked search (`?elementLibrarySearch=`), including suggestions
   and did-you-mean for a misspelled term
 - lazily loaded previews over the cached `?elPreview` route

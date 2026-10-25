@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {filterItems} from '../../Resources/Public/JavaScript/Frontend/components/ve-element-library/filter.js';
+import {filterItems, offeredGroups} from '../../Resources/Public/JavaScript/Frontend/components/ve-element-library/filter.js';
 
 const items = [
   {cType: 'text', title: 'Text', description: 'Rich text block', group: 'common', keywords: ['copy'], synonyms: ['paragraph']},
@@ -41,5 +41,16 @@ describe('filterItems', () => {
 
   it('tolerates items without keywords or synonyms', () => {
     assert.deepEqual(cTypes(filterItems(items, new Set(), 'tiers')), ['pricing']);
+  });
+});
+
+describe('offeredGroups', () => {
+  it('keeps the remembered groups the catalog offers', () => {
+    assert.deepEqual([...offeredGroups(new Set(['Kurs buchen', 'Studio']), ['Einstiege', 'Kurs buchen', 'Studio'])], ['Kurs buchen', 'Studio']);
+  });
+
+  it('drops groups of another site or a renamed group', () => {
+    assert.deepEqual([...offeredGroups(new Set(['social-proof', 'Kurs buchen']), ['Trust & Social Proof', 'Kurs buchen'])], ['Kurs buchen']);
+    assert.equal(offeredGroups(new Set(['hero']), []).size, 0);
   });
 });

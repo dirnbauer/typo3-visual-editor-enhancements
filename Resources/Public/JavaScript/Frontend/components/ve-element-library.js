@@ -12,6 +12,7 @@ import {dropOnZone, findDropZone, libraryDragData} from '@webconsulting/visual-e
 import {compactPreview, contentHeight, fitThumbnail, hideAdminPanel} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library/preview-frame.js';
 import {PreviewLoader} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library/preview-loader.js';
 import {fallbackSearchResult, fetchServerSearch, visibleItems} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library/search.js';
+import {offeredGroups} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library/filter.js';
 import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-element-library/styles.js';
 
 /**
@@ -162,6 +163,11 @@ export class VeElementLibrary extends LitElement {
       const data = await response.json();
       this.items = data.elements || [];
       this.categories = data.categories || [];
+      const selectedGroups = offeredGroups(this.selectedGroups, this.categories);
+      if (selectedGroups.size !== this.selectedGroups.size) {
+        this.selectedGroups = selectedGroups;
+        elementLibraryCategories.set([...selectedGroups]);
+      }
       if (this.searchTerm.trim() !== '') {
         this.#scheduleSearch();
       }
