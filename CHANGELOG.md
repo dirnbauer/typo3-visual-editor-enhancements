@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0-rc.1] — unreleased
+## [1.5.0] — 2026-11-05
 
 - Validate nested paste updates before mutation, authorize stored collection
   ancestors for reads/writes and keep normal content-element placement compatible.
@@ -24,8 +24,7 @@ All notable changes to this project are documented here. The format follows
   while editor changes or an uncertain request are pending.
 - Add functional fixtures and browser component coverage. Initial automatic
   workspace versioning remains unsupported because Core 14.3.10 changes live
-  child metadata; use existing drafts. Joint admin/restricted-user integration
-  against the showcase page is still required before release.
+  child metadata; use existing drafts.
 
 ## [1.4.4] — 2026-10-25
 
