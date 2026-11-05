@@ -265,5 +265,269 @@
         <target>Sammlungseinträge bearbeiten</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.pending">
+      <segment state="final">
+        <source>Save or reset your changes first. If the editor state is uncertain, refresh the page.</source>
+        <target>Änderungen zuerst speichern oder zurücksetzen. Bei unklarem Editorstatus die Seite neu laden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.busy">
+      <segment state="final">
+        <source>An entry operation is in progress.</source>
+        <target>Ein Eintrag wird gerade geändert.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspace">
+      <segment state="final">
+        <source>Open a fully versioned parent and its entries in the backend workspace first.</source>
+        <target>Zuerst den vollständig versionierten übergeordneten Datensatz und seine Einträge im Backend-Arbeitsbereich öffnen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspaceLiveChange">
+      <segment state="final">
+        <source>Core attempted to change live data. The operation was rolled back. Use the backend form.</source>
+        <target>TYPO3 hat versucht, Live-Daten zu ändern. Die Änderung wurde zurückgerollt. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hidden">
+      <segment state="final">
+        <source>Creation requires a writable visibility field. Ask for access or use the backend workspace.</source>
+        <target>Zum Anlegen muss das Sichtbarkeitsfeld bearbeitbar sein. Berechtigung anfordern oder den Backend-Arbeitsbereich verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.required">
+      <segment state="final">
+        <source>Required media or complex fields need the backend form.</source>
+        <target>Pflichtmedien oder komplexe Felder erfordern das Backend-Formular.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.min">
+      <segment state="final">
+        <source>The collection requires these remaining entries.</source>
+        <target>Die verbleibenden Einträge sind für die Mindestanzahl erforderlich.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.max">
+      <segment state="final">
+        <source>The collection has reached its entry limit.</source>
+        <target>Die Sammlung hat ihre Höchstanzahl erreicht.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rights">
+      <segment state="final">
+        <source>Access to this relation or one of its entries is restricted.</source>
+        <target>Der Zugriff auf diese Sammlung oder einen ihrer Einträge ist eingeschränkt.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.language">
+      <segment state="final">
+        <source>This language cannot be edited here. Use the backend form.</source>
+        <target>Diese Sprache kann hier nicht bearbeitet werden. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.translation">
+      <segment state="final">
+        <source>Connected translations inherit structure. Edit the source language in the backend form.</source>
+        <target>Verbundene Übersetzungen übernehmen die Struktur. Bitte die Ausgangssprache im Backend-Formular bearbeiten.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.translations">
+      <segment state="final">
+        <source>Connected translations require the backend form for removal.</source>
+        <target>Einträge mit verbundenen Übersetzungen müssen im Backend-Formular entfernt werden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascade">
+      <segment state="final">
+        <source>Nested entries or media require the backend form for removal.</source>
+        <target>Einträge mit untergeordneten Einträgen oder Medien müssen im Backend-Formular entfernt werden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.controls">
+      <segment state="final">
+        <source>This action is disabled in the backend field configuration.</source>
+        <target>Diese Aktion ist in der Backend-Feldkonfiguration deaktiviert.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unsupported">
+      <segment state="final">
+        <source>This relation configuration requires the backend form.</source>
+        <target>Diese Sammlungskonfiguration erfordert das Backend-Formular.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.disabled">
+      <segment state="final">
+        <source>Collection actions are disabled for this table.</source>
+        <target>Sammlungsaktionen sind für diese Tabelle deaktiviert.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.connection">
+      <segment state="final">
+        <source>This relation spans database connections. Use the backend form.</source>
+        <target>Diese Sammlung umfasst mehrere Datenbankverbindungen. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.stale">
+      <segment state="final">
+        <source>The collection changed. Review its current entries and try again.</source>
+        <target>Die Sammlung wurde geändert. Bitte die aktuellen Einträge prüfen und erneut versuchen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.membership">
+      <segment state="final">
+        <source>This entry no longer belongs to the collection.</source>
+        <target>Dieser Eintrag gehört nicht mehr zur Sammlung.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.record">
+      <segment state="final">
+        <source>The record is no longer available here.</source>
+        <target>Der Datensatz ist hier nicht mehr verfügbar.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.token">
+      <segment state="final">
+        <source>The editor session expired. Save pending edits before refreshing.</source>
+        <target>Die Editorsitzung ist abgelaufen. Offene Änderungen vor dem Neuladen sichern.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.failed">
+      <segment state="final">
+        <source>The entry operation failed. Use the backend form for details.</source>
+        <target>Die Eintragsaktion ist fehlgeschlagen. Details im Backend-Formular prüfen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedWorkspace">
+      <segment state="final">
+        <source>Entry change saved in this workspace. Reset does not undo it.</source>
+        <target>Die Änderung ist in diesem Arbeitsbereich gespeichert. Zurücksetzen macht sie nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedHidden">
+      <segment state="final">
+        <source>Entry added. Hidden until you enable it in the backend form.</source>
+        <target>Eintrag angelegt. Er bleibt verborgen, bis Sie ihn im Backend-Formular aktivieren.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedLive">
+      <segment state="final">
+        <source>Entry change saved immediately. Reset does not undo it.</source>
+        <target>Die Änderung ist sofort gespeichert. Zurücksetzen macht sie nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.refreshPending">
+      <segment state="final">
+        <source>Refresh the page after saving any new edits to see the change.</source>
+        <target>Nach dem Speichern neuer Änderungen die Seite neu laden, um die Änderung zu sehen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.refreshRequired">
+      <segment state="final">
+        <source>Refresh the page before another entry operation.</source>
+        <target>Vor einer weiteren Eintragsaktion die Seite neu laden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.immediate">
+      <segment state="final">
+        <source>Changes to entries are saved immediately. Reset does not undo them.</source>
+        <target>Änderungen an Einträgen werden sofort gespeichert. Zurücksetzen macht sie nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspaceLabel">
+      <segment state="final">
+        <source>Workspace draft</source>
+        <target>Arbeitsbereich-Entwurf</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.liveLabel">
+      <segment state="final">
+        <source>Live site</source>
+        <target>Live-Website</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.entries">
+      <segment state="final">
+        <source>Entries</source>
+        <target>Einträge</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.minimum">
+      <segment state="final">
+        <source>Minimum</source>
+        <target>Mindestanzahl</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.maximum">
+      <segment state="final">
+        <source>Maximum</source>
+        <target>Höchstanzahl</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.backendRequired">
+      <segment state="final">
+        <source>Backend form required:</source>
+        <target>Backend-Formular erforderlich:</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.loadError">
+      <segment state="final">
+        <source>Could not load entries. Open the backend form.</source>
+        <target>Einträge konnten nicht geladen werden. Bitte das Backend-Formular öffnen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTitle">
+      <segment state="final">
+        <source>Remove collection entry</source>
+        <target>Sammlungseintrag entfernen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmEntry">
+      <segment state="final">
+        <source>Remove “{label}”?</source>
+        <target>„{label}“ entfernen?</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmDiscard">
+      <segment state="final">
+        <source>The new workspace entry will be discarded.</source>
+        <target>Der neue Eintrag im Arbeitsbereich wird verworfen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmStage">
+      <segment state="final">
+        <source>Deletion is staged in this workspace; the live entry remains until publication.</source>
+        <target>Die Löschung wird in diesem Arbeitsbereich vorgemerkt. Der Live-Eintrag bleibt bis zur Veröffentlichung erhalten.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmLive">
+      <segment state="final">
+        <source>It disappears from the live site immediately.</source>
+        <target>Der Eintrag verschwindet sofort von der Live-Website.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmReset">
+      <segment state="final">
+        <source>Reset does not undo this operation.</source>
+        <target>Zurücksetzen macht diese Aktion nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cancel">
+      <segment state="final">
+        <source>Cancel</source>
+        <target>Abbrechen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.newEntry">
+      <segment state="final">
+        <source>New entry</source>
+        <target>Neuer Eintrag</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unavailable">
+      <segment state="final">
+        <source>Unavailable: {value}</source>
+        <target>Nicht verfügbar: {value}</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

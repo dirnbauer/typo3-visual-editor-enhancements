@@ -20,7 +20,7 @@ async function fixture(page, {mode = 'tabs', slow = false, fail = false} = {}) {
     const url = new URL(route.request().url());
     if (url.pathname === '/save') {
       posts.push(route.request().postDataJSON());
-      await route.fulfill({status: fail ? 409 : 200, json: fail ? {success: false, reason: 'stale'} : {success: true, uid: 8}});
+      await route.fulfill({status: fail ? (typeof fail === 'number' ? fail : 409) : 200, json: fail ? {success: false, reason: 'stale'} : {success: true, uid: 8}});
       return;
     }
     if (url.searchParams.has('veFieldOptions')) {
@@ -93,11 +93,11 @@ test('pending, invalid and active multi-frame saves block structure without stag
   expect(await page.evaluate(() => window.store.data.items?.[2]?.hidden)).toBeUndefined();
 });
 
-test('HTTP failure blocks further attempts and preserves pending store baselines', async ({page}) => {
+test('a definitive stale rejection refreshes choices and permits a manual retry', async ({page}) => {
   const posts = await fixture(page, {mode: 'sections', fail: true});
   await page.getByRole('button', {name: 'Add entry', exact: true}).click();
-  await expect(page.getByText(/Collection action refused: stale/)).toBeVisible();
-  await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeDisabled();
+  await expect(page.getByText(/The collection changed/)).toBeVisible();
+  await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeEnabled();
   expect(posts).toEqual([{inlineRecord: {action: 'create', parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1'}}]);
 });
 
@@ -129,4 +129,12 @@ test('Core modal adapter focuses Cancel by default and dismiss/cancel do not aut
   });
   expect(results).toEqual([{allowed: false, cancelFocused: true, confirmFocused: false},
     {allowed: false, cancelFocused: true, confirmFocused: false}, {allowed: true, cancelFocused: true, confirmFocused: false}]);
+});
+
+test('an uncertain server failure blocks another write without an automatic retry', async ({page}) => {
+  const posts = await fixture(page, {mode: 'sections', fail: 500});
+  await page.getByRole('button', {name: 'Add entry', exact: true}).click();
+  await expect(page.getByText(/Refresh the page before another/)).toBeVisible();
+  await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeDisabled();
+  expect(posts).toHaveLength(1);
 });

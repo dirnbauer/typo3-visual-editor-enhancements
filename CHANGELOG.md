@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.5.0-rc.1] — unreleased
 
+- Validate nested paste updates before mutation, authorize stored collection
+  ancestors for reads/writes and keep normal content-element placement compatible.
+- Refuse inline child overrides through a backend fallback; ignore inactive
+  translations when determining safe leaf deletion. Retain strict workspace
+  live-byte preservation using stock Core relation handling.
+- Complete German operational labels and real Core modal delegation; restore
+  focus after cancellation and allow recovery from definitive stale refusals.
+
 - Resolve field choices from the actual workspace record, full FormEngine
   dependencies and resolved type, with stable tab identities and unavailable
   stored selections.

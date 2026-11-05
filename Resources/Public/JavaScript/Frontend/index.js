@@ -158,8 +158,8 @@ function injectInlineRecordsAction(element) {
     try {
       const data = await fetchFieldOptions(table, uid);
       openFieldChooser({table, uid, anchorRect: button.getBoundingClientRect(),
-        scopeFields: data.fields.filter((field) => field.type === 'inline').map((field) => field.name), scopeLabel: 'Entries'});
-    } catch { button.title = 'Could not load entries. Open the backend form.'; }
+        scopeFields: data.fields.filter((field) => field.type === 'inline').map((field) => field.name), scopeLabel: translate('frontend.inlineRecords.entries', 'Entries')});
+    } catch { button.title = translate('frontend.inlineRecords.loadError', 'Could not load entries. Open the backend form.'); }
   });
   bar.appendChild(button);
 }

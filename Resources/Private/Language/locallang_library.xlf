@@ -221,5 +221,225 @@
         <source>Edit collection entries</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.pending">
+      <segment state="final">
+        <source>Save or reset your changes first. If the editor state is uncertain, refresh the page.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.busy">
+      <segment state="final">
+        <source>An entry operation is in progress.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspace">
+      <segment state="final">
+        <source>Open a fully versioned parent and its entries in the backend workspace first.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspaceLiveChange">
+      <segment state="final">
+        <source>Core attempted to change live data. The operation was rolled back. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hidden">
+      <segment state="final">
+        <source>Creation requires a writable visibility field. Ask for access or use the backend workspace.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.required">
+      <segment state="final">
+        <source>Required media or complex fields need the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.min">
+      <segment state="final">
+        <source>The collection requires these remaining entries.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.max">
+      <segment state="final">
+        <source>The collection has reached its entry limit.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rights">
+      <segment state="final">
+        <source>Access to this relation or one of its entries is restricted.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.language">
+      <segment state="final">
+        <source>This language cannot be edited here. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.translation">
+      <segment state="final">
+        <source>Connected translations inherit structure. Edit the source language in the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.translations">
+      <segment state="final">
+        <source>Connected translations require the backend form for removal.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascade">
+      <segment state="final">
+        <source>Nested entries or media require the backend form for removal.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.controls">
+      <segment state="final">
+        <source>This action is disabled in the backend field configuration.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unsupported">
+      <segment state="final">
+        <source>This relation configuration requires the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.disabled">
+      <segment state="final">
+        <source>Collection actions are disabled for this table.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.connection">
+      <segment state="final">
+        <source>This relation spans database connections. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.stale">
+      <segment state="final">
+        <source>The collection changed. Review its current entries and try again.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.membership">
+      <segment state="final">
+        <source>This entry no longer belongs to the collection.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.record">
+      <segment state="final">
+        <source>The record is no longer available here.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.token">
+      <segment state="final">
+        <source>The editor session expired. Save pending edits before refreshing.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.failed">
+      <segment state="final">
+        <source>The entry operation failed. Use the backend form for details.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedWorkspace">
+      <segment state="final">
+        <source>Entry change saved in this workspace. Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedHidden">
+      <segment state="final">
+        <source>Entry added. Hidden until you enable it in the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedLive">
+      <segment state="final">
+        <source>Entry change saved immediately. Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.refreshPending">
+      <segment state="final">
+        <source>Refresh the page after saving any new edits to see the change.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.refreshRequired">
+      <segment state="final">
+        <source>Refresh the page before another entry operation.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.immediate">
+      <segment state="final">
+        <source>Changes to entries are saved immediately. Reset does not undo them.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.workspaceLabel">
+      <segment state="final">
+        <source>Workspace draft</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.liveLabel">
+      <segment state="final">
+        <source>Live site</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.entries">
+      <segment state="final">
+        <source>Entries</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.minimum">
+      <segment state="final">
+        <source>Minimum</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.maximum">
+      <segment state="final">
+        <source>Maximum</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.backendRequired">
+      <segment state="final">
+        <source>Backend form required:</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.loadError">
+      <segment state="final">
+        <source>Could not load entries. Open the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTitle">
+      <segment state="final">
+        <source>Remove collection entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmEntry">
+      <segment state="final">
+        <source>Remove “{label}”?</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmDiscard">
+      <segment state="final">
+        <source>The new workspace entry will be discarded.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmStage">
+      <segment state="final">
+        <source>Deletion is staged in this workspace; the live entry remains until publication.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmLive">
+      <segment state="final">
+        <source>It disappears from the live site immediately.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmReset">
+      <segment state="final">
+        <source>Reset does not undo this operation.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cancel">
+      <segment state="final">
+        <source>Cancel</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.newEntry">
+      <segment state="final">
+        <source>New entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unavailable">
+      <segment state="final">
+        <source>Unavailable: {value}</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

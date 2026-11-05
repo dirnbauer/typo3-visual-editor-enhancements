@@ -19,6 +19,19 @@ test('dirty, invalid, saving, unknown and uncertain editor states block actions'
 test('HTTP failures are reported once and never retried', async () => {
   let calls = 0;
   globalThis.fetch = async () => { calls++; return {ok: false, status: 409, json: async () => ({success: false, reason: 'stale'})}; };
-  await assert.rejects(postCollectionIntent('/save', 'token', collectionIntent(field, 'create')), /stale/);
+  await assert.rejects(postCollectionIntent('/save', 'token', collectionIntent(field, 'create')), /collection changed/);
   assert.equal(calls, 1);
+});
+test('rejected 409 and permission failures are definitive; uncertain server failures are not', async () => {
+  for (const status of [403, 409, 500]) {
+    globalThis.fetch = async () => ({ok: false, status, json: async () => ({success: false, reason: 'rights'})});
+    await assert.rejects(postCollectionIntent('/save', '', {}), error => error.definitive === (status !== 500));
+  }
+});
+test('German operational messages use the exported TYPO3 catalogue', async () => {
+  const {collectionReason, inlineLabel} = await import('../../Resources/Public/JavaScript/Shared/inline-record-actions.js');
+  globalThis.window = {TYPO3: {lang: {'frontend.inlineRecords.rights': 'Zugriff eingeschränkt.', 'frontend.inlineRecords.unavailable': 'Nicht verfügbar: {value}'}}};
+  assert.equal(collectionReason('rights'), 'Zugriff eingeschränkt.');
+  assert.equal(inlineLabel('unavailable').replace('{value}', 'legacy'), 'Nicht verfügbar: legacy');
+  delete globalThis.window;
 });

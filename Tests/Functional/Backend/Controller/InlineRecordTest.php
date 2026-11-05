@@ -304,6 +304,148 @@ final class InlineRecordTest extends FunctionalTestCase
         }
     }
 
+    #[Test]
+    public function pasteEnvelopesValidateAllUpdatesBeforeAnyMutation(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', ['uid' => 9, 'pid' => 666, 'owner' => 2, 'owner_table' => 'tt_content', 'slot' => 'shared', 'title' => 'Other owner']);
+        $beforeOther = $this->row(9);
+        $parentOther = BackendUtility::getRecord('tt_content', 2);
+        $before = $this->row(1);
+        $parent = BackendUtility::getRecord('tt_content', 1);
+        foreach ([0, 1] as $enabled) {
+            $GLOBALS['BE_USER']->uc['tx_visualeditor_inlineRecords'] = $enabled;
+            foreach (['move', 'copy'] as $action) {
+                foreach ([['vee_items' => '9'], ['vee_shared' => '9']] as $update) {
+                    self::assertSame(400, $this->save(['data' => ['tt_content' => [1 => ['header' => 'Must not save']]],
+                        'cmdArray' => [['tt_content' => [1 => [$action => ['action' => 'paste', 'target' => 666, 'update' => $update]]]]]])[0]);
+                    self::assertSame($before, $this->row(1));
+                    self::assertSame($beforeOther, $this->row(9));
+                    self::assertSame($parentOther, BackendUtility::getRecord('tt_content', 2));
+                    self::assertSame($parent, BackendUtility::getRecord('tt_content', 1));
+                }
+            }
+        }
+        self::assertSame(400, $this->save(['cmdArray' => [['tt_content' => [1 => ['copy' => ['action' => 'paste', 'target' => 666, 'update' => [], 'extra' => []]]]]]])[0]);
+    }
+
+    #[Test]
+    public function ordinaryContentElementsRemainEditableWithInlineContentRelationsPresent(): void
+    {
+        $GLOBALS['TCA']['tt_content']['columns']['vee_container'] = ['config' => ['type' => 'inline', 'foreign_table' => 'tt_content', 'foreign_field' => 'tx_container_parent']];
+        $GLOBALS['BE_USER']->uc['tx_visualeditor_inlineRecords'] = 0;
+        self::assertSame(200, $this->save(['data' => ['tt_content' => ['NEWnormal' => ['pid' => 666, 'CType' => 'text', 'header' => 'Normal']]]])[0]);
+        foreach (['copy', 'move'] as $action) {
+            self::assertSame(200, $this->save(['cmdArray' => [['tt_content' => [1 => [$action => ['action' => 'paste', 'target' => 666, 'update' => ['colPos' => 0]]]]]]])[0]);
+        }
+        self::assertSame(400, $this->save(['data' => ['tt_content' => ['NEWforged' => ['pid' => 666, 'tx_container_parent' => 1]]]])[0]);
+        self::assertSame(200, $this->save(['cmdArray' => [['tt_content' => [1 => ['delete' => 1]]]]])[0]);
+    }
+
+    #[Test]
+    public function childOverridesUseBackendFallbackAndNeverCreateIncompleteChildren(): void
+    {
+        $before = $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->select(['*'], 'tx_vee_item')->fetchAllAssociative();
+        foreach ([['columns' => ['title' => ['config' => ['default' => 'Parent title']]]],
+            ['columns' => ['nested' => ['config' => ['minitems' => 1]]]],
+            ['columns' => ['title' => ['config' => ['readOnly' => true]]]]] as $override) {
+            $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['overrideChildTca'] = $override;
+            self::assertSame('unsupported', $this->field()['createReason']);
+            self::assertSame(409, $this->act($this->field(), 'create')[0]);
+            self::assertSame($before, $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->select(['*'], 'tx_vee_item')->fetchAllAssociative());
+        }
+    }
+
+    #[Test]
+    public function nestedWritesAndOrdinaryChildEditsRequireActualRootPermission(): void
+    {
+        $form = $this->get(EditorRecordContext::class)->compile('tx_vee_item', 1, $this->request());
+        $field = array_column($this->get(InlineRecordService::class)->fields('tx_vee_item', $form, $this->request()), null, 'name')['nested'];
+        $before = $this->row(1);
+        $this->restrictedOwnerUser('tx_vee_item');
+        self::assertSame(403, $this->save(['inlineRecord' => ['action' => 'create', 'parentTable' => 'tx_vee_item', 'parentUid' => 1, 'field' => 'nested', 'revision' => $field['revision']]])[0]);
+        self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0]);
+        self::assertSame($before, $this->row(1));
+        self::assertSame(1, $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->count('*', 'tx_vee_item', []));
+        $this->restrictedOwnerUser('tt_content,tx_vee_item');
+        self::assertSame(200, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Permitted']]]])[0]);
+    }
+
+    #[Test]
+    public function excludedReadonlyAndDisabledOwnerRelationsRefuseNestedAccessWithoutWrites(): void
+    {
+        $before = $this->row(1);
+        $this->restrictedOwnerUser('tt_content,tx_vee_item');
+        foreach (['exclude', 'readOnly', 'disabled'] as $restriction) {
+            if ($restriction === 'exclude') {
+                $GLOBALS['TCA']['tt_content']['columns']['vee_items']['exclude'] = true;
+            } elseif ($restriction === 'readOnly') {
+                $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['readOnly'] = true;
+            } else {
+                $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'tx_visualeditorenhancements.inlineRecords.enabled = 0'], ['uid' => 666]);
+                $this->get(\TYPO3\CMS\Core\Cache\CacheManager::class)->getCache('runtime')->flush();
+            }
+            self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0], $restriction);
+            self::assertSame($before, $this->row(1));
+            unset($GLOBALS['TCA']['tt_content']['columns']['vee_items']['exclude'], $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['readOnly']);
+        }
+    }
+
+    #[Test]
+    public function wrongSharedOwnershipAndCyclicAncestorsRefuseOrdinaryChildWrites(): void
+    {
+        foreach ([['slot' => 'nonexistent'], ['owner_table' => 'tx_vee_item', 'slot' => 'nested']] as $change) {
+            $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->update('tx_vee_item', $change, ['uid' => 1]);
+            $before = $this->row(1);
+            self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0]);
+            self::assertSame($before, $this->row(1));
+        }
+    }
+
+    #[Test]
+    public function irrelevantTranslationRowsDoNotPermanentlyBlockLeafDeletion(): void
+    {
+        foreach ([['deleted' => 1], ['t3ver_wsid' => 7], ['t3ver_wsid' => 1, 't3ver_state' => 2]] as $index => $state) {
+            $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', ['uid' => 20 + $index, 'pid' => 666, 'origin' => 1, 'lang' => 1, ...$state]);
+        }
+        $created = $this->act($this->field(), 'create');
+        self::assertSame(200, $created[0]);
+        $field = $this->field();
+        self::assertSame('', $field['children'][0]['deleteReason']);
+        self::assertSame(200, $this->act($field, 'delete', 1)[0]);
+    }
+
+    #[Test]
+    public function inaccessibleAndAmbiguousAncestorsLeaveChildUnchanged(): void
+    {
+        $parent = BackendUtility::getRecord('tt_content', 1);
+        self::assertNotNull($parent);
+        $this->restrictedOwnerUser('tt_content,tx_vee_item');
+        foreach ([['sys_language_uid' => 1], ['deleted' => 1], ['t3ver_wsid' => 8], ['editlock' => 1]] as $change) {
+            $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', $change, ['uid' => 1]);
+            $before = $this->row(1);
+            self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0], json_encode($change, JSON_THROW_ON_ERROR));
+            self::assertSame($before, $this->row(1));
+            $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', $parent, ['uid' => 1]);
+        }
+        $GLOBALS['TCA']['tt_content']['columns']['vee_ambiguous'] = $GLOBALS['TCA']['tt_content']['columns']['vee_items'];
+        self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0]);
+    }
+
+    private function restrictedOwnerUser(string $tables): void
+    {
+        $conn = $this->getConnectionPool()->getConnectionForTable('be_groups');
+        $conn->delete('be_groups', ['uid' => 10]);
+        $conn->insert('be_groups', ['uid' => 10, 'pid' => 0, 'title' => 'Owner rights', 'tables_modify' => $tables,
+            'db_mountpoints' => '1', 'allowed_languages' => '0', 'explicit_allowdeny' => 'tt_content:CType:text', 'non_exclude_fields' => 'tx_vee_item:hidden']);
+        $this->getConnectionPool()->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '10', 'workspace_perms' => 1], ['uid' => 2]);
+        foreach ([1, 666] as $pid) {
+            $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['perms_everybody' => 31], ['uid' => $pid]);
+        }
+        $user = $this->setUpBackendUser(2);
+        $user->workspace = 0;
+        $user->uc['tx_visualeditor_inlineRecords'] = 1;
+    }
+
     private function request(): ServerRequest
     {
         return new ServerRequest('https://vee.test/typo3/ajax/visual-editor/save', 'POST')

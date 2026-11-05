@@ -172,7 +172,7 @@ final readonly class InlineRecordService
         if (in_array($childTable, ['tt_content', 'pages'], true) || str_starts_with($childTable, 'sys_') || str_starts_with($childTable, 'be_') || str_starts_with($childTable, 'fe_')
             || empty($config['foreign_field']) || $childTable === 'sys_file_reference'
             || !isset($GLOBALS['TCA'][$childTable])
-            || array_intersect(array_keys($config), ['MM', 'foreign_selector', 'foreign_unique', 'foreign_types', 'foreign_default_sortby', 'symmetric_field', 'symmetric_label', 'symmetric_sortby', 'foreign_record_defaults']) !== []
+            || array_intersect(array_keys($config), ['MM', 'foreign_selector', 'foreign_unique', 'foreign_types', 'foreign_default_sortby', 'symmetric_field', 'symmetric_label', 'symmetric_sortby', 'foreign_record_defaults', 'overrideChildTca']) !== []
             || !empty($GLOBALS['TCA'][$childTable]['ctrl']['type'])
         ) {
             return 'unsupported';
@@ -230,8 +230,20 @@ final readonly class InlineRecordService
         // dependencies have their own permission proof, leave it to the backend form.
         $pointer = $GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? '';
         $live = (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']);
-        if ($pointer !== '' && $this->connections->getConnectionForTable($table)->count('*', $table, [$pointer => $live]) > 0) {
-            return 'translations';
+        if ($pointer !== '') {
+            $query = $this->connections->getQueryBuilderForTable($table);
+            $query->getRestrictions()->removeAll()
+                ->add(GeneralUtility::makeInstance(\TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction::class))
+                ->add(GeneralUtility::makeInstance(\TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction::class, $this->users->getOrThrow()->workspace));
+            $translations = $query->select('*')->from($table)->where(
+                $query->expr()->eq($pointer, $query->createNamedParameter($live)),
+            )->executeQuery()->fetchAllAssociative();
+            foreach ($translations as $translation) {
+                BackendUtility::workspaceOL($table, $translation, $this->users->getOrThrow()->workspace);
+                if ($translation && (int)($translation['t3ver_state'] ?? 0) !== 2) {
+                    return 'translations';
+                }
+            }
         }
         foreach ($GLOBALS['TCA'][$table]['columns'] ?? [] as $name => $column) {
             if (in_array($column['config']['type'] ?? '', ['inline', 'file'], true) && !empty($row[$name])) {
@@ -267,7 +279,7 @@ final readonly class InlineRecordService
                 $value = count($value) <= 1 ? ($value[0] ?? '') : '';
             }
             if ($name === $label && in_array($config['type'], ['input', 'text'], true) && trim((string)$value) === '') {
-                $value = 'New entry';
+                $value = (string)($GLOBALS['LANG']->translate('frontend.inlineRecords.newEntry', 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf') ?? 'New entry');
             }
             if (!empty($config['required']) && trim((string)$value) === '') {
                 return [[], 'required'];

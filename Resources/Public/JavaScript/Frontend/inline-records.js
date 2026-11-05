@@ -1,6 +1,6 @@
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
-import {collectionIntent, postCollectionIntent, structuralBlockReason} from '../Shared/inline-record-actions.js';
-import {confirmCollectionDelete} from '../Shared/confirm-delete.js';
+import {collectionIntent, postCollectionIntent, structuralBlockReason, inlineLabel} from '../Shared/inline-record-actions.js';
+import {confirmCollectionDelete} from '@webconsulting/visual-editor-enhancements/Shared/confirm-delete.js';
 import {clearFieldOptionsCache} from '../Shared/field-options-cache.js';
 
 let inFlight = false;
@@ -10,7 +10,7 @@ export function collectionBlockReason() {
   try {
     backend = window.parent.document.querySelector('ve-backend-save-button');
   } catch { /* Cross-origin editor state is unknown; fail closed. */ }
-  return inFlight ? 'An entry operation is in progress.' : structuralBlockReason(dataHandlerStore, backend, uncertain);
+  return inFlight ? inlineLabel('busy') : structuralBlockReason(dataHandlerStore, backend, uncertain);
 }
 
 export async function changeCollection(field, action, child = null) {
@@ -32,7 +32,7 @@ export async function changeCollection(field, action, child = null) {
     return result;
   } catch (error) {
     // A lost response may have committed. Never retry automatically or replace pending text.
-    uncertain = true;
+    uncertain = !error.definitive;
     throw error;
   } finally {
     inFlight = false;

@@ -107,10 +107,9 @@ Conflicting or stale requests return HTTP 409. A successful response includes
 the new UID, refreshed revisions and capabilities. Internal defaults and
 command identities are removed from public payloads.
 
-One scoped DataHandler instance executes the operation. Its relation factory
-keeps workspace child IDs while retaining live owner pointers; Core's default
-factory otherwise converts submitted draft IDs to live IDs. Datamap errors
-stop command processing. Supported parent/child writes use one connection
+One scoped DataHandler instance executes the operation using stock Core
+relation handling and compiled draft child identities. Datamap errors stop
+command processing. Supported parent/child writes use one connection
 and a transaction, with rollback on failure. This does not make arbitrary
 third-party hooks, cache invalidation or external side effects transactional.
 Backend extensions do not necessarily share this endpoint's relation lock.
@@ -119,3 +118,11 @@ Generic saves cannot reassign inline relationships, ownership or workspace
 fields, create custom collection children or issue direct child commands.
 Ordinary editable child values and root element-library creation/copy remain
 available. No synchronization command is added.
+
+Nested parents are authorized through their stored owning relations, up to a
+bounded depth. Ambiguous, cyclic, inaccessible or overridden child contexts
+require the backend form. ``overrideChildTca`` is deliberately unsupported
+until all defaults and existing-child discovery share that inline context.
+Nested paste command updates receive the same ownership checks as ordinary
+field updates before any mutation. Stale/permission refusals refresh choices
+without retrying a write; uncertain failures require a page refresh.

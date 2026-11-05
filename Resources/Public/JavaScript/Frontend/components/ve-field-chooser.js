@@ -6,7 +6,7 @@ import {clamp, translate, viewportSize} from '@webconsulting/visual-editor-enhan
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
-import {collectionReason} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/styles.js';
@@ -602,38 +602,49 @@ export class VeFieldChooser extends LitElement {
 
   async #collectionAction(field, action, child = null) {
     if (this.busy) { return; }
+    const actionTrigger = deepActiveElement();
+    let completed = false;
     this.busy = true;
     this.message = '';
     try {
       const result = await changeCollection(field, action, child);
       if (!result) { return; }
-      this.message = field.workspaceId ? 'Entry change saved in this workspace. Reset does not undo it.'
-        : field.createHidden && action === 'create' ? 'Entry added. Hidden until you enable it in the backend form.'
-          : 'Entry change saved immediately. Reset does not undo it.';
+      completed = true;
+      this.message = field.workspaceId ? inlineLabel('savedWorkspace')
+        : field.createHidden && action === 'create' ? inlineLabel('savedHidden')
+          : inlineLabel('savedLive');
       // Recheck after the POST and inside refreshElement after fetching: typing
       // while a request runs must never be discarded by a wrapper replacement.
       if (!collectionBlockReason()) {
         const refreshed = await refreshElement(this.rootRecord.table, this.rootRecord.uid);
-        if (!refreshed) { this.message += ' Refresh the page after saving any new edits to see the change.'; }
+        if (!refreshed) { this.message += ` ${inlineLabel('refreshPending')}`; }
       }
       await this.refresh();
+      if (action === 'create' && result.uid) {
+        const button = this.renderRoot.querySelector(`[data-child-settings="${Number(result.uid)}"]`);
+        button?.focus({preventScroll: true});
+        button?.scrollIntoView({block: 'nearest'});
+      }
     } catch (error) {
-      this.message = `${error.message} Refresh the page before another entry operation.`;
+      this.message = error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`;
+      if (error.definitive) { await this.refresh(); }
     } finally {
       this.busy = false;
+      await this.updateComplete;
+      if (!completed && actionTrigger?.isConnected) { actionTrigger.focus({preventScroll: true}); }
     }
   }
 
   #renderCollection(field) {
-    const blocked = this.busy ? 'An entry operation is in progress.' : collectionBlockReason();
+    const blocked = this.busy ? inlineLabel('busy') : collectionBlockReason();
     return html`<section aria-label=${field.label}>
-      <p>Changes to entries are saved immediately. Reset does not undo them.
-        ${field.workspaceId ? 'Workspace draft' : 'Live site'}</p>
-      ${field.uids ? html`<p>${field.uids.length} entries · min ${field.minItems} · max ${field.maxItems || '∞'}</p>` : ''}
+      <p>${inlineLabel('immediate')}
+        ${field.workspaceId ? inlineLabel('workspaceLabel') : inlineLabel('liveLabel')}</p>
+      ${field.uids ? html`<p>${inlineLabel('entries')}: ${field.uids.length} · ${inlineLabel('minimum')}: ${field.minItems} · ${inlineLabel('maximum')}: ${field.maxItems || '∞'}</p>` : ''}
       ${blocked ? html`<p role="status">${blocked}</p>` : ''}
       ${(field.children || []).map((child) => html`<div class="field">
         <strong>${child.label}</strong>
-        <button type="button" @click=${() => this.#childSettings(field, child)}>${translate('frontend.inlineRecords.settings', 'Item settings')}</button>
+        <button type="button" data-child-settings=${child.uid} @click=${() => this.#childSettings(field, child)}>${translate('frontend.inlineRecords.settings', 'Item settings')}</button>
         <a href=${child.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
         <button type="button" ?disabled=${!!blocked || !field.canCreate}
           title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create', child)}>${translate('frontend.inlineRecords.addAfter', 'Add after')}</button>
@@ -643,7 +654,7 @@ export class VeFieldChooser extends LitElement {
       </div>`)}
       <button type="button" ?disabled=${!!blocked || !field.canCreate}
         title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create')}>${translate('frontend.inlineRecords.add', 'Add entry')}</button>
-      ${field.createReason ? html`<p>Backend form required: ${collectionReason(field.createReason)}</p>` : ''}
+      ${field.createReason ? html`<p>${inlineLabel('backendRequired')} ${collectionReason(field.createReason)}</p>` : ''}
       <a href=${field.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
     </section>`;
   }
@@ -653,9 +664,9 @@ export class VeFieldChooser extends LitElement {
     return html`
       <select class="select" aria-label="${field.label}" @change="${(event) => this.#stageValue(field, event.target.value)}">
         ${!field.items.some((item) => String(item.value) === current)
-          ? html`<option value=${current} selected disabled>[Unavailable: ${current}]</option>` : ''}
+          ? html`<option value=${current} selected disabled>${inlineLabel('unavailable').replace('{value}', current)}</option>` : ''}
         ${field.items.map((item) => html`
-          <option value="${item.value}" ?disabled=${field.unavailableValue === String(item.value)} ?selected="${String(item.value) === current}">${item.label}</option>
+          <option value="${item.value}" ?disabled=${field.unavailableValue === String(item.value)} ?selected="${String(item.value) === current}">${field.unavailableValue === String(item.value) ? inlineLabel('unavailable').replace('{value}', item.value) : item.label}</option>
         `)}
       </select>
     `;

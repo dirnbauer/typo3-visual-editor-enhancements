@@ -34,7 +34,7 @@ export const viewportSize = (fallback = 0) => ({
  * @param {string} fallback
  * @return {string}
  */
-export const translate = (key, fallback) => window.TYPO3?.lang?.[key] || fallback;
+export const translate = (key, fallback) => globalThis.window?.TYPO3?.lang?.[key] || fallback;
 
 /**
  * Keeps a fixed-position floating element glued to its anchor while the page

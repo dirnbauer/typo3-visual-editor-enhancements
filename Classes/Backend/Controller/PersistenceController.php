@@ -19,6 +19,7 @@ final readonly class PersistenceController
     public function __construct(
         private DataHandlerService $dataHandlerService,
         private InlineRecordService $inlineRecords,
+        private InlineGenericSaveGuard $inlineGuard,
         private \Webconsulting\VisualEditorEnhancements\Security\RequestTokenValidator $tokens,
     ) {}
 
@@ -63,9 +64,11 @@ final readonly class PersistenceController
         }
 
         try {
-            (new InlineGenericSaveGuard())->check($data, $cmdArray);
+            $this->inlineGuard->check($data, $cmdArray, $request);
         } catch (\InvalidArgumentException $error) {
             return new JsonResponse(['success' => false, 'error' => $error->getMessage()], 400);
+        } catch (\TYPO3\CMS\Backend\Form\Exception\AccessDeniedException|\TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException) {
+            return new JsonResponse(['success' => false, 'reason' => 'rights'], 403);
         }
         $errorLog = $this->dataHandlerService->run($data, []);
 
