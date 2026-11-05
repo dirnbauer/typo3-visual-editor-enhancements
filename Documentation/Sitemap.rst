@@ -10,7 +10,7 @@ Sitemap
 ..  contents::
     :local:
 
-..  toctree::
+..  menu::
     :glob:
     :titlesonly:
 
@@ -18,6 +18,7 @@ Sitemap
     Installation
     Configuration
     Usage
+    Collections
     Compatibility
     Developer
     KnownProblems

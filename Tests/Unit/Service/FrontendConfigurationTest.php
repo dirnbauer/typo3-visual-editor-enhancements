@@ -64,9 +64,21 @@ final class FrontendConfigurationTest extends TestCase
             'editableLinksEnabled' => true,
             'fieldChooserMode' => 'tabs',
             'fieldChooserTables' => ['tt_content'],
+            'inlineRecordsEnabled' => false,
+            'workspaceId' => 0,
             'elementRefreshEnabled' => true,
             'colorScheme' => 'auto',
         ], $this->build([], 666));
+    }
+
+    #[Test]
+    public function collectionsAreOptInAndIndependentOfTheOrdinaryChooser(): void
+    {
+        $settings = ['tx_visualeditor_inlineRecords' => 1, 'tx_visualeditor_fieldChooserMode' => 'disabled'];
+        self::assertTrue($this->build($settings, 666)['inlineRecordsEnabled']);
+        self::assertSame('disabled', $this->build($settings, 666)['fieldChooserMode']);
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['inlineRecordsEnabled'] = false;
+        self::assertFalse($this->build($settings, 666)['inlineRecordsEnabled']);
     }
 
     /**
@@ -178,6 +190,7 @@ final class FrontendConfigurationTest extends TestCase
     {
         $backendUser = self::createStub(BackendUserAuthentication::class);
         $backendUser->uc = $userSettings;
+        $backendUser->workspace = 0;
         $backendUserProvider = self::createStub(BackendUserProvider::class);
         $backendUserProvider->method('getOrThrow')->willReturn($backendUser);
 

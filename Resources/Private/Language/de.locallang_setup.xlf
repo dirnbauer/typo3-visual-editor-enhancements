@@ -85,5 +85,17 @@
         <target>Breit (3 Spalten)</target>
       </segment>
     </unit>
-  </file>
+      <unit id="inlineRecords">
+      <segment>
+        <source>Edit collection entries</source>
+        <target>Sammlungen direkt bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="inlineRecords.description">
+      <segment>
+        <source>Add or remove entries immediately. Reset does not undo these changes.</source>
+        <target>Einträge sofort hinzufügen oder löschen. Zurücksetzen macht dies nicht rückgängig.</target>
+      </segment>
+    </unit>
+</file>
 </xliff>

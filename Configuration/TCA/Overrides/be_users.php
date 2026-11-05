@@ -16,6 +16,7 @@ defined('TYPO3') or die();
     $labels = 'LLL:EXT:visual_editor_enhancements/Resources/Private/Language/locallang_setup.xlf:';
     $toggle = ['type' => 'check', 'renderType' => 'checkboxToggle', 'default' => 1];
     $settings = [
+        'tx_visualeditor_inlineRecords' => ['type' => 'check', 'renderType' => 'checkboxToggle', 'default' => 0],
         'tx_visualeditor_showLibrary' => $toggle,
         'tx_visualeditor_showContextButtons' => $toggle,
         'tx_visualeditor_fieldChooserMode' => [

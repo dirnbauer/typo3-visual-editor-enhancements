@@ -6,6 +6,9 @@ import {clamp, translate, viewportSize} from '@webconsulting/visual-editor-enhan
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
+import {collectionReason} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
+import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/styles.js';
 
 /**
@@ -27,6 +30,9 @@ import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/compone
  */
 export class VeFieldChooser extends LitElement {
   static properties = {
+    busy: {type: Boolean, state: true},
+    message: {type: String, state: true},
+    context: {type: Array, state: true},
     open: {type: Boolean, state: true, attribute: false},
     loading: {type: Boolean, state: true, attribute: false},
     error: {type: Boolean, state: true, attribute: false},
@@ -41,6 +47,11 @@ export class VeFieldChooser extends LitElement {
 
   constructor() {
     super();
+    this.busy = false;
+    this.message = '';
+    this.context = [];
+    this.history = [];
+    this.rootRecord = null;
     this.open = false;
     this.loading = false;
     this.error = false;
@@ -110,7 +121,7 @@ export class VeFieldChooser extends LitElement {
    * refetches.
    * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string}} options
    */
-  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = ''}) {
+  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = '', context = [], rootRecord = null, nested = false}) {
     const sameRecord = this.table === table && this.uid === uid;
     if (this.open && sameRecord && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
       this.close({restoreFocus: true});
@@ -123,13 +134,16 @@ export class VeFieldChooser extends LitElement {
     // failed load there is nothing to keep, so an error state always retries
     // (the shared cache evicted the failed promise).
     const reload = !(this.open && sameRecord) || this.error;
+    if (!nested) { this.history = []; }
+    this.context = context;
+    this.rootRecord = rootRecord ?? {table, uid};
     this.table = table;
     this.uid = uid;
     this.elementName = elementName ?? '';
     this.scopeFields = scopeFields;
     this.scopeLabel = scopeLabel;
     this.open = true;
-    this.activeTab = 0;
+    if (!sameRecord) { this.activeTab = 0; }
     this.bodyMinHeight = 0;
     this.#position(anchorRect);
     this.#startListening();
@@ -165,6 +179,13 @@ export class VeFieldChooser extends LitElement {
     }
     this.listening = true;
     dataHandlerStore.addEventListener('change', this.onStoreChange);
+    try {
+      const save = window.parent.document.querySelector('ve-backend-save-button');
+      if (save) {
+        this.saveObserver = new MutationObserver(() => this.requestUpdate());
+        this.saveObserver.observe(save, {attributes: true});
+      }
+    } catch { /* unknown cross-origin state stays blocked */ }
     document.addEventListener('keydown', this.onDocumentKeydown);
     document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
   }
@@ -175,6 +196,7 @@ export class VeFieldChooser extends LitElement {
     }
     this.listening = false;
     dataHandlerStore.removeEventListener('change', this.onStoreChange);
+    this.saveObserver?.disconnect();
     document.removeEventListener('keydown', this.onDocumentKeydown);
     document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
   }
@@ -235,22 +257,25 @@ export class VeFieldChooser extends LitElement {
   }
 
   async #load() {
+    const selectedTabId = this.#tabs()[this.activeTab]?.id;
     const seq = ++this.loadSeq;
     this.loading = true;
     this.error = false;
     this.fields = [];
     this.collapsedCategories = new Set();
-    this.activeTab = 0;
     this.bodyMinHeight = 0;
     try {
-      const data = await fetchFieldOptions(this.table, this.uid);
+      const data = await fetchFieldOptions(this.table, this.uid, this.context);
       if (seq !== this.loadSeq) {
         return; // superseded: another element was opened or the popover closed
       }
       this.fields = data.fields || [];
+      const restoredTab = this.#tabs().findIndex((tab) => tab.id === selectedTabId);
+      if (restoredTab >= 0) { this.activeTab = restoredTab; }
+      this.fields.filter((field) => field.type === 'inline').forEach((field) => { field.children?.forEach((child) => { child.label ||= 'Entry'; }); });
       // Baseline for the pending-change diff: reverting a field to this value
       // clears its staged change again (see data-handler-store setInitialData).
-      for (const field of this.fields) {
+      for (const field of this.fields.filter((field) => field.type !== 'inline')) {
         dataHandlerStore.setInitialData(this.table, this.uid, field.name, this.#initialValue(field));
       }
       this.loading = false;
@@ -341,6 +366,8 @@ export class VeFieldChooser extends LitElement {
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
       <div class="popover" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
+        ${this.history.length ? html`<button type="button" @click=${() => this.#back()}>${translate('frontend.inlineRecords.back', 'Back')}</button>` : ''}
+        ${this.message ? html`<p role="status">${this.message}</p>` : ''}
         <header class="header">
           <div class="heading">
             ${this.elementName !== '' ? html`<span class="elementName" title="${this.elementName}">${this.elementName}</span>` : ''}
@@ -397,10 +424,11 @@ export class VeFieldChooser extends LitElement {
         untabbed.push(field);
         continue;
       }
-      let tab = byLabel.get(label);
+      const tabKey = field.tabId ?? label;
+      let tab = byLabel.get(tabKey);
       if (tab === undefined) {
-        tab = {label, fields: []};
-        byLabel.set(label, tab);
+        tab = {id: tabKey, label, fields: []};
+        byLabel.set(tabKey, tab);
         tabs.push(tab);
       }
       tab.fields.push(field);
@@ -539,6 +567,8 @@ export class VeFieldChooser extends LitElement {
 
   #renderControl(field) {
     switch (field.type) {
+      case 'inline':
+        return this.#renderCollection(field);
       case 'category':
         return this.#renderCategory(field);
       case 'link':
@@ -552,12 +582,80 @@ export class VeFieldChooser extends LitElement {
     }
   }
 
+  async refresh() {
+    clearFieldOptionsCache();
+    await this.#load();
+  }
+
+  #childSettings(field, child) {
+    this.history.push({table: this.table, uid: this.uid, elementName: this.elementName,
+      context: this.context, rootRecord: this.rootRecord, scopeFields: this.scopeFields, scopeLabel: this.scopeLabel});
+    this.openFor({table: child.table, uid: child.uid, elementName: child.label,
+      anchorRect: this.getBoundingClientRect(), rootRecord: this.rootRecord, nested: true,
+      context: [...this.context, {table: this.table, uid: this.uid, field: field.name}]});
+  }
+
+  #back() {
+    const previous = this.history.pop();
+    if (previous) { this.openFor({...previous, anchorRect: this.getBoundingClientRect(), nested: true}); }
+  }
+
+  async #collectionAction(field, action, child = null) {
+    if (this.busy) { return; }
+    this.busy = true;
+    this.message = '';
+    try {
+      const result = await changeCollection(field, action, child);
+      if (!result) { return; }
+      this.message = field.workspaceId ? 'Entry change saved in this workspace. Reset does not undo it.'
+        : field.createHidden && action === 'create' ? 'Entry added. Hidden until you enable it in the backend form.'
+          : 'Entry change saved immediately. Reset does not undo it.';
+      // Recheck after the POST and inside refreshElement after fetching: typing
+      // while a request runs must never be discarded by a wrapper replacement.
+      if (!collectionBlockReason()) {
+        const refreshed = await refreshElement(this.rootRecord.table, this.rootRecord.uid);
+        if (!refreshed) { this.message += ' Refresh the page after saving any new edits to see the change.'; }
+      }
+      await this.refresh();
+    } catch (error) {
+      this.message = `${error.message} Refresh the page before another entry operation.`;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  #renderCollection(field) {
+    const blocked = this.busy ? 'An entry operation is in progress.' : collectionBlockReason();
+    return html`<section aria-label=${field.label}>
+      <p>Changes to entries are saved immediately. Reset does not undo them.
+        ${field.workspaceId ? 'Workspace draft' : 'Live site'}</p>
+      ${field.uids ? html`<p>${field.uids.length} entries · min ${field.minItems} · max ${field.maxItems || '∞'}</p>` : ''}
+      ${blocked ? html`<p role="status">${blocked}</p>` : ''}
+      ${(field.children || []).map((child) => html`<div class="field">
+        <strong>${child.label}</strong>
+        <button type="button" @click=${() => this.#childSettings(field, child)}>${translate('frontend.inlineRecords.settings', 'Item settings')}</button>
+        <a href=${child.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
+        <button type="button" ?disabled=${!!blocked || !field.canCreate}
+          title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create', child)}>${translate('frontend.inlineRecords.addAfter', 'Add after')}</button>
+        <button type="button" ?disabled=${!!blocked || !child.canDelete}
+          title=${blocked || collectionReason(child.deleteReason)} @click=${() => this.#collectionAction(field, 'delete', child)}>${translate('frontend.inlineRecords.remove', 'Remove')}</button>
+        ${child.deleteReason ? html`<span>${collectionReason(child.deleteReason)}</span>` : ''}
+      </div>`)}
+      <button type="button" ?disabled=${!!blocked || !field.canCreate}
+        title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create')}>${translate('frontend.inlineRecords.add', 'Add entry')}</button>
+      ${field.createReason ? html`<p>Backend form required: ${collectionReason(field.createReason)}</p>` : ''}
+      <a href=${field.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
+    </section>`;
+  }
+
   #renderSelect(field) {
     const current = this.#currentValue(field);
     return html`
       <select class="select" aria-label="${field.label}" @change="${(event) => this.#stageValue(field, event.target.value)}">
+        ${!field.items.some((item) => String(item.value) === current)
+          ? html`<option value=${current} selected disabled>[Unavailable: ${current}]</option>` : ''}
         ${field.items.map((item) => html`
-          <option value="${item.value}" ?selected="${String(item.value) === current}">${item.label}</option>
+          <option value="${item.value}" ?disabled=${field.unavailableValue === String(item.value)} ?selected="${String(item.value) === current}">${item.label}</option>
         `)}
       </select>
     `;

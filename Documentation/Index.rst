@@ -103,6 +103,7 @@ saving.
     Installation
     Configuration
     Usage
+    Collections
     Compatibility
     Developer
     KnownProblems

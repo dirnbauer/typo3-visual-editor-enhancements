@@ -71,5 +71,15 @@
         <source>Wide (3 columns)</source>
       </segment>
     </unit>
-  </file>
+      <unit id="inlineRecords">
+      <segment>
+        <source>Edit collection entries</source>
+      </segment>
+    </unit>
+    <unit id="inlineRecords.description">
+      <segment>
+        <source>Add or remove entries immediately. Reset does not undo these changes.</source>
+      </segment>
+    </unit>
+</file>
 </xliff>

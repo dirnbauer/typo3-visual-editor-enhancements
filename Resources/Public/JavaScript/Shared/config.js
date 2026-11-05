@@ -58,3 +58,7 @@ export function editorColorScheme() {
   const scheme = enhancementConfig().colorScheme;
   return scheme === 'light' || scheme === 'dark' ? scheme : 'auto';
 }
+
+export function isInlineRecordsEnabled() {
+  return !!enhancementConfig().inlineRecordsEnabled;
+}

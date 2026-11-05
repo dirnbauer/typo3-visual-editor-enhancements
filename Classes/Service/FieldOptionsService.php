@@ -9,13 +9,11 @@ use TYPO3\CMS\Backend\Form\Exception\AccessDeniedException;
 use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException;
 use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordWorkspaceDeletePlaceholderException;
 use TYPO3\CMS\Backend\Form\FormDataCompiler;
-use TYPO3\CMS\Backend\Form\FormDataGroup\TcaDatabaseRecord;
 use TYPO3\CMS\Backend\Form\FormDataGroup\TcaSelectTreeAjaxFieldData;
 use TYPO3\CMS\Core\Context\LanguageAspect;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
-use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -30,7 +28,6 @@ use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\VisualEditor\Service\EditModeService;
 
 /**
  * Builds the field chooser payload from the FormEngine data providers - the
@@ -50,8 +47,6 @@ final readonly class FieldOptionsService
 
     public function __construct(
         private TcaSchemaFactory $tcaSchema,
-        private RecordFactory $recordFactory,
-        private EditModeService $editModeService,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private FormDataCompiler $formDataCompiler,
         private LanguageServiceFactory $languageServiceFactory,
@@ -59,6 +54,8 @@ final readonly class FieldOptionsService
         private BackendUserProvider $backendUserProvider,
         private ConnectionPool $connectionPool,
         private SiteFinder $siteFinder,
+        private EditorRecordContext $contexts,
+        private InlineRecordService $inlineRecords,
     ) {}
 
     /**
@@ -70,24 +67,19 @@ final readonly class FieldOptionsService
      * @throws DatabaseRecordException when the record is gone
      * @throws DatabaseRecordWorkspaceDeletePlaceholderException when the record is deleted in the current workspace
      */
-    public function buildFieldOptions(string $table, int $uid, array $row, ServerRequestInterface $request): array
+    public function buildFieldOptions(string $table, int $uid, array $row, ServerRequestInterface $request, bool $related = false): array
     {
+        $formData = $this->contexts->compile($table, $uid, $request);
+        $uid = (int)$formData['compileUid'];
+        $row = $formData['databaseRow'];
+        $recordType = (string)$formData['recordTypeValue'];
         $schema = $this->tcaSchema->get($table);
-        $recordType = '';
-        $fieldSchema = $schema;
-        if ($schema->supportsSubSchema() && !$schema->getSubSchemaTypeInformation()->isPointerToForeignFieldInForeignSchema()) {
-            $recordType = (string)($row[$schema->getSubSchemaTypeInformation()->getFieldName()] ?? '');
-            if (!$schema->hasSubSchema($recordType)) {
-                return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => [], 'fieldPalettes' => [], 'fields' => []];
-            }
-            $fieldSchema = $schema->getSubSchema($recordType);
-        }
+        $fieldSchema = $schema->hasSubSchema($recordType) ? $schema->getSubSchema($recordType) : $schema;
 
-        $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
-        $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
+        $pageId = (int)$formData['scopePageId'];
         $languageService = $this->languageServiceFactory->createFromUserPreferences($this->backendUserProvider->getOrThrow());
 
-        $fieldGroups = $this->getFieldGroups($table, $recordType, $languageService);
+        $fieldGroups = $this->getFieldGroups($formData['processedTca'], $recordType, $languageService);
         // Every showitem field mapped to its localized group label and its
         // labeled-palette identity, so the client can resolve the form section
         // of any editable output — not just the fields the chooser renders —
@@ -102,15 +94,14 @@ final readonly class FieldOptionsService
         }
 
         $candidates = [];
-        foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId) as $fieldName) {
-            if ($fieldSchema->hasField($fieldName) && $this->editModeService->canEditField($record, $fieldName, $request)) {
+        foreach ($this->fieldChooserConfiguration->resolveFields($table, $recordType, $pageId, $related) as $fieldName) {
+            if ($fieldSchema->hasField($fieldName) && $this->contexts->mayEditField($table, $fieldName, $formData)) {
                 $candidates[] = $fieldName;
             }
         }
 
         $fields = [];
-        $formData = $candidates !== [] ? $this->compileFormData($table, $uid, $candidates, $request) : [];
-        $isTranslation = $this->isTranslation($schema, $row);
+        $isTranslation = $this->isTranslation($schema, $formData['resolvedRow']);
         foreach ($candidates as $fieldName) {
             // A column the providers removed (displayCond, not in showitem,
             // no selectable items) is not in the backend form either.
@@ -121,15 +112,26 @@ final readonly class FieldOptionsService
 
             $field = $fieldSchema->getField($fieldName);
             $label = $languageService->sL(trim((string)($column['label'] ?? $field->getLabel())));
-            if ($field instanceof StaticSelectFieldType) {
+            if ($field instanceof StaticSelectFieldType || $field instanceof \TYPO3\CMS\Core\Schema\Field\RadioFieldType || $field instanceof \TYPO3\CMS\Core\Schema\Field\CountryFieldType) {
                 $payload = $this->buildSelectField($field, $label, $column, $row);
+                // Core adds unknown stored values to items but removes them from the
+                // normalized row. Preserve that identity as an unavailable selection.
+                $stored = (string)($formData['resolvedRow'][$fieldName] ?? '');
+                if ($stored !== '' && !in_array($stored, array_column($payload['items'], 'value'), true)) {
+                    $payload['value'] = $stored;
+                    $payload['unavailableValue'] = $stored;
+                } elseif ($stored !== '' && ($row[$fieldName] ?? []) === []) {
+                    $payload['value'] = $stored;
+                    $payload['unavailableValue'] = $stored;
+                }
             } elseif ($field instanceof CategoryFieldType) {
                 $payload = $this->buildCategoryField($table, $uid, $field, $label, (string)($formData['recordTypeValue'] ?? ''), $request, $languageService);
-                $payload['items'] = $this->localizeCategoryItems($payload['items'], $this->getLanguageId($schema, $row), $pageId);
+                $payload['items'] = $this->localizeCategoryItems($payload['items'], $this->getLanguageId($schema, $formData['resolvedRow']), $pageId);
             } elseif ($field instanceof LinkFieldType) {
                 $payload = $this->buildLinkField($table, $uid, $field, $label, $row);
             } elseif ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1) {
                 $payload = $this->buildCheckField($field, $label, $row);
+                $payload['invertStateDisplay'] = (bool)($column['config']['items'][0]['invertStateDisplay'] ?? false);
             } elseif ($field instanceof ColorFieldType) {
                 $payload = $this->buildColorField($field, $label, $row);
             } else {
@@ -137,8 +139,19 @@ final readonly class FieldOptionsService
             }
             $payload['group'] = $fieldGroups[$fieldName]['label'] ?? '';
             $payload['tab'] = $fieldGroups[$fieldName]['tab'] ?? '';
+            $payload['tabId'] = $fieldGroups[$fieldName]['tabId'] ?? 0;
             $payload['position'] = $fieldGroups[$fieldName]['position'] ?? PHP_INT_MAX;
             $fields[] = $payload;
+        }
+
+        foreach ($this->inlineRecords->fields($table, $formData, $request) as $inline) {
+            $inline = InlineRecordService::publicField($inline);
+            $inline['label'] = $languageService->sL((string)$inline['label']);
+            $inline['group'] = $fieldGroups[$inline['name']]['label'] ?? '';
+            $inline['tab'] = $fieldGroups[$inline['name']]['tab'] ?? '';
+            $inline['tabId'] = $fieldGroups[$inline['name']]['tabId'] ?? 0;
+            $inline['position'] = $fieldGroups[$inline['name']]['position'] ?? PHP_INT_MAX;
+            $fields[] = $inline;
         }
 
         // Mirror the backend form: fields in showitem order, so group headings
@@ -149,26 +162,7 @@ final readonly class FieldOptionsService
             return $field;
         }, $fields);
 
-        return ['table' => $table, 'uid' => $uid, 'recordType' => $recordType, 'fieldGroups' => $fieldGroupLabels, 'fieldPalettes' => $fieldPalettes, 'fields' => $fields];
-    }
-
-    /**
-     * The record as the backend edit form compiles it, restricted to the
-     * given columns.
-     *
-     * @param list<string> $fieldNames
-     *
-     * @return array<string, mixed>
-     */
-    private function compileFormData(string $table, int $uid, array $fieldNames, ServerRequestInterface $request): array
-    {
-        return $this->formDataCompiler->compile([
-            'request' => $request,
-            'tableName' => $table,
-            'vanillaUid' => $uid,
-            'command' => 'edit',
-            'processedTca' => $this->getReducedTca($table, $fieldNames),
-        ], GeneralUtility::makeInstance(TcaDatabaseRecord::class));
+        return ['table' => $table, 'uid' => (int)$formData['requestedUid'], 'compileUid' => $uid, 'workspaceId' => $formData['workspaceId'], 'recordType' => $recordType, 'fieldGroups' => $fieldGroupLabels, 'fieldPalettes' => $fieldPalettes, 'fields' => $fields];
     }
 
     /**
@@ -216,14 +210,6 @@ final readonly class FieldOptionsService
         if (!is_array($tca)) {
             return [];
         }
-        $keep = array_flip($fieldNames);
-        $tca['columns'] = array_intersect_key(is_array($tca['columns'] ?? null) ? $tca['columns'] : [], $keep);
-        foreach (is_array($tca['types'] ?? null) ? $tca['types'] : [] as $type => $typeConfiguration) {
-            if (is_array($typeConfiguration) && is_array($typeConfiguration['columnsOverrides'] ?? null)) {
-                $tca['types'][$type]['columnsOverrides'] = array_intersect_key($typeConfiguration['columnsOverrides'], $keep);
-            }
-        }
-
         return $tca;
     }
 
@@ -294,7 +280,7 @@ final readonly class FieldOptionsService
      *
      * @return array<string, mixed>
      */
-    private function buildSelectField(StaticSelectFieldType $field, string $label, array $column, array $row): array
+    private function buildSelectField(\TYPO3\CMS\Core\Schema\Field\FieldTypeInterface $field, string $label, array $column, array $row): array
     {
         $options = [];
         $items = $column['config']['items'] ?? [];
@@ -313,7 +299,7 @@ final readonly class FieldOptionsService
             'name' => $field->getName(),
             'label' => $label,
             'type' => 'select',
-            'value' => (string)($row[$field->getName()] ?? ''),
+            'value' => (string)(is_array($row[$field->getName()] ?? null) ? ($row[$field->getName()][0] ?? '') : ($row[$field->getName()] ?? '')),
             'items' => $options,
         ];
     }
@@ -327,21 +313,24 @@ final readonly class FieldOptionsService
      * separately so the client can group fields into backend-like tabs.
      * Position preserves the showitem order.
      *
-     * @return array<string, array{label: string, tab: string, palette: string, position: int}>
+     * @param array<string, mixed> $tca
+     * @return array<string, array{label: string, tab: string, tabId: int, palette: string, position: int}>
      */
-    private function getFieldGroups(string $table, string $recordType, LanguageService $languageService): array
+    private function getFieldGroups(array $tca, string $recordType, LanguageService $languageService): array
     {
-        $typeConfiguration = $GLOBALS['TCA'][$table]['types'][$recordType]
-            ?? $GLOBALS['TCA'][$table]['types']['0']
+        $typeConfiguration = $tca['types'][$recordType]
+            ?? $tca['types']['0']
             ?? [];
-        $palettes = $GLOBALS['TCA'][$table]['palettes'] ?? [];
+        $palettes = $tca['palettes'] ?? [];
         $tabLabel = $languageService->sL('core.form.tabs:general');
+        $tabId = 0;
         $position = 0;
         $groups = [];
         foreach (GeneralUtility::trimExplode(',', (string)($typeConfiguration['showitem'] ?? ''), true) as $item) {
             $parts = GeneralUtility::trimExplode(';', $item);
             $name = $parts[0] ?? '';
             if ($name === '--div--') {
+                $tabId++;
                 $tabLabel = $languageService->sL(trim($parts[1] ?? ''));
                 continue;
             }
@@ -359,13 +348,13 @@ final readonly class FieldOptionsService
                 foreach (GeneralUtility::trimExplode(',', (string)($palettes[$paletteName]['showitem'] ?? ''), true) as $paletteItem) {
                     $fieldName = GeneralUtility::trimExplode(';', $paletteItem)[0] ?? '';
                     if ($fieldName !== '' && $fieldName !== '--linebreak--' && !isset($groups[$fieldName])) {
-                        $groups[$fieldName] = ['label' => $groupLabel, 'tab' => $tabLabel, 'palette' => $palette, 'position' => $position++];
+                        $groups[$fieldName] = ['label' => $groupLabel, 'tab' => $tabLabel, 'tabId' => $tabId, 'palette' => $palette, 'position' => $position++];
                     }
                 }
                 continue;
             }
             if ($name !== '' && !isset($groups[$name])) {
-                $groups[$name] = ['label' => $tabLabel, 'tab' => $tabLabel, 'palette' => '', 'position' => $position++];
+                $groups[$name] = ['label' => $tabLabel, 'tab' => $tabLabel, 'tabId' => $tabId, 'palette' => '', 'position' => $position++];
             }
         }
 
@@ -383,7 +372,7 @@ final readonly class FieldOptionsService
             'name' => $field->getName(),
             'label' => $label,
             'type' => 'link',
-            'value' => (string)($row[$field->getName()] ?? ''),
+            'value' => (string)(is_array($row[$field->getName()] ?? null) ? ($row[$field->getName()][0] ?? '') : ($row[$field->getName()] ?? '')),
             // Same uid as the payload so the signed itemName matches the
             // record the client stages the chosen typolink for.
             'linkBrowserUrl' => $this->linkBrowserUrl->buildUrl($table, $uid, (int)($row['pid'] ?? 0), $field),
@@ -419,7 +408,7 @@ final readonly class FieldOptionsService
             'name' => $field->getName(),
             'label' => $label,
             'type' => 'color',
-            'value' => (string)($row[$field->getName()] ?? ''),
+            'value' => (string)(is_array($row[$field->getName()] ?? null) ? ($row[$field->getName()][0] ?? '') : ($row[$field->getName()] ?? '')),
             'opacity' => $field->supportsOpacity(),
         ];
     }

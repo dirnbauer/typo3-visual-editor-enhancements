@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0-rc.1] — unreleased
+
+- Resolve field choices from the actual workspace record, full FormEngine
+  dependencies and resolved type, with stable tab identities and unavailable
+  stored selections.
+- Add independent opt-in collection controls, server-owned create/delete
+  intents, ownership/revision/limit guards, locking, rollback and generic-save
+  bypass protection. Live creations stay hidden until explicitly enabled.
+- Confirm collection removal with the Core modal and block structural actions
+  while editor changes or an uncertain request are pending.
+- Add functional fixtures and browser component coverage. Initial automatic
+  workspace versioning remains unsupported because Core 14.3.10 changes live
+  child metadata; use existing drafts. Joint admin/restricted-user integration
+  against the showcase page is still required before release.
+
 ## [1.4.4] — 2026-10-25
 
 ### Fixed

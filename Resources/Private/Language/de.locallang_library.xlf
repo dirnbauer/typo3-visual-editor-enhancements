@@ -223,5 +223,47 @@
         <target>Keine Farbe gesetzt</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.back">
+      <segment>
+        <source>Back</source>
+        <target>Zurück</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.settings">
+      <segment>
+        <source>Item settings</source>
+        <target>Eintragseinstellungen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.backend">
+      <segment>
+        <source>Open backend form</source>
+        <target>Backend-Formular öffnen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addAfter">
+      <segment>
+        <source>Add after</source>
+        <target>Danach hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.remove">
+      <segment>
+        <source>Remove</source>
+        <target>Entfernen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.add">
+      <segment>
+        <source>Add entry</source>
+        <target>Eintrag hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.open">
+      <segment>
+        <source>Edit collection entries</source>
+        <target>Sammlungseinträge bearbeiten</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

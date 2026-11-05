@@ -35,6 +35,11 @@ final readonly class FeatureFlags
         return $this->flag('elementRefreshEnabled');
     }
 
+    public function isInlineRecordsEnabled(): bool
+    {
+        return $this->flag('inlineRecordsEnabled');
+    }
+
     private function flag(string $key): bool
     {
         return (bool)($GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements'][$key] ?? true);

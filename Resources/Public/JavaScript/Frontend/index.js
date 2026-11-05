@@ -1,6 +1,6 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
-import {editorColorScheme, fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {editorColorScheme, fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {applyTheme} from '@webconsulting/visual-editor-enhancements/Shared/theme-bridge.js';
@@ -46,7 +46,7 @@ async function initializeElementLibrary() {
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
-  if (libraryModule === null && !isFieldChooserEnabled()) {
+  if (libraryModule === null && !isFieldChooserEnabled() && !isInlineRecordsEnabled()) {
     return;
   }
   const injectActions = (contentElement) => {
@@ -54,6 +54,7 @@ async function initializeContentElementActions() {
       injectLibraryAction(contentElement, libraryModule);
     }
     injectFieldChooserAction(contentElement);
+    injectInlineRecordsAction(contentElement);
     attachElementContextAffordance(contentElement);
   };
   const injectAll = () => document.querySelectorAll('ve-content-element').forEach(injectActions);
@@ -137,3 +138,28 @@ function injectFieldChooserAction(contentElement) {
 initializeThemeBridge();
 initializeContentElementActions();
 initializeElementRefresh();
+
+function injectInlineRecordsAction(element) {
+  if (!isInlineRecordsEnabled() || !element.hasAttribute('canModifyRecord')) { return; }
+  const bar = element.shadowRoot?.querySelector('.action-bar');
+  if (!bar || bar.querySelector('[data-ve-enhancement="inline-records"]')) { return; }
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'button';
+  button.dataset.veEnhancement = 'inline-records';
+  button.textContent = '+';
+  button.title = translate('frontend.inlineRecords.open', 'Edit collection entries');
+  button.setAttribute('aria-label', button.title);
+  button.addEventListener('click', async () => {
+    const {fetchFieldOptions} = await import('../Shared/field-options-cache.js');
+    const {openFieldChooser} = await import('./components/ve-field-chooser.js');
+    const table = element.getAttribute('table');
+    const uid = Number(element.getAttribute('uid'));
+    try {
+      const data = await fetchFieldOptions(table, uid);
+      openFieldChooser({table, uid, anchorRect: button.getBoundingClientRect(),
+        scopeFields: data.fields.filter((field) => field.type === 'inline').map((field) => field.name), scopeLabel: 'Entries'});
+    } catch { button.title = 'Could not load entries. Open the backend form.'; }
+  });
+  bar.appendChild(button);
+}

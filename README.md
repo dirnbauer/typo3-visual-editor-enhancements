@@ -132,3 +132,12 @@ configuration, usage, [developer reference](Documentation/Developer.rst),
 ## License
 
 GPL-2.0-or-later, see [LICENSE](LICENSE).
+
+
+Collection controls (1.5 release candidate) are independently opt-in under
+User settings > Visual editor. Add/remove saves immediately; Reset does not
+undo it. Live additions stay hidden until enabled in the backend form.
+Workspace structure currently requires existing parent/child drafts; initial
+automatic versioning fails closed because of a Core live-metadata issue.
+See [Collection entries](Documentation/Collections.rst) for supported relations,
+permissions, the server intent protocol and backend fallbacks.

@@ -186,5 +186,40 @@
         <source>No color set</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.back">
+      <segment>
+        <source>Back</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.settings">
+      <segment>
+        <source>Item settings</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.backend">
+      <segment>
+        <source>Open backend form</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addAfter">
+      <segment>
+        <source>Add after</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.remove">
+      <segment>
+        <source>Remove</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.add">
+      <segment>
+        <source>Add entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.open">
+      <segment>
+        <source>Edit collection entries</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

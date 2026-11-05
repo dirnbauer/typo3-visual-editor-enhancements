@@ -75,3 +75,17 @@ instead of timing out.
   iframe each) or a compact list (`.lrow`, one shared docked preview),
   depending on the user's `tx_visualeditor_panelColumns`. The specs cover both
   and hover the first entry so a preview loads in either mode.
+
+Collection component coverage runs without backend credentials or editorial
+records:
+
+```sh
+node_modules/.bin/playwright test --config Tests/E2E --project=components
+```
+
+`field-chooser-component.spec.js` uses real Lit and the vendor data store;
+backend transport and the Core modal adapter are isolated. It covers duplicate
+tab labels, refresh selection, sections, nested Back, stale responses,
+pending/invalid/saving states, cancellation, HTTP failure and visibility state.
+It does not replace the joint showcase-page journey with real Core modals,
+admin/restricted editors and translated workspace records.

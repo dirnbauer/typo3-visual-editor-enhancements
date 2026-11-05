@@ -38,6 +38,11 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         private TcaSchemaFactory $tcaSchema,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private FieldOptionsService $fieldOptionsService,
+        private \Webconsulting\VisualEditorEnhancements\Service\EditorRecordContext $contexts,
+        private \Webconsulting\VisualEditorEnhancements\Service\InlineRecordService $inlineRecords,
+        private \Webconsulting\VisualEditorEnhancements\Service\InlineRecordConfiguration $collections,
+        private \Webconsulting\VisualEditorEnhancements\Service\BackendUserProvider $users,
+        private \Webconsulting\VisualEditorEnhancements\Service\FeatureFlags $features,
     ) {}
 
     #[\Override]
@@ -63,19 +68,56 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
         }
 
         $uidParam = $queryParams['uid'] ?? null;
-        $uid = is_numeric($uidParam) ? (int)$uidParam : 0;
+        $uid = (is_int($uidParam) && $uidParam > 0) || (is_string($uidParam) && preg_match('/^[1-9][0-9]*$/D', $uidParam)) ? (int)$uidParam : 0;
         $row = $uid > 0 ? BackendUtility::getRecordWSOL($table, $uid) : null;
         if ($row === null) {
             return $this->recordNotFoundResponse();
         }
 
-        $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
-        if (!$this->fieldChooserConfiguration->isTableEnabled($table, $pageId)) {
-            return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
-        }
-
         try {
-            $fieldOptions = $this->fieldOptionsService->buildFieldOptions($table, $uid, $row, $request);
+            $pageId = $this->fieldChooserConfiguration->scopePageId($table, $row);
+            $related = false;
+            $path = json_decode(is_string($queryParams['context'] ?? null) ? $queryParams['context'] : '[]', true);
+            if (!is_array($path) || count($path) > 12) {
+                return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+            }
+            $previous = null;
+            foreach ($path as $step) {
+                if (!is_array($step) || !is_string($step['table'] ?? null) || !is_int($step['uid'] ?? null) || !is_string($step['field'] ?? null)
+                    || !isset($GLOBALS['TCA'][$step['table']]) || ($previous !== null && !in_array([$step['table'], $step['uid']], $previous, true))) {
+                    return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+                }
+                $parent = $this->contexts->compile($step['table'], $step['uid'], $request);
+                if ($previous === null && !$this->fieldChooserConfiguration->isTableEnabled($step['table'], (int)$parent['scopePageId']) && !$this->collections->enabled((int)$parent['scopePageId'])) {
+                    return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+                }
+                $previous = [];
+                foreach ($this->inlineRecords->fields($step['table'], $parent, $request) as $collection) {
+                    if ($collection['name'] === $step['field']) {
+                        foreach ($collection['children'] as $child) {
+                            $previous[] = [$child['table'], $child['uid']];
+                        }
+                    }
+                }
+            }
+            if ($previous !== null) {
+                $related = in_array([$table, $uid], $previous, true);
+                if (!$related) {
+                    return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+                }
+            }
+            $ordinary = $this->features->isFieldChooserEnabled()
+                && \Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode::fromUserSetting($this->users->getOrThrow()->uc['tx_visualeditor_fieldChooserMode'] ?? null) !== \Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode::Disabled
+                && $this->fieldChooserConfiguration->isTableEnabled($table, $pageId);
+            if (!$related && !$ordinary && !$this->collections->enabled($pageId)) {
+                return $this->guard->denialResponse(AccessDenial::InsufficientPermissions);
+            }
+            $fieldOptions = $this->fieldOptionsService->buildFieldOptions($table, $uid, $row, $request, $related);
+            if (!$ordinary && !$related) {
+                $fieldOptions['fields'] = array_values(array_filter($fieldOptions['fields'], static fn(array $field): bool => $field['type'] === 'inline'));
+                $fieldOptions['fieldGroups'] = [];
+                $fieldOptions['fieldPalettes'] = [];
+            }
         } catch (AccessDeniedException) {
             // The backend form would refuse this record as well, e.g. no
             // content-edit permission on its page.

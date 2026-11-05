@@ -82,9 +82,9 @@ final class FieldChooserConfigurationService
     /**
      * @return list<string>
      */
-    public function resolveFields(string $table, string $recordType, int $pageId): array
+    public function resolveFields(string $table, string $recordType, int $pageId, bool $related = false): array
     {
-        if (!$this->isTableEnabled($table, $pageId)) {
+        if (!$related && !$this->isTableEnabled($table, $pageId)) {
             return [];
         }
 
@@ -215,7 +215,9 @@ final class FieldChooserConfigurationService
             if (in_array($field->getName(), $blockedFields, true) || ($field->getConfiguration()['readOnly'] ?? false)) {
                 continue;
             }
-            if ($field instanceof CategoryFieldType
+            if ($field instanceof \TYPO3\CMS\Core\Schema\Field\RadioFieldType
+                || $field instanceof \TYPO3\CMS\Core\Schema\Field\CountryFieldType
+                || $field instanceof CategoryFieldType
                 || ($field instanceof StaticSelectFieldType && $this->isSingleValueSelect($field))
                 || $field instanceof LinkFieldType
                 || ($field instanceof CheckboxFieldType && count($field->getConfiguration()['items'] ?? []) <= 1)

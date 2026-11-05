@@ -105,6 +105,8 @@ function hasOwnLinkEditButton(output) {
  * @param {{table: string, uid: number, elementName: string}} record
  */
 function attachOutputAffordance(output, record) {
+  record = {...record, rootRecord: {table: record.table, uid: record.uid},
+    table: output.getAttribute('table') || record.table, uid: Number(output.getAttribute('uid')) || record.uid};
   // Guards the async race between hover and the field-options fetch: when the
   // pointer already left (or focus moved on) before the fetch resolved, the
   // button must not appear after the fact.
@@ -162,5 +164,6 @@ async function openScopedChooser(record, scopeFields, scopeLabel, anchorRect) {
     anchorRect,
     scopeFields,
     scopeLabel,
+    rootRecord: record.rootRecord,
   });
 }

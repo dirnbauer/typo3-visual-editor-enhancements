@@ -32,6 +32,8 @@ final readonly class FrontendConfiguration
      *     editableLinksEnabled: bool,
      *     fieldChooserMode: value-of<FieldChooserMode>,
      *     fieldChooserTables: list<string>,
+     *     inlineRecordsEnabled: bool,
+     *     workspaceId: int,
      *     elementRefreshEnabled: bool,
      *     colorScheme: 'auto'|'light'|'dark'
      * }
@@ -59,6 +61,8 @@ final readonly class FrontendConfiguration
             'editableLinksEnabled' => $contextButtonsEnabled && $this->features->isEditableLinksEnabled(),
             'fieldChooserMode' => $fieldChooserMode->value,
             'fieldChooserTables' => $fieldChooserTables,
+            'inlineRecordsEnabled' => $pageId !== null && (new InlineRecordConfiguration($this->backendUserProvider, $this->features))->enabled($pageId),
+            'workspaceId' => $this->backendUserProvider->getOrThrow()->workspace,
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
             'colorScheme' => $this->colorScheme($userSettings['colorScheme'] ?? null),
         ];

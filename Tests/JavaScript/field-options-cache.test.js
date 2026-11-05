@@ -86,3 +86,15 @@ describe('fetchFieldOptions', () => {
     assert.equal(globalThis.fetch.mock.calls.length, 2);
   });
 });
+
+it('separates workspace, language and authorized relation contexts', async () => {
+  globalThis.fetch = respondWith({fields: []});
+  await fetchFieldOptions('items', 1);
+  window.veInfo.languageId = 2;
+  await fetchFieldOptions('items', 1);
+  window.visualEditorEnhancements = {workspaceId: 7};
+  await fetchFieldOptions('items', 1);
+  await fetchFieldOptions('items', 1, [{table: 'tt_content', uid: 2, field: 'items'}]);
+  assert.equal(globalThis.fetch.mock.calls.length, 4);
+  assert.match(globalThis.fetch.mock.calls[3].arguments[0], /context=/);
+});

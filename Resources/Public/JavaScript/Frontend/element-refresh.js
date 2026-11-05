@@ -102,11 +102,12 @@ async function handleSaved(snapshot) {
           continue; // every changed field is inline-edited: DOM already correct
         }
         const selector = wrapperSelector(table, uid);
-        const wrapper = document.querySelector(selector);
+        const wrapper = document.querySelector(selector) ?? [...document.querySelectorAll('ve-editable-text, ve-editable-rich-text')]
+          .find((output) => output.getAttribute('table') === table && output.getAttribute('uid') === String(uid))?.closest('ve-content-element');
         if (wrapper === null) {
           fullReload = true;
         } else {
-          staleWrappers.set(selector, wrapper);
+          staleWrappers.set(wrapperSelector(wrapper.getAttribute('table'), wrapper.getAttribute('uid')), wrapper);
         }
       }
     }
@@ -116,13 +117,14 @@ async function handleSaved(snapshot) {
     if (!fullReload) {
       fullReload = !(await refreshWrappers(staleWrappers));
     }
+    if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return; }
     if (fullReload) {
       // Vendor scroll sync restores the approximate position on reload;
       // keeping a stale rendering would be worse.
       window.location.reload();
     }
   } catch {
-    window.location.reload();
+    if (dataHandlerStore.changesCount === 0 && dataHandlerStore.invalidCount === 0) { window.location.reload(); }
   } finally {
     refreshing = false;
   }
@@ -172,6 +174,7 @@ async function refreshWrappers(staleWrappers) {
   if (!response.ok) {
     return false;
   }
+  if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return false; }
   const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
   for (const [selector, wrapper] of staleWrappers) {
     const fresh = parsed.querySelector(selector);
@@ -201,4 +204,11 @@ function reExecuteScripts(root) {
     newScript.textContent = oldScript.textContent;
     oldScript.replaceWith(newScript);
   }
+}
+
+export async function refreshElement(table, uid) {
+  if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return false; }
+  const selector = wrapperSelector(table, uid);
+  const wrapper = document.querySelector(selector);
+  return wrapper ? refreshWrappers(new Map([[selector, wrapper]])) : false;
 }

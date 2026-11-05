@@ -28,7 +28,9 @@ final readonly class DataHandlerService
         $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->start($data, $cmd);
         $dataHandler->process_datamap();
-        $dataHandler->process_cmdmap();
+        if (!$dataHandler->errorLog) {
+            $dataHandler->process_cmdmap();
+        }
         return $dataHandler->errorLog;
     }
 

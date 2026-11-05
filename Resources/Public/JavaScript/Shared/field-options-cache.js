@@ -20,10 +20,10 @@ const cache = new Map();
  * @param {number} uid
  * @return {Promise<object>}
  */
-async function requestFieldOptions(table, uid) {
+async function requestFieldOptions(table, uid, context = []) {
   const response = await fetch(
     window.location.pathname
-      + '?veFieldOptions=1&editMode=1&table=' + encodeURIComponent(table) + '&uid=' + uid,
+      + '?veFieldOptions=1&editMode=1&table=' + encodeURIComponent(table) + '&uid=' + uid + (context.length ? '&context=' + encodeURIComponent(JSON.stringify(context)) : ''),
     {headers: {'X-Request-Token': window.veInfo?.token ?? ''}},
   );
   const data = await response.json();
@@ -42,11 +42,11 @@ async function requestFieldOptions(table, uid) {
  * @param {number} uid
  * @return {Promise<object>}
  */
-export function fetchFieldOptions(table, uid) {
-  const key = table + ':' + uid;
+export function fetchFieldOptions(table, uid, context = []) {
+  const key = table + ':' + uid + ':' + JSON.stringify(context) + ':' + (window.veInfo?.languageId ?? 0) + ':' + (window.visualEditorEnhancements?.workspaceId ?? 0);
   let promise = cache.get(key);
   if (promise === undefined) {
-    promise = requestFieldOptions(table, uid);
+    promise = requestFieldOptions(table, uid, context);
     cache.set(key, promise);
     promise.catch(() => {
       // Evict only our own entry: the cache may have been cleared (and the
