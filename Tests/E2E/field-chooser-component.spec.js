@@ -138,3 +138,41 @@ test('an uncertain server failure blocks another write without an automatic retr
   await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeDisabled();
   expect(posts).toHaveLength(1);
 });
+
+
+test('settings remain focused on fields instead of expanding every collection action', async ({page}) => {
+  await fixture(page, {mode: 'sections'});
+  await expect(page.getByRole('combobox', {name: 'First'})).toBeVisible();
+  await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toHaveCount(0);
+  await expect(page.getByText('Minimum:', {exact: false})).toHaveCount(0);
+});
+
+test('entry settings and Back keep the panel at its original position', async ({page}) => {
+  await fixture(page, {mode: 'sections'});
+  await page.evaluate(() => {
+    document.querySelector('ve-field-chooser').close();
+    window.show({scopeFields: ['cards'], scopeLabel: 'Entries', anchorRect: {left: 200, top: 180, bottom: 210}});
+  });
+  const panel = page.getByRole('dialog');
+  const before = await panel.boundingBox();
+  await page.getByRole('button', {name: 'Item settings'}).click();
+  await expect(page.getByRole('combobox', {name: 'Child choice'})).toBeVisible();
+  expect((await panel.boundingBox()).x).toBe(before.x);
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  expect((await panel.boundingBox()).x).toBe(before.x);
+});
+
+test('entries toggle closes on a second pointer click and has no next-save hint', async ({page}) => {
+  await fixture(page, {mode: 'sections'});
+  await page.evaluate(() => {
+    document.querySelector('ve-field-chooser').close();
+    const button = document.querySelector('#anchor');
+    button.dataset.veEnhancement = 'inline-records';
+    button.onclick = () => window.show({view: 'entries', scopeFields: ['cards'], scopeLabel: 'Entries', trigger: button});
+  });
+  await page.locator('#anchor').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('Applied with the next save.', {exact: true})).toHaveCount(0);
+  await page.locator('#anchor').click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
