@@ -6,8 +6,18 @@ Collection entries
 
 Enable **Edit collection entries** in User settings > Visual editor. This
 preference is initially off and is independent of the field chooser's tabs,
-sections and disabled modes. The separate **Edit collection entries** action
-opens the existing field chooser for collections only.
+sections and disabled modes. The labelled **Entries** action sits beside field
+settings in the element toolbar and appears only for elements with collections.
+It opens a compact panel at the right of the preview. Field settings keep their
+own anchored panel, with a shortcut to each collection instead of a long list
+of entry actions.
+
+Click an entry's title to edit its text, media and other fields in TYPO3's
+contextual editing form. The pencil marks this action; hidden entries have a
+badge. Use **Add entry** below the list, or an entry's overflow menu for
+**Item settings**, **Add after**, **Remove** and the full backend form. A
+restriction is explained beside the relevant action. **Back** stays in the
+same panel when navigating nested collections.
 
 **Add entry**, **Add after** and **Remove** save immediately. Reset does not
 undo these operations. Removal first asks for confirmation; Cancel, Escape
@@ -15,7 +25,8 @@ and dismissing the confirmation perform no writes. Core's modal delegates to
 the backend window on the same origin. A native browser confirmation is the
 fallback when that modal cannot be rendered.
 
-Save or reset pending changes before structural actions. Invalid fields,
+Save or reset pending changes before structural actions or opening an entry's
+contextual form. Invalid fields,
 an active save in any language frame, an unknown editor state or an ongoing
 collection request block the controls. The extension never triggers Save
 itself, retries a failed creation automatically, or treats ``saveEnded`` as
@@ -57,7 +68,7 @@ structure; independent translations may manage their own entries.
 
 Workspace writes currently require an existing parent draft and versioned
 existing children. In Core 14.3.10 the initial automatic versioning path can
-change live child sorting and timestamps. This release candidate refuses
+change live child sorting and timestamps. The extension refuses
 that path before mutation. It does not fix Core's backend versioning itself.
 Existing drafts support repeated add, discard of new entries and marking
 existing entries for deletion. The endpoint additionally compares live rows

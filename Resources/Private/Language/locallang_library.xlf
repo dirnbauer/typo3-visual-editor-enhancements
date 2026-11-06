@@ -441,5 +441,35 @@
         <source>Unavailable: {value}</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.edit">
+      <segment>
+        <source>Edit entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.actions">
+      <segment>
+        <source>Entry actions</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenLabel">
+      <segment>
+        <source>Hidden</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.empty">
+      <segment>
+        <source>No entries yet.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.newHidden">
+      <segment>
+        <source>New entries start hidden.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.structureHint">
+      <segment>
+        <source>Adding or removing entries saves immediately.</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

@@ -39,6 +39,19 @@ export function collectionReason(reason) {
 }
 
 const inlineFallbacks = {
+  "back": "Back",
+  "settings": "Item settings",
+  "backend": "Open backend form",
+  "addAfter": "Add after",
+  "remove": "Remove",
+  "add": "Add entry",
+  "edit": "Edit entry",
+  "actions": "Entry actions",
+  "hiddenLabel": "Hidden",
+  "empty": "No entries yet.",
+  "newHidden": "New entries start hidden.",
+  "structureHint": "Adding or removing entries saves immediately.",
+
   "pending": "Save or reset your changes first. If the editor state is uncertain, refresh the page.",
   "busy": "An entry operation is in progress.",
   "workspace": "Open a fully versioned parent and its entries in the backend workspace first.",

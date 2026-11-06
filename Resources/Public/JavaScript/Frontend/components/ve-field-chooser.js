@@ -2,13 +2,14 @@ import {html, LitElement, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
-import {clamp, translate, viewportSize} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
+import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
-import {linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {entriesIconSvg, linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
 import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
+import {renderCollection} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/collections.js';
 import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/styles.js';
 
 /**
@@ -21,7 +22,7 @@ import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/compone
  * the database only with the next explicit save, exactly like an inline text
  * edit; reverting a field to the value it had when the options loaded clears
  * the pending change again. Opened via openFieldChooser() from the
- * per-element action-bar button injected in Frontend/index.js (full view) and
+ * per-element action-bar button in Frontend/element-field-actions.js (full view) and
  * from the per-output context buttons (scoped to the hovered field's own
  * attributes via the scopeFields option, with a "show all" escape hatch back
  * to the full view).
@@ -30,6 +31,8 @@ import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/compone
  */
 export class VeFieldChooser extends LitElement {
   static properties = {
+    view: {type: String, state: true},
+    docked: {type: Boolean, state: true},
     busy: {type: Boolean, state: true},
     message: {type: String, state: true},
     context: {type: Array, state: true},
@@ -47,6 +50,11 @@ export class VeFieldChooser extends LitElement {
 
   constructor() {
     super();
+    this.view = 'settings';
+    this.docked = false;
+    this.anchorRect = null;
+    this.trigger = null;
+    this.viewportTracker = new ViewportTracker(() => this.#position());
     this.busy = false;
     this.message = '';
     this.context = [];
@@ -100,7 +108,7 @@ export class VeFieldChooser extends LitElement {
       }
       // Chooser buttons toggle/re-anchor via their own click handler; closing
       // here already on pointerdown would make that click re-open the popover.
-      if (path.some((node) => node instanceof Element && node.dataset?.veEnhancement === 'field-chooser')) {
+      if (path.some((node) => node instanceof Element && ['field-chooser', 'inline-records'].includes(node.dataset?.veEnhancement))) {
         return;
       }
       this.close();
@@ -121,15 +129,22 @@ export class VeFieldChooser extends LitElement {
    * refetches.
    * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string}} options
    */
-  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = '', context = [], rootRecord = null, nested = false}) {
-    const sameRecord = this.table === table && this.uid === uid;
-    if (this.open && sameRecord && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
+  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = '', context = [], rootRecord = null, nested = false, view = 'settings', trigger = null}) {
+    const sameRecord = this.table === table && this.uid === uid && JSON.stringify(this.context) === JSON.stringify(context);
+    if (!nested && this.open && sameRecord && this.view === view && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
       this.close({restoreFocus: true});
       return;
     }
-    if (!this.open) {
-      this.returnFocus = deepActiveElement();
+    if (!nested) {
+      this.returnFocus = trigger ?? deepActiveElement();
+      this.trigger?.setAttribute('aria-expanded', 'false');
+      this.trigger = trigger;
+      this.trigger?.setAttribute('aria-expanded', 'true');
+      this.anchorRect = anchorRect;
+      this.docked = view === 'entries';
+      this.message = '';
     }
+    this.view = view;
     // Re-filtering an already loaded element must not refetch - but after a
     // failed load there is nothing to keep, so an error state always retries
     // (the shared cache evicted the failed promise).
@@ -145,7 +160,7 @@ export class VeFieldChooser extends LitElement {
     this.open = true;
     if (!sameRecord) { this.activeTab = 0; }
     this.bodyMinHeight = 0;
-    this.#position(anchorRect);
+    this.#position();
     this.#startListening();
     if (reload) {
       this.#load();
@@ -165,6 +180,7 @@ export class VeFieldChooser extends LitElement {
       return;
     }
     this.open = false;
+    this.trigger?.setAttribute('aria-expanded', 'false');
     this.loadSeq++;
     this.#stopListening();
     if (restoreFocus && this.returnFocus?.isConnected) {
@@ -178,6 +194,7 @@ export class VeFieldChooser extends LitElement {
       return;
     }
     this.listening = true;
+    this.viewportTracker.start();
     dataHandlerStore.addEventListener('change', this.onStoreChange);
     try {
       const save = window.parent.document.querySelector('ve-backend-save-button');
@@ -195,6 +212,7 @@ export class VeFieldChooser extends LitElement {
       return;
     }
     this.listening = false;
+    this.viewportTracker.stop();
     dataHandlerStore.removeEventListener('change', this.onStoreChange);
     this.saveObserver?.disconnect();
     document.removeEventListener('keydown', this.onDocumentKeydown);
@@ -205,22 +223,25 @@ export class VeFieldChooser extends LitElement {
    * Anchors the fixed popover to the action-bar button: preferred below the
    * button, left-aligned and clamped to the viewport; when the space below is
    * short it flips above (bottom-anchored, so it grows upwards).
-   * @param {DOMRect} rect
    */
-  #position(rect) {
-    const width = 480;
-    const gap = 8;
-    const edge = 12;
-    const {width: viewportWidth, height: viewportHeight} = viewportSize(width);
-    const left = clamp(Math.round(rect.left), edge, viewportWidth - width - edge);
-    const capHeight = (space) => Math.round(Math.min(viewportHeight * 0.6, Math.max(space, 160)));
-    const spaceBelow = viewportHeight - rect.bottom - gap - edge;
-    const spaceAbove = rect.top - gap - edge;
-    if (spaceBelow >= viewportHeight * 0.3 || spaceBelow >= spaceAbove) {
-      this.popoverStyle = `top:${Math.round(rect.bottom + gap)}px;left:${left}px;max-height:${capHeight(spaceBelow)}px;`;
-    } else {
-      this.popoverStyle = `bottom:${Math.round(viewportHeight - rect.top + gap)}px;left:${left}px;max-height:${capHeight(spaceAbove)}px;`;
+  #position() {
+    if (this.docked) {
+      this.popoverStyle = '';
+      return;
     }
+    const edge = 12;
+    const gap = 8;
+    const {width: viewportWidth, height: viewportHeight} = viewportSize(480);
+    const width = Math.min(480, viewportWidth - edge * 2);
+    const rect = this.trigger?.isConnected ? this.trigger.getBoundingClientRect() : this.anchorRect;
+    const left = clamp(Math.round(rect?.left ?? edge), edge, viewportWidth - width - edge);
+    const top = clamp(rect?.top ?? edge, edge, viewportHeight - edge);
+    const bottom = clamp(rect?.bottom ?? edge, edge, viewportHeight - edge);
+    const spaceBelow = viewportHeight - bottom - gap - edge;
+    const spaceAbove = top - gap - edge;
+    const below = spaceBelow >= Math.min(360, viewportHeight * 0.65) || spaceBelow >= spaceAbove;
+    const height = Math.floor(Math.min(viewportHeight - edge * 2, Math.max(0, below ? spaceBelow : spaceAbove)));
+    this.popoverStyle = `${below ? `top:${Math.round(bottom + gap)}` : `bottom:${Math.round(viewportHeight - top + gap)}`}px;left:${left}px;max-height:${height}px;`;
   }
 
   /**
@@ -353,28 +374,29 @@ export class VeFieldChooser extends LitElement {
     // attributes, flat and titled with the field's form section - never the tab
     // bar, even in tabs mode. The footer's "show all" button leads to the full
     // view.
+    const entries = this.view === 'entries';
     const scoped = this.scopeFields !== null;
-    const title = scoped
+    const title = entries ? inlineLabel('entries') : scoped
       ? (this.scopeLabel || translate('frontend.fieldChooser.title', 'Field settings'))
       : translate('frontend.fieldChooser.title', 'Field settings');
     const closeLabel = translate('frontend.fieldChooser.close', 'Close');
     // Tabs mode replicates the backend form's tab bar; with a single (or no)
     // tab it falls back to the plain sectioned list, exactly like 'sections'
     // mode. While loading there are no fields, hence no tabs, hence no bar.
-    const tabs = !scoped && fieldChooserMode() === 'tabs' ? this.#tabs() : [];
+    const tabs = !entries && !scoped && fieldChooserMode() === 'tabs' ? this.#tabs() : [];
     const useTabs = tabs.length > 1;
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
-      <div class="popover" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
-        ${this.history.length ? html`<button type="button" @click=${() => this.#back()}>${translate('frontend.inlineRecords.back', 'Back')}</button>` : ''}
-        ${this.message ? html`<p role="status">${this.message}</p>` : ''}
+      <div class="popover ${this.docked ? 'isDrawer' : ''}" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
         <header class="header">
+          ${this.history.length ? html`<button type="button" class="closeButton" aria-label=${inlineLabel('back')} title=${inlineLabel('back')} @click=${() => this.#back()}>←</button>` : ''}
           <div class="heading">
             ${this.elementName !== '' ? html`<span class="elementName" title="${this.elementName}">${this.elementName}</span>` : ''}
             <h2 class="title">${title}</h2>
           </div>
           <button type="button" class="closeButton" @click="${() => this.close({restoreFocus: true})}" title="${closeLabel}" aria-label="${closeLabel}">&times;</button>
         </header>
+        ${this.message ? html`<p class="notice" role="status">${this.message}</p>` : ''}
         ${useTabs ? this.#renderTabBar(tabs, activeTab) : ''}
         <div
           class="body"
@@ -384,8 +406,8 @@ export class VeFieldChooser extends LitElement {
           style="${this.bodyMinHeight > 0 ? `min-height:${this.bodyMinHeight}px;` : nothing}"
         >${useTabs ? this.#renderTabFields(tabs[activeTab]) : this.#renderBody()}</div>
         <footer class="footer">
-          <span class="footerHint">${translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</span>
-          ${scoped ? html`
+          <span class="footerHint">${entries ? inlineLabel('structureHint') : translate('frontend.fieldChooser.pendingHint', 'Applied with the next save.')}</span>
+          ${scoped && !entries && fieldChooserMode() !== 'disabled' ? html`
             <button type="button" class="showAllButton" @click="${() => this.#showAll()}">
               ${translate('frontend.fieldChooser.showAll', 'Show all field settings')}
             </button>
@@ -528,13 +550,13 @@ export class VeFieldChooser extends LitElement {
     }
     // Scoped mode: only the anchor field's own attributes, flat - the popover
     // title already names the field's section, so headings would only repeat it.
-    const fields = this.scopeFields
-      ? this.fields.filter((field) => this.scopeFields.includes(field.name))
-      : this.fields;
+    const fields = this.view === 'entries'
+      ? this.fields.filter((field) => field.type === 'inline' && (!this.scopeFields || this.scopeFields.includes(field.name)))
+      : this.scopeFields ? this.fields.filter((field) => this.scopeFields.includes(field.name)) : this.fields;
     if (fields.length === 0) {
       return html`<p class="status">${translate('frontend.fieldChooser.empty', 'No editable choice fields for this element.')}</p>`;
     }
-    if (this.scopeFields) {
+    if (this.scopeFields || this.view === 'entries') {
       return html`${fields.map((field) => this.#renderField(field))}`;
     }
     // Same headings as the backend edit form: a heading is emitted whenever
@@ -553,6 +575,13 @@ export class VeFieldChooser extends LitElement {
   }
 
   #renderField(field) {
+    if (field.type === 'inline') {
+      if (this.view === 'entries' || this.scopeFields) { return this.#renderCollection(field); }
+      return html`<button type="button" class="collectionShortcut" @click=${() => this.#openCollection(field)}>
+        ${unsafeHTML(entriesIconSvg(16))}<span>${field.label}</span>
+        ${field.uids ? html`<span class="count">${field.uids.length}</span>` : ''}<span aria-hidden="true">→</span>
+      </button>`;
+    }
     const dirty = dataHandlerStore.hasChangedData(this.table, this.uid, field.name);
     return html`
       <div class="field">
@@ -589,21 +618,22 @@ export class VeFieldChooser extends LitElement {
 
   #childSettings(field, child) {
     this.history.push({table: this.table, uid: this.uid, elementName: this.elementName,
-      context: this.context, rootRecord: this.rootRecord, scopeFields: this.scopeFields, scopeLabel: this.scopeLabel});
+      context: this.context, rootRecord: this.rootRecord, scopeFields: this.scopeFields, scopeLabel: this.scopeLabel, view: this.view});
     this.openFor({table: child.table, uid: child.uid, elementName: child.label,
-      anchorRect: this.getBoundingClientRect(), rootRecord: this.rootRecord, nested: true,
+      anchorRect: this.anchorRect, rootRecord: this.rootRecord, nested: true,
       context: [...this.context, {table: this.table, uid: this.uid, field: field.name}]});
   }
 
   #back() {
     const previous = this.history.pop();
-    if (previous) { this.openFor({...previous, anchorRect: this.getBoundingClientRect(), nested: true}); }
+    if (previous) { this.openFor({...previous, anchorRect: this.anchorRect, nested: true}); }
   }
 
   async #collectionAction(field, action, child = null) {
     if (this.busy) { return; }
     const actionTrigger = deepActiveElement();
     let completed = false;
+    let createdUid = null;
     this.busy = true;
     this.message = '';
     try {
@@ -620,43 +650,37 @@ export class VeFieldChooser extends LitElement {
         if (!refreshed) { this.message += ` ${inlineLabel('refreshPending')}`; }
       }
       await this.refresh();
-      if (action === 'create' && result.uid) {
-        const button = this.renderRoot.querySelector(`[data-child-settings="${Number(result.uid)}"]`);
-        button?.focus({preventScroll: true});
-        button?.scrollIntoView({block: 'nearest'});
-      }
+      if (action === 'create' && result.uid) { createdUid = Number(result.uid); }
     } catch (error) {
       this.message = error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`;
       if (error.definitive) { await this.refresh(); }
     } finally {
       this.busy = false;
       await this.updateComplete;
+      if (createdUid !== null) {
+        const button = this.renderRoot.querySelector(`[data-child-edit="${createdUid}"]`);
+        button?.focus({preventScroll: true});
+        button?.scrollIntoView({block: 'nearest'});
+      }
       if (!completed && actionTrigger?.isConnected) { actionTrigger.focus({preventScroll: true}); }
     }
   }
 
+  #openCollection(field) {
+    this.history.push({table: this.table, uid: this.uid, elementName: this.elementName,
+      context: this.context, rootRecord: this.rootRecord, scopeFields: this.scopeFields, scopeLabel: this.scopeLabel, view: this.view});
+    // Keep the position when entering from settings; the toolbar Entries
+    // action opens the right-hand inspector directly.
+    this.openFor({table: this.table, uid: this.uid, elementName: this.elementName,
+      context: this.context, rootRecord: this.rootRecord, nested: true, view: 'entries', scopeFields: [field.name]});
+  }
+
   #renderCollection(field) {
-    const blocked = this.busy ? inlineLabel('busy') : collectionBlockReason();
-    return html`<section aria-label=${field.label}>
-      <p>${inlineLabel('immediate')}
-        ${field.workspaceId ? inlineLabel('workspaceLabel') : inlineLabel('liveLabel')}</p>
-      ${field.uids ? html`<p>${inlineLabel('entries')}: ${field.uids.length} · ${inlineLabel('minimum')}: ${field.minItems} · ${inlineLabel('maximum')}: ${field.maxItems || '∞'}</p>` : ''}
-      ${blocked ? html`<p role="status">${blocked}</p>` : ''}
-      ${(field.children || []).map((child) => html`<div class="field">
-        <strong>${child.label}</strong>
-        <button type="button" data-child-settings=${child.uid} @click=${() => this.#childSettings(field, child)}>${translate('frontend.inlineRecords.settings', 'Item settings')}</button>
-        <a href=${child.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
-        <button type="button" ?disabled=${!!blocked || !field.canCreate}
-          title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create', child)}>${translate('frontend.inlineRecords.addAfter', 'Add after')}</button>
-        <button type="button" ?disabled=${!!blocked || !child.canDelete}
-          title=${blocked || collectionReason(child.deleteReason)} @click=${() => this.#collectionAction(field, 'delete', child)}>${translate('frontend.inlineRecords.remove', 'Remove')}</button>
-        ${child.deleteReason ? html`<span>${collectionReason(child.deleteReason)}</span>` : ''}
-      </div>`)}
-      <button type="button" ?disabled=${!!blocked || !field.canCreate}
-        title=${blocked || collectionReason(field.createReason)} @click=${() => this.#collectionAction(field, 'create')}>${translate('frontend.inlineRecords.add', 'Add entry')}</button>
-      ${field.createReason ? html`<p>${inlineLabel('backendRequired')} ${collectionReason(field.createReason)}</p>` : ''}
-      <a href=${field.backendUrl} target="_blank" rel="noopener">${translate('frontend.inlineRecords.backend', 'Open backend form')}</a>
-    </section>`;
+    return renderCollection(field, {
+      blocked: this.busy ? inlineLabel('busy') : collectionBlockReason(),
+      settings: (child) => this.#childSettings(field, child),
+      action: (action, child = null) => this.#collectionAction(field, action, child),
+    });
   }
 
   #renderSelect(field) {

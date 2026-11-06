@@ -29,9 +29,9 @@ final readonly class InlineRecordService
         private FormDataCompiler $compiler,
     ) {}
 
-    public function backendUrl(string $table, int $uid): string
+    public function backendUrl(string $table, int $uid, bool $contextual = false): string
     {
-        return (string)$this->uris->buildUriFromRoute('record_edit', ['edit' => [$table => [$uid => 'edit']]], UriBuilder::ABSOLUTE_URL);
+        return (string)$this->uris->buildUriFromRoute($contextual ? 'record_edit_contextual' : 'record_edit', ['edit' => [$table => [$uid => 'edit']]], UriBuilder::ABSOLUTE_URL);
     }
 
     /**
@@ -101,6 +101,8 @@ final readonly class InlineRecordService
                     'uid' => $uid, 'table' => $childTable,
                     'label' => BackendUtility::getRecordTitle($childTable, $row),
                     'backendUrl' => $this->backendUrl($childTable, $uid),
+                    'contextualUrl' => $this->backendUrl($childTable, $uid, true),
+                    'hidden' => !empty($row[$GLOBALS['TCA'][$childTable]['ctrl']['enablecolumns']['disabled'] ?? '']),
                     'canDelete' => $deleteReason === '' && count($uids) > (int)($config['minitems'] ?? 0)
                         && (bool)($config['appearance']['enabledControls']['delete'] ?? true),
                     'deleteReason' => $deleteReason ?: (count($uids) <= (int)($config['minitems'] ?? 0) ? 'min' : ''),

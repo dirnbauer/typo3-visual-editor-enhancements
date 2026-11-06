@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-11-06
+
+- Fix field settings breaking after opening collection entries. Both toolbar
+  actions now use Core's versioned import-map URLs, sharing one component and
+  one field-options cache.
+- Replace the bare plus with a labelled Entries action beside field settings.
+  Show it only on elements with collections and open a compact panel at the
+  right of the preview.
+- Make entry titles open TYPO3's contextual editing form. Add hidden badges,
+  one add button and a compact per-entry menu for settings, insertion and
+  removal. Keep collection shortcuts in field settings.
+- Keep nested navigation in place, restore trigger focus, fix pointer toggling
+  and show accurate save hints. Add regression coverage with versioned imports
+  and real toolbar interactions.
+
 ## [1.5.0] — 2026-11-05
 
 - Validate nested paste updates before mutation, authorize stored collection

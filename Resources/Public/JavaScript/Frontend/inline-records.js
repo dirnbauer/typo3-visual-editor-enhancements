@@ -1,7 +1,7 @@
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
-import {collectionIntent, postCollectionIntent, structuralBlockReason, inlineLabel} from '../Shared/inline-record-actions.js';
+import {collectionIntent, postCollectionIntent, structuralBlockReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {confirmCollectionDelete} from '@webconsulting/visual-editor-enhancements/Shared/confirm-delete.js';
-import {clearFieldOptionsCache} from '../Shared/field-options-cache.js';
+import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 
 let inFlight = false;
 let uncertain = false;

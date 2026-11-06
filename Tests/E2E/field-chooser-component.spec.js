@@ -1,4 +1,4 @@
-import {readFile} from 'node:fs/promises';
+import {readFile, readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {expect, test} from '@playwright/test';
 
@@ -10,11 +10,15 @@ const collection = {name: 'cards', label: 'Cards', type: 'inline', parentTable: 
   tab: 'Duplicate', tabId: 2, canCreate: true, canDelete: true, createHidden: true, backendUrl: '/backend', uids: [2, 3], minItems: 1, maxItems: 5,
   children: [{uid: 2, table: 'items', label: '<script>Entry</script>', backendUrl: '/backend', canDelete: true, verb: 'delete'}]};
 
-async function fixture(page, {mode = 'tabs', slow = false, fail = false} = {}) {
+async function fixture(page, {mode = 'tabs', slow = false, fail = false, view = 'settings'} = {}) {
   const imports = {'lit': '/core/lit/index.js', 'lit/': '/core/lit/', 'lit-element/': '/core/lit-element/', 'lit-html': '/core/lit-html/lit-html.js',
     'lit-html/': '/core/lit-html/', '@lit/reactive-element': '/core/@lit/reactive-element/reactive-element.js', '@lit/reactive-element/': '/core/@lit/reactive-element/',
     '@webconsulting/visual-editor-enhancements/': '/extension/', '@typo3/visual-editor/Frontend/stores/data-handler-store': '/vendor/Frontend/stores/data-handler-store.js',
     '@typo3/visual-editor/Shared/iframe-messaging': '/messaging.js'};
+  // Mirror Core's explicit, versioned imports as well as its prefix fallback.
+  for (const path of await readdir(resources, {recursive: true})) {
+    if (path.endsWith('.js')) imports['@webconsulting/visual-editor-enhancements/' + path] = '/extension/' + path + '?bust=regression';
+  }
   const posts = [];
   await page.route('https://component.test/**', async (route) => {
     const url = new URL(route.request().url());
@@ -37,18 +41,18 @@ async function fixture(page, {mode = 'tabs', slow = false, fail = false} = {}) {
       }
     }
     await route.fulfill({contentType: 'text/html', body: `<!doctype html><script type="importmap">${JSON.stringify({imports})}</script>
-      <script>window.visualEditorEnhancements = {fieldChooserMode: ${JSON.stringify(mode)}, inlineRecordsEnabled: true}; window.veInfo = {token:'token'}; window.TYPO3={settings:{ajaxUrls:{visual_editor_save:'/save'}}};</script>
+      <script>window.visualEditorEnhancements = {fieldChooserMode: ${JSON.stringify(mode)}, inlineRecordsEnabled: true, fieldChooserTables: ['tt_content']}; window.veInfo = {token:'token'}; window.TYPO3={settings:{ajaxUrls:{visual_editor_save:'/save'}}};</script>
       <ve-backend-save-button aria-busy="false"></ve-backend-save-button><button id="anchor">Settings</button>`});
   });
   await page.goto('https://component.test/');
-  await page.evaluate(async () => {
+  await page.evaluate(async (view) => {
     const backend = document.querySelector('ve-backend-save-button'); Object.assign(backend, {count: 0, invalidCount: 0, saving: false});
-    const {openFieldChooser} = await import('/extension/Frontend/components/ve-field-chooser.js');
+    const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser.js');
     const {dataHandlerStore} = await import('/vendor/Frontend/stores/data-handler-store.js');
     window.store = dataHandlerStore;
     window.show = (options = {}) => openFieldChooser({table: 'tt_content', uid: 1, anchorRect: document.querySelector('#anchor').getBoundingClientRect(), ...options});
-    window.show();
-  });
+    window.show({view});
+  }, view);
   return posts;
 }
 
@@ -66,6 +70,8 @@ test('sections render unknown stored values explicitly and nested settings can g
   await fixture(page, {mode: 'sections'});
   await expect(page.getByRole('tab')).toHaveCount(0);
   await expect(page.getByRole('combobox')).toHaveValue('unknown');
+  await page.locator('.collectionShortcut').click();
+  await page.locator('.entryMenu > summary').first().click();
   await page.getByRole('button', {name: 'Item settings'}).click();
   await expect(page.getByRole('combobox', {name: 'Child choice'})).toBeVisible();
   await page.getByRole('button', {name: 'Back', exact: true}).click();
@@ -73,8 +79,9 @@ test('sections render unknown stored values explicitly and nested settings can g
 });
 
 test('collection controls work with ordinary chooser disabled and cancel/Escape never write', async ({page}) => {
-  const posts = await fixture(page, {mode: 'disabled'});
+  const posts = await fixture(page, {view: 'entries', mode: 'disabled'});
   page.on('dialog', dialog => dialog.dismiss());
+  await page.locator('.entryMenu > summary').first().click();
   await page.getByRole('button', {name: 'Remove', exact: true}).click();
   expect(posts).toHaveLength(0);
   await page.keyboard.press('Escape');
@@ -82,7 +89,7 @@ test('collection controls work with ordinary chooser disabled and cancel/Escape 
 });
 
 test('pending, invalid and active multi-frame saves block structure without staging hidden=0', async ({page}) => {
-  const posts = await fixture(page, {mode: 'sections'});
+  const posts = await fixture(page, {view: 'entries', mode: 'sections'});
   await page.evaluate(() => { window.store.setInitialData('items', 2, 'hidden', 1); window.store.setData('items', 2, 'title', 'Pending'); });
   await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeDisabled();
   await page.evaluate(() => { window.store.reset(); window.store.setInvalid('items', 2, 'title', true); });
@@ -94,7 +101,7 @@ test('pending, invalid and active multi-frame saves block structure without stag
 });
 
 test('a definitive stale rejection refreshes choices and permits a manual retry', async ({page}) => {
-  const posts = await fixture(page, {mode: 'sections', fail: true});
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', fail: true});
   await page.getByRole('button', {name: 'Add entry', exact: true}).click();
   await expect(page.getByText(/The collection changed/)).toBeVisible();
   await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeEnabled();
@@ -132,7 +139,7 @@ test('Core modal adapter focuses Cancel by default and dismiss/cancel do not aut
 });
 
 test('an uncertain server failure blocks another write without an automatic retry', async ({page}) => {
-  const posts = await fixture(page, {mode: 'sections', fail: 500});
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', fail: 500});
   await page.getByRole('button', {name: 'Add entry', exact: true}).click();
   await expect(page.getByText(/Refresh the page before another/)).toBeVisible();
   await expect(page.getByRole('button', {name: 'Add entry', exact: true})).toBeDisabled();
@@ -155,6 +162,7 @@ test('entry settings and Back keep the panel at its original position', async ({
   });
   const panel = page.getByRole('dialog');
   const before = await panel.boundingBox();
+  await page.locator('.entryMenu > summary').first().click();
   await page.getByRole('button', {name: 'Item settings'}).click();
   await expect(page.getByRole('combobox', {name: 'Child choice'})).toBeVisible();
   expect((await panel.boundingBox()).x).toBe(before.x);
@@ -175,4 +183,34 @@ test('entries toggle closes on a second pointer click and has no next-save hint'
   await expect(page.getByText('Applied with the next save.', {exact: true})).toHaveCount(0);
   await page.locator('#anchor').click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+
+test('toolbar settings and entries share one component with Core versioned import URLs', async ({page}) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await fixture(page);
+  await page.evaluate(async () => {
+    document.querySelector('ve-field-chooser').close();
+    const element = document.createElement('ve-content-element');
+    element.setAttribute('table', 'tt_content'); element.setAttribute('uid', '1'); element.setAttribute('canModifyRecord', 'true');
+    element.attachShadow({mode: 'open'}).innerHTML = '<div class="action-bar"><a class="button" href="#">Edit</a></div>';
+    document.body.append(element);
+    const actions = await import('@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js');
+    actions.injectFieldChooserAction(element); actions.injectInlineRecordsAction(element);
+  });
+  const settings = page.getByRole('button', {name: 'Edit field settings', exact: true});
+  const entries = page.getByRole('button', {name: 'Edit collection entries', exact: true});
+  await settings.click();
+  await expect(page.getByRole('dialog', {name: 'Field settings', exact: true})).toBeVisible();
+  await page.getByRole('combobox', {name: 'First'}).selectOption('a');
+  expect(await page.evaluate(() => window.store.data.tt_content[1].First)).toBe('a');
+  await entries.click();
+  await expect(page.getByRole('dialog', {name: 'Entries', exact: true})).toBeVisible();
+  await settings.click();
+  await expect(page.getByRole('dialog', {name: 'Field settings', exact: true})).toBeVisible();
+  expect(errors).toEqual([]);
+  await expect(page.locator('ve-field-chooser')).toHaveCount(1);
+  await expect(settings).toHaveAttribute('aria-expanded', 'true');
+  await expect(entries).toHaveAttribute('aria-expanded', 'false');
 });

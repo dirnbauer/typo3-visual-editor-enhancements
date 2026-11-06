@@ -30,6 +30,86 @@ export const styles = [themeTokens, css`
       line-height: 1.4;
     }
 
+    .popover.isDrawer {
+      top: 12px;
+      right: 12px;
+      width: min(380px, calc(100vw - 24px));
+      max-height: calc(100dvh - 24px);
+    }
+
+    .header, .footer { flex-shrink: 0; }
+    .body { min-height: 0; overscroll-behavior: contain; }
+    button, summary, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, summary:focus-visible, a:focus-visible,
+    typo3-backend-contextual-record-edit-trigger:focus-visible {
+      outline: 2px solid var(--ve-focus);
+      outline-offset: 2px;
+    }
+    button:disabled { cursor: default; opacity: 0.55; }
+
+    .notice, .collectionNotice, .collectionHint, .actionReason {
+      margin: 0;
+      color: var(--ve-text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .notice { padding: 10px 12px; border-bottom: 1px solid var(--ve-border); }
+    .collection { display: flex; flex-direction: column; gap: 10px; }
+    .collection + .collection { padding-top: 16px; border-top: 1px solid var(--ve-border); }
+    .collectionHeader { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+    .collectionHeader h3 { margin: 0; font-size: 12px; font-weight: 600; }
+    .count, .entryBadge {
+      flex: none;
+      padding: 2px 6px;
+      border: 1px solid var(--ve-border);
+      border-radius: var(--ve-radius-small);
+      color: var(--ve-text-muted);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+    .entryList { list-style: none; margin: 0; padding: 0; border: 1px solid var(--ve-border); border-radius: var(--ve-radius); }
+    .entryItem + .entryItem { border-top: 1px solid var(--ve-border); }
+    .entryRow { display: grid; grid-template-columns: 18px minmax(0, 1fr) 28px; align-items: center; gap: 6px; padding: 6px; }
+    .entryNumber { color: var(--ve-text-muted); text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .entryEdit {
+      display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 36px;
+      padding: 4px 2px; border: 0; border-radius: var(--ve-radius-small);
+      background: transparent; color: var(--ve-text); text-align: start;
+      text-decoration: none; font: inherit; font-size: 12px; cursor: pointer;
+    }
+    .entryEdit:hover { color: var(--ve-primary-text); background: var(--ve-hover); }
+    .entryTitle { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .entryEditIcon { flex: none; color: var(--ve-text-muted); }
+    .entryMenu { display: contents; }
+    .entryMenu > summary { list-style: none; font-size: 18px; background: transparent; border-color: transparent; }
+    .entryMenu > summary::-webkit-details-marker { display: none; }
+    .entryMenu[open] > summary { color: var(--ve-primary-text); background: var(--ve-primary-subtle); }
+    .entryActions { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; padding: 6px 0 4px; }
+    .textAction {
+      display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 5px 8px;
+      border: 0; border-radius: var(--ve-radius-small); background: transparent;
+      color: var(--ve-text); text-align: start; text-decoration: none; font: inherit; font-size: 12px; cursor: pointer;
+    }
+    .textAction:hover { background: var(--ve-hover); }
+    .textAction.danger { color: var(--ve-danger); }
+    .actionReason { padding: 0 8px 6px; font-size: 11px; }
+    .addEntry {
+      align-self: flex-start; min-height: 32px; padding: 6px 10px;
+      border: 1px solid var(--ve-input-border); border-radius: var(--ve-radius-small);
+      background: var(--ve-surface-raised); color: var(--ve-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .addEntry:hover:not(:disabled) { background: var(--ve-primary-subtle); border-color: var(--ve-primary-text); }
+    .collectionHint { font-size: 11px; }
+    .backendLink { align-self: flex-start; color: var(--ve-primary-text); font-size: 11px; text-underline-offset: 3px; }
+    .collectionShortcut {
+      display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px;
+      border: 1px solid var(--ve-border); border-radius: var(--ve-radius-small);
+      background: var(--ve-surface-raised); color: var(--ve-text); font: inherit; text-align: start; cursor: pointer;
+    }
+    .collectionShortcut > span:first-of-type { flex: 1; }
+    .collectionShortcut:hover { background: var(--ve-hover); }
+
     /* Focus lands on the dialog itself when it opens (see openFor()). */
     .popover:focus {
       outline: none;

@@ -529,5 +529,41 @@
         <target>Nicht verfügbar: {value}</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.edit">
+      <segment>
+        <source>Edit entry</source>
+        <target>Eintrag bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.actions">
+      <segment>
+        <source>Entry actions</source>
+        <target>Aktionen für diesen Eintrag</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenLabel">
+      <segment>
+        <source>Hidden</source>
+        <target>Ausgeblendet</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.empty">
+      <segment>
+        <source>No entries yet.</source>
+        <target>Noch keine Einträge.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.newHidden">
+      <segment>
+        <source>New entries start hidden.</source>
+        <target>Neue Einträge sind zunächst ausgeblendet.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.structureHint">
+      <segment>
+        <source>Adding or removing entries saves immediately.</source>
+        <target>Hinzufügen und Entfernen wird sofort gespeichert.</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

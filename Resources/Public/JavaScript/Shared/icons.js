@@ -20,6 +20,12 @@ export const slidersIconSvg = (size) =>
   + '<circle cx="5.75" cy="11.5" r="2"/>'
   + '</svg>';
 
+/** A list with an add mark: manage the entries inside this content element. */
+export const entriesIconSvg = (size) =>
+  `<svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">`
+  + '<path d="M2 3h1M6 3h8M2 7h1M6 7h5M2 11h1M6 11h2M12 10v5M9.5 12.5h5"/>'
+  + '</svg>';
+
 /**
  * Chain-link glyph used for the link edit affordances.
  * @param {number} size rendered width/height in px

@@ -1,8 +1,8 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
-import {editorColorScheme, fieldChooserTables, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {editorColorScheme, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
-import {slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {injectFieldChooserAction, injectInlineRecordsAction} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
 import {applyTheme} from '@webconsulting/visual-editor-enhancements/Shared/theme-bridge.js';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance.js';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
@@ -96,70 +96,6 @@ function injectLibraryAction(contentElement, libraryModule) {
   actionBar.appendChild(button);
 }
 
-/**
- * Adds the "Edit field settings" button for records whose table is enabled for
- * the field chooser. Deliberately NOT gated by veInfo.allowNewContent: editing
- * choice fields of an existing record does not require the right to create
- * content, only canModifyRecord on the element itself.
- */
-function injectFieldChooserAction(contentElement) {
-  if (!isFieldChooserEnabled()
-    || !fieldChooserTables().includes(contentElement.getAttribute('table'))
-    || !contentElement.hasAttribute('canModifyRecord')
-  ) {
-    return;
-  }
-  const actionBar = contentElement.shadowRoot?.querySelector('.action-bar');
-  if (!actionBar || actionBar.querySelector('[data-ve-enhancement="field-chooser"]')) {
-    return;
-  }
-  const button = document.createElement('button');
-  button.className = 'button';
-  button.type = 'button';
-  button.dataset.veEnhancement = 'field-chooser';
-  const label = translate('frontend.fieldChooser.open', 'Edit field settings');
-  button.title = label;
-  button.setAttribute('aria-label', label);
-  // Sliders/options glyph: the vendor <ve-icon> set has no fitting name, so an
-  // inline line-art SVG sized like <ve-icon> (16x16) is used instead.
-  button.innerHTML = slidersIconSvg(16);
-  button.addEventListener('click', async () => {
-    const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser.js');
-    openFieldChooser({
-      table: contentElement.getAttribute('table'),
-      uid: Number(contentElement.getAttribute('uid')),
-      elementName: contentElement.getAttribute('elementName') ?? '',
-      anchorRect: button.getBoundingClientRect(),
-    });
-  });
-  actionBar.appendChild(button);
-}
-
 initializeThemeBridge();
 initializeContentElementActions();
 initializeElementRefresh();
-
-function injectInlineRecordsAction(element) {
-  if (!isInlineRecordsEnabled() || !element.hasAttribute('canModifyRecord')) { return; }
-  const bar = element.shadowRoot?.querySelector('.action-bar');
-  if (!bar || bar.querySelector('[data-ve-enhancement="inline-records"]')) { return; }
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'button';
-  button.dataset.veEnhancement = 'inline-records';
-  button.textContent = '+';
-  button.title = translate('frontend.inlineRecords.open', 'Edit collection entries');
-  button.setAttribute('aria-label', button.title);
-  button.addEventListener('click', async () => {
-    const {fetchFieldOptions} = await import('../Shared/field-options-cache.js');
-    const {openFieldChooser} = await import('./components/ve-field-chooser.js');
-    const table = element.getAttribute('table');
-    const uid = Number(element.getAttribute('uid'));
-    try {
-      const data = await fetchFieldOptions(table, uid);
-      openFieldChooser({table, uid, anchorRect: button.getBoundingClientRect(),
-        scopeFields: data.fields.filter((field) => field.type === 'inline').map((field) => field.name), scopeLabel: translate('frontend.inlineRecords.entries', 'Entries')});
-    } catch { button.title = translate('frontend.inlineRecords.loadError', 'Could not load entries. Open the backend form.'); }
-  });
-  bar.appendChild(button);
-}
