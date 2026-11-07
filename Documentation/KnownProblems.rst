@@ -94,3 +94,51 @@ panel or a workspace context; both force a re-render and both are the catalog
 provider's job to switch off for preview requests - see
 :ref:`configuration-previews`. A cold TYPO3 bootstrap after a long idle period
 looks the same but only once.
+
+..  _known-problems-entries-missing:
+
+The action bar has no Entries or Add entry button
+=================================================
+
+In order: the user setting *Edit collection entries* is off (it defaults to
+off); page TSconfig ``tx_visualeditorenhancements.inlineRecords.enabled = 0``
+or ``tables.<child table>.enabled = 0``; the element type has no supported
+collection; or the editor may not modify the child table - then the
+collection is not offered at all, so nothing about it is disclosed.
+
+..  _known-problems-entries-first-version:
+
+Add, move or remove is refused in a workspace
+=============================================
+
+The element has no draft in this workspace yet, and page TSconfig
+``firstVersion`` is ``0`` (the 1.6.0 default). The context line says "Your
+next add, move or remove creates this element's first draft" and **Add** is
+refused up front with the reason. Other structural actions show the reason
+after the server answered ``409 firstVersion``; nothing is written either
+way. Change a text of the element first (the Visual Editor versions it), use
+the backend workspace, or allow first drafts with ``firstVersion = 1``
+(:ref:`collections-configuration`). Titles and visibility of entries are not
+structural and always work.
+
+..  _known-problems-entries-page-later:
+
+A new entry appears in the inspector but not on the page
+========================================================
+
+The element had staged text when the entry was added. The entry is stored at
+once and listed; the element is not re-rendered while its own text is
+pending, so the page shows the entry after the next save - the inspector
+says so and offers **Save now**.
+
+..  _known-problems-entries-remove-disabled:
+
+Remove is disabled for an entry
+===============================
+
+Its reason is on the row. Common ones: the collection is at its minimum
+(``min``); the entry has nested entries or media (``cascade``, backend form
+until 1.7); a translation of it cannot be removed by this editor
+(``translations``); or this entry's title or visibility is staged (save
+first). With ``deleteTranslations = refuse`` every translated entry is refused
+as in 1.5.

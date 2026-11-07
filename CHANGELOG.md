@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-11-07
+
+Repeatable entries (collections) become a first-class part of the editor: an
+**Add entry** button in every action bar, an **Entries inspector** with row
+actions, staged titles and visibility, translations and workspaces in the
+same panel, and very small labels on every action-bar button. Everything
+runs through Core: FormEngine's inline order, `inlineLocalizeSynchronize`,
+the delete cascade and the workspace auto-versioning; no vendor file is
+patched.
+
+### Behaviour changes and how to restore 1.5
+
+| Change | Default in 1.6.0 | Restore 1.5 |
+|---|---|---|
+| Connected translations manage their own entries (FormEngine parity) | `translatedParents = parity` | page TSconfig `tx_visualeditorenhancements.inlineRecords.translatedParents = default-only` |
+| Removing a default-language entry also removes its translations, after a counted confirmation | `deleteTranslations = confirm` | `…inlineRecords.deleteTranslations = refuse` |
+| *Sync translations* is offered on default-language elements | `syncTranslations = 1`, `syncDefaultMode = localize` | `…inlineRecords.syncTranslations = 0` |
+| Action-bar buttons show a very small label on hover, focus or click; our own buttons drop their `title` | user setting `tx_visualeditor_actionLabels = caption` | User TSconfig `setup.default.tx_visualeditor_actionLabels = icons` |
+| The workspace live-row check also covers connected translations and nested relations | always | none (stricter by design); allow first drafts with `firstVersion = 1` |
+| The entries panel stays open while the editor works on the page | always | none; Escape, × or the trigger close it |
+
+**First workspace drafts stay off:** `firstVersion` ships as `0`. Structural
+actions on an element that has no draft in the current workspace are refused
+with the reason `firstVersion` (the inspector says so before the action).
+`firstVersion = 1` lets Core create the first draft under the narrowed
+live-row invariant; it was verified on MariaDB (functional suite and the lab's
+regular-runtime scenario: only the members' `sorting`, renumbered in the same
+order, and their `tstamp` change in live). Flipping the default to `1` waits
+for the owner's written decision and is planned for 1.6.1.
+
+### Entries inspector
+
 - Rebuild the entries panel as the **Entries inspector**: every row shows
   its actions (move up/down, visibility switch, add after, remove, a
   `role=menu` overflow menu with item settings, the contextual form and the
@@ -39,6 +71,8 @@ All notable changes to this project are documented here. The format follows
 - Hidden entries are dimmed and outlined on the page (`data-ve-entry-hidden`)
   and follow the staged visibility at once.
 
+### Action bar
+
 - Give every action-bar button - the Visual Editor's own and ours - a very
   small text label that appears only on hover, keyboard focus or click. One
   shared constructable stylesheet is adopted into each element's shadow root;
@@ -61,6 +95,9 @@ All notable changes to this project are documented here. The format follows
   "Add entry" (the long sentences remain tooltips in `icons` mode); the
   Entries button uses Core's `actions-list-alternative` icon and loses its
   permanent text. Only the two panel openers keep `aria-haspopup`.
+
+### Templates
+
 - Add the `f:mark.item` ViewHelper: templates mark the root element of a
   collection entry (`{card -> f:mark.item(collection: 'cards')}`, or
   `format: 'array'` for a component's `attributes`). In edit mode it writes
@@ -71,6 +108,9 @@ All notable changes to this project are documented here. The format follows
   (nested collections, entries rendered by several loops), joins them to the
   entries panel by uid, then live uid, and provides the mirror-highlight
   hooks for the panel.
+
+### Server
+
 - Publish a capability payload for collection entries: resolved
   `enabledControls`, child title, label/visibility/type fields, per-entry state
   (live, new, modified, deleted), live uid, `canHide` and `canEditLabel` with
@@ -123,6 +163,16 @@ All notable changes to this project are documented here. The format follows
   child commands, nested paste updates, NEW owned children, inline-to-
   `tt_content` relations, `overrideChildTca`, unknown intent keys and nested
   ancestors without root rights stay refused without any write.
+
+### Tests and CI
+
+- New CI job `components`: the login-free Playwright component specs
+  (Chromium) run on every push and pull request.
+- The lab's regular-runtime suite (`Build/Scripts/ve-runtime.sh`, 16
+  scenarios against real Core, FormEngine and MariaDB with disposable admin,
+  editor and restricted `ve_editor` users and a disposable workspace) passes,
+  axe (WCAG 2.0/2.1/2.2 A/AA) clean on the action bar, the inspector (light and
+  dark), the restricted bar and the Core confirmation.
 
 ## [1.5.1] — 2026-11-06
 

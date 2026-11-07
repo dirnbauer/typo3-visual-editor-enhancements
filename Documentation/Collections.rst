@@ -314,6 +314,83 @@ their editable texts once the panel has loaded them, and there is no row
 highlight. Markers add attributes only - the editor never inserts elements
 into the page or guesses row boundaries from the layout.
 
+.. _collections-limits:
+
+What it does not do
+===================
+
+Honest limits of 1.6.0. Items marked 1.7 are planned; the rest follow from
+how TYPO3 or the Visual Editor work.
+
+..  list-table::
+    :header-rows: 1
+    :widths: 38 18 44
+
+    *   -   Item
+        -   Status
+        -   Why
+    *   -   Unsaved placeholder entries on the page (staged creation)
+        -   not possible
+        -   An entry's markup is the server-rendered template and an editable
+            needs a stored uid. Adding is an immediate write; in live the new
+            entry starts hidden.
+    *   -   Row buttons directly on the page without template markers
+        -   not possible
+        -   Entries have no wrapper of their own and Content Blocks has no hook
+            to add one; guessing rows from the layout is not done.
+    *   -   On-page row toolbar and "add" ghost row, marker codemod for desiderio
+        -   1.7
+        -   ``f:mark.item`` ships now (:ref:`collections-row-markers`); the
+            on-page layer will be a per-user option.
+    *   -   Duplicate an entry
+        -   1.7
+        -   Core ``copy`` plus the parent's inline list, leaf entries only.
+    *   -   Removing entries with nested entries or media
+        -   1.7
+        -   Refused (``cascade``) until a bounded preflight checks rights on
+            every dependent record; use the backend form.
+    *   -   Undo removal of a workspace delete placeholder
+        -   1.7
+        -   Listed read-only in the inspector; the Workspaces module discards it.
+    *   -   Undo after a removal in live
+        -   not offered
+        -   Core's undelete is live-only and does not restore relations
+            reliably; every removal asks first.
+    *   -   Sync translations inside a workspace
+        -   refused (``syncWorkspace``)
+        -   Core writes the translated parent's live relation count and the
+            live entries' sorting there.
+    *   -   Hiding a default-language entry together with its translations
+        -   not done
+        -   Core hides per record; the inspector says "Visibility is per
+            language".
+    *   -   Required media or a child type selector when adding (gallery,
+            logo cloud)
+        -   backend form
+        -   Named in the panel (``required``, ``requiredBackend``) with a link.
+    *   -   First workspace draft by default
+        -   ``firstVersion = 0``
+        -   Opt-in per page TSconfig; the default flips only after the owner's
+            written decision (planned for 1.6.1).
+    *   -   Live ``tstamp`` writes under ``firstVersion = 1`` are harmless for
+            every consumer
+        -   cannot be proven
+        -   They are real writes (Solr queue, reference index, webhooks may
+            react), the same bookkeeping as a backend save of the element.
+    *   -   Drag-and-drop reordering
+        -   deferred
+        -   Move up/down and Alt+Arrow cover it; the ``move`` intent already
+            takes any ``afterUid``.
+    *   -   One-click Add entry for elements with several collections
+        -   one extra click
+        -   The bar opens the inspector at the first collection's Add button.
+    *   -   Entries without any editable text on the page
+        -   panel only
+        -   No page dimming or focus target; the badge is the indicator.
+    *   -   Core's form sheet reloads the whole module when closed
+        -   Core behaviour
+        -   Now needed only for media and complex fields.
+
 .. _collections-configuration:
 
 Configuration

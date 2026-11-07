@@ -104,6 +104,20 @@ labels). Hovering an editable text shows a small button that opens the same popo
 scoped to that field. Link fields show a chain icon that opens the TYPO3 link
 browser. Everything is staged and written by the editor's normal save.
 
+### Collection entries (repeatable rows)
+
+Opt-in per user (User settings > Visual editor > *Edit collection entries*).
+**Add entry** in the action bar adds an entry at the end, refreshes the element
+and puts the cursor into the new entry on the page. The **Entries inspector**
+lists every entry with move up/down, a visibility switch, add after, remove and
+a menu (item settings, Core's form, translations); titles and visibility are
+staged and saved with the page, while add, move and remove save at once.
+Translations follow FormEngine (translation-only entries, counted removal of
+translations, *Sync translations*), workspaces work on existing drafts, and a
+first workspace draft is a page-TSconfig opt-in (`firstVersion`, off in 1.6.0).
+Three panel layouts (inspector, tray, anchored) are a user setting. Details,
+limits and every TSconfig key: [Collection entries](Documentation/Collections.rst).
+
 ## Develop
 
 ```bash
@@ -120,8 +134,9 @@ The shipped JavaScript is dependency-free ES modules under
 Editor ships its own; specifiers carry their `.js` suffix. Everything this
 extension does to the Visual Editor's own runtime lives in
 `Frontend/visual-editor-patches.js`, and each patch checks first whether
-upstream already has the fix. [`Tests/E2E/`](Tests/E2E/README.md) holds a
-Playwright suite for a running installation; it is not part of CI.
+upstream already has the fix. [`Tests/E2E/`](Tests/E2E/README.md) holds the
+Playwright suites: the login-free component specs run in CI (job `components`),
+the `enhancements` project needs a running installation.
 
 ## Docs
 
@@ -129,17 +144,8 @@ Full manual in [`Documentation/`](Documentation/Index.rst): installation,
 configuration, usage, [developer reference](Documentation/Developer.rst),
 [known problems](Documentation/KnownProblems.rst), and a feature-by-feature
 [compatibility audit](Documentation/Compatibility.rst) against Visual Editor
-1.10.3. Changes per release: [CHANGELOG.md](CHANGELOG.md).
+1.10.3 and, for the 1.6 action bar, 1.10.4. Changes per release: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
 GPL-2.0-or-later, see [LICENSE](LICENSE).
-
-
-Collection controls (1.5 release candidate) are independently opt-in under
-User settings > Visual editor. Add/remove saves immediately; Reset does not
-undo it. Live additions stay hidden until enabled in the backend form.
-Workspace structure currently requires existing parent/child drafts; initial
-automatic versioning fails closed because of a Core live-metadata issue.
-See [Collection entries](Documentation/Collections.rst) for supported relations,
-permissions, the server intent protocol and backend fallbacks.

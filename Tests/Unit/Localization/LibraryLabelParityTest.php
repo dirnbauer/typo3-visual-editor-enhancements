@@ -4,20 +4,29 @@ declare(strict_types=1);
 
 namespace Webconsulting\VisualEditorEnhancements\Tests\Unit\Localization;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Every English unit of the edit-frame catalogue has a German unit with a target,
- * and German has no unit English lacks (orphans after merges or renames).
+ * Every English unit of each shipped catalogue (edit frame, user settings) has
+ * a German unit with a target, and German has no unit English lacks (orphans
+ * after merges or renames).
  */
 final class LibraryLabelParityTest extends TestCase
 {
-    #[Test]
-    public function everyEnglishUnitHasAGermanUnitAndNoOrphans(): void
+    /** @return array<string, array{string}> */
+    public static function catalogues(): array
     {
-        $english = $this->units('locallang_library.xlf', false);
-        $german = $this->units('de.locallang_library.xlf', true);
+        return ['edit frame' => ['locallang_library.xlf'], 'user settings' => ['locallang_setup.xlf']];
+    }
+
+    #[Test]
+    #[DataProvider('catalogues')]
+    public function everyEnglishUnitHasAGermanUnitAndNoOrphans(string $catalogue): void
+    {
+        $english = $this->units($catalogue, false);
+        $german = $this->units('de.' . $catalogue, true);
         self::assertSame([], array_values(array_diff(array_keys($english), array_keys($german))), 'English units without German');
         self::assertSame([], array_values(array_diff(array_keys($german), array_keys($english))), 'German orphans');
         foreach ($german as $id => $target) {
