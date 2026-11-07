@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use Webconsulting\VisualEditorEnhancements\Enum\ActionLabelMode;
+use Webconsulting\VisualEditorEnhancements\Enum\EntriesLayout;
 use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
 
 /**
@@ -40,7 +41,8 @@ final readonly class FrontendConfiguration
      *     workspaceTitle: string,
      *     elementRefreshEnabled: bool,
      *     colorScheme: 'auto'|'light'|'dark',
-     *     actionLabelMode: value-of<ActionLabelMode>
+     *     actionLabelMode: value-of<ActionLabelMode>,
+     *     entriesLayout: value-of<EntriesLayout>
      * }
      */
     public function build(?int $pageId): array
@@ -76,6 +78,7 @@ final readonly class FrontendConfiguration
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
             'colorScheme' => $this->colorScheme($userSettings['colorScheme'] ?? null),
             'actionLabelMode' => ActionLabelMode::fromUserSetting($userSettings['tx_visualeditor_actionLabels'] ?? null)->value,
+            'entriesLayout' => EntriesLayout::fromUserSetting($userSettings['tx_visualeditor_entriesLayout'] ?? null)->value,
         ];
     }
 

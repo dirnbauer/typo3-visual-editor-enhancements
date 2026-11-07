@@ -119,6 +119,31 @@ you choose the collection with one more click. When you may not add an entry
 stays visible and focusable but is marked unavailable, and its tooltip says
 why.
 
+..  _usage-entries-layout:
+
+Where the entries panel lives
+=============================
+
+:confval:`tx_visualeditor_entriesLayout` (User settings > Visual editor >
+Entries panel) chooses where the entries inspector opens. All three show the
+same rows and actions; only the place differs:
+
+``inspector`` (default)
+    Docked at the right edge of the preview, the full height available. The
+    page stays visible and clickable beside it.
+
+``tray``
+    At the bottom, full width, at most 42 % of the height. The rows become a
+    compact table (number, title, state, actions). Best when the language
+    frames are shown side by side and the right edge is taken.
+
+``anchored``
+    A 480 px panel directly under the element's action bar. It scrolls with
+    the element, so the entries stay next to what they change.
+
+On a narrow screen every layout uses the full width. The panel never closes
+by itself while you work on the page; see :ref:`collections-inspector`.
+
 ..  _usage-links:
 
 Editing a link

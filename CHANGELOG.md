@@ -6,6 +6,71 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+- Rebuild the entries panel as the **Entries inspector**: every row shows
+  its actions (move up/down, visibility switch, add after, remove, a
+  `role=menu` overflow menu with item settings, the contextual form and the
+  backend form), quiet at rest and full on row hover or focus. Titles are
+  edited in the row and staged through the Visual Editor's store like the
+  editor's own texts (Escape restores, Enter leaves); visibility is a
+  staged `role=switch`, saved with the page. Rows carry state badges, a
+  context line names live or the workspace draft and the language, and
+  refused actions stay focusable with `aria-disabled` and their reason.
+  Alt+Arrow moves an entry, Delete removes it after the counted Core modal.
+- Add the user setting *Entries panel* (`tx_visualeditor_entriesLayout`):
+  `inspector` (default, docked right), `tray` (bottom, full width, rows as a
+  compact table for side-by-side language frames) or `anchored` (under the
+  element's action bar, scrolls with it). Same rows and actions everywhere,
+  light and dark, down to 390 px.
+- Translations and workspaces in the inspector: the context line names the
+  translation mode (default language and its translations, connected, free)
+  and the workspace; **Sync translations ▾** localizes missing entries per
+  language and offers the destructive synchronize behind its own counted
+  confirmation; rows offer *Localize to <language>*, carry *Only in this
+  language* / *Not translated here* badges, and the remove confirmation
+  counts the translations Core removes with an entry. A first workspace
+  draft is announced before and confirmed after the action.
+- The inspector stays open while the editor works on the page; it closes on
+  Escape, its close button or its trigger.
+- Staged changes no longer block entry actions everywhere: only the row
+  with staged text waits before Remove, the element refresh is skipped only
+  when the element's own records have staged data, and **Save now** runs the
+  editor's own save (`doSave`). Active saves, invalid fields and uncertain
+  writes still block every structural action.
+- Hidden entries are dimmed and outlined on the page (`data-ve-entry-hidden`)
+  and follow the staged visibility at once.
+
+- Give every action-bar button - the Visual Editor's own and ours - a very
+  small text label that appears only on hover, keyboard focus or click. One
+  shared constructable stylesheet is adopted into each element's shadow root;
+  the labels are generated content of the existing buttons, so the vendor
+  template is not patched. The visible text is the accessible name or a word
+  contained in it ("Edit", "Delete"; German "Bearbeiten", "Löschen").
+- Add the user setting *Action bar labels*
+  (`tx_visualeditor_actionLabels`): `caption` (default; a reserved 14 px row,
+  11 px text, the bar never changes size), `inline`, `stacked` (10 px) or
+  `icons` (the previous look). Touch screens show the inline labels.
+- Add an **Add entry** button to the action bar: one click adds an entry at
+  the end of the element's collection, refreshes the element, opens the
+  entries panel and puts the cursor into the new entry on the page; with
+  several collections it opens the panel at the first collection's add
+  button. Entries and Add entry render from the first paint when the server
+  sends the collection index (`collectionTypes`) instead of after a hover
+  request; rights are still decided on click, after which a refused button
+  stays focusable with `aria-disabled` and its reason.
+- Shorten our own button names to "Library", "Settings", "Entries" and
+  "Add entry" (the long sentences remain tooltips in `icons` mode); the
+  Entries button uses Core's `actions-list-alternative` icon and loses its
+  permanent text. Only the two panel openers keep `aria-haspopup`.
+- Add the `f:mark.item` ViewHelper: templates mark the root element of a
+  collection entry (`{card -> f:mark.item(collection: 'cards')}`, or
+  `format: 'array'` for a component's `attributes`). In edit mode it writes
+  `data-ve-item`, `data-ve-item-live`, `data-ve-collection` and
+  `data-ve-item-hidden`; outside edit mode it renders nothing. Hidden marked
+  entries are dimmed and outlined from the first render; the new
+  `Frontend/collection-rows.js` groups markers per collection and parent
+  (nested collections, entries rendered by several loops), joins them to the
+  entries panel by uid, then live uid, and provides the mirror-highlight
+  hooks for the panel.
 - Publish a capability payload for collection entries: resolved
   `enabledControls`, child title, label/visibility/type fields, per-entry state
   (live, new, modified, deleted), live uid, `canHide` and `canEditLabel` with
@@ -58,38 +123,6 @@ All notable changes to this project are documented here. The format follows
   child commands, nested paste updates, NEW owned children, inline-to-
   `tt_content` relations, `overrideChildTca`, unknown intent keys and nested
   ancestors without root rights stay refused without any write.
-- Give every action-bar button - the Visual Editor's own and ours - a very
-  small text label that appears only on hover, keyboard focus or click. One
-  shared constructable stylesheet is adopted into each element's shadow root;
-  the labels are generated content of the existing buttons, so the vendor
-  template is not patched. The visible text is the accessible name or a word
-  contained in it ("Edit", "Delete"; German "Bearbeiten", "Löschen").
-- Add the user setting *Action bar labels*
-  (`tx_visualeditor_actionLabels`): `caption` (default; a reserved 14 px row,
-  11 px text, the bar never changes size), `inline`, `stacked` (10 px) or
-  `icons` (the previous look). Touch screens show the inline labels.
-- Add an **Add entry** button to the action bar: one click adds an entry at
-  the end of the element's collection, refreshes the element, opens the
-  entries panel and puts the cursor into the new entry on the page; with
-  several collections it opens the panel at the first collection's add
-  button. Entries and Add entry render from the first paint when the server
-  sends the collection index (`collectionTypes`) instead of after a hover
-  request; rights are still decided on click, after which a refused button
-  stays focusable with `aria-disabled` and its reason.
-- Shorten our own button names to "Library", "Settings", "Entries" and
-  "Add entry" (the long sentences remain tooltips in `icons` mode); the
-  Entries button uses Core's `actions-list-alternative` icon and loses its
-  permanent text. Only the two panel openers keep `aria-haspopup`.
-- Add the `f:mark.item` ViewHelper: templates mark the root element of a
-  collection entry (`{card -> f:mark.item(collection: 'cards')}`, or
-  `format: 'array'` for a component's `attributes`). In edit mode it writes
-  `data-ve-item`, `data-ve-item-live`, `data-ve-collection` and
-  `data-ve-item-hidden`; outside edit mode it renders nothing. Hidden marked
-  entries are dimmed and outlined from the first render; the new
-  `Frontend/collection-rows.js` groups markers per collection and parent
-  (nested collections, entries rendered by several loops), joins them to the
-  entries panel by uid, then live uid, and provides the mirror-highlight
-  hooks for the panel.
 
 ## [1.5.1] — 2026-11-06
 

@@ -52,12 +52,65 @@ export function collectionIntent(field, action, options = {}) {
   return {inlineRecord: intent};
 }
 
+/**
+ * What blocks EVERY structural action: an active save in any frame, an
+ * invalid field anywhere, an unknown editor state (no save button, lost
+ * response). Staged changes alone no longer block - see the scoped rules
+ * below (recordTree, rowPendingReason).
+ */
 export function structuralBlockReason(store, backend, uncertain = false) {
-  if (uncertain || !backend || backend.saving || backend.count > 0 || backend.invalidCount > 0
-    || store.changesCount > 0 || store.invalidCount > 0) {
+  if (uncertain || !backend || backend.saving || backend.invalidCount > 0 || store.invalidCount > 0) {
     return inlineLabel('pending');
   }
   return '';
+}
+
+/** @param {{table: string, uid: number|string}} record */
+export const recordKey = (record) => `${record.table}:${record.uid}`;
+
+/**
+ * The records one content element owns on the page: its own row, every
+ * editable rendered inside its wrapper and the entries the inspector lists.
+ * @param {{table: string, uid: number|string}} root
+ * @param {Array<{table?: string|null, uid?: string|number|null}>} editables
+ * @param {Array<{table?: string, uid?: number}>} children
+ * @return {Set<string>} "<table>:<uid>" keys
+ */
+export function recordTree(root, editables = [], children = []) {
+  const keys = new Set([recordKey(root)]);
+  for (const record of [...editables, ...children]) {
+    if (record?.table && record.uid !== undefined && record.uid !== null && String(record.uid) !== '') {
+      keys.add(recordKey(record));
+    }
+  }
+  return keys;
+}
+
+/**
+ * Whether the store holds a staged value, an invalid field or a pending
+ * command for any record of the tree.
+ * @param {{data: object, invalidFields?: object, cmdArray?: object[]}} store
+ * @param {Set<string>} tree
+ */
+export function treeHasStagedData(store, tree) {
+  const has = (map) => Object.entries(map ?? {}).some(([table, records]) =>
+    Object.entries(records ?? {}).some(([uid, fields]) => tree.has(`${table}:${uid}`) && Object.keys(fields ?? {}).length > 0));
+  if (has(store.data) || has(store.invalidFields)) {
+    return true;
+  }
+  return (store.cmdArray ?? []).some((cmd) => Object.entries(cmd).some(([table, records]) =>
+    Object.keys(records ?? {}).some((uid) => tree.has(`${table}:${uid}`))));
+}
+
+/**
+ * Removing an entry whose text or visibility is still staged would discard
+ * that edit silently: only that row's Remove waits for Save.
+ * @param {{data: object}} store
+ * @param {{table: string, uid: number}} child
+ */
+export function rowPendingReason(store, child) {
+  const fields = store.data?.[child.table]?.[child.uid];
+  return fields && Object.keys(fields).length > 0 ? inlineLabel('pendingRow') : '';
 }
 
 export async function postCollectionIntent(url, token, payload) {
@@ -82,6 +135,48 @@ export function collectionReason(reason) {
 
 const inlineFallbacks = {
   "back": "Back",
+  "addEntry": "Add {title}",
+  "sync": "Sync translations",
+  "syncMissing": "{count} missing",
+  "syncSynchronizeItem": "Synchronize {language}",
+  "syncSynchronizeHint": "also removes {count}",
+  "localizeTo": "Localize to {language}",
+  "synced": "{language}: {localized} added, {removed} removed.",
+  "confirmSyncTitle": "Synchronize translations",
+  "confirmSynchronize": "Synchronize {language} with the default language? Adds {missing} missing entries and removes {orphaned} entries that exist only in {language}. This saves immediately; Reset does not undo it.",
+  "syncConfirmButton": "Synchronize",
+  "firstVersionNext": "Your next add, move or remove creates this element's first draft in this workspace.",
+  "visible": "Visible on the live site",
+  "hide": "Hide",
+  "unhide": "Show",
+  "movedTo": "Moved to position {position}.",
+  "pendingRow": "Save this entry's text first.",
+  "pendingNotice": "This element has unsaved changes. Removing an entry with unsaved text waits for Save.",
+  "saveNow": "Save now",
+  "savedPageLater": "Saved. The page shows it after you save your text.",
+  "contextLive": "Live site",
+  "contextWorkspace": "Workspace draft «{title}»",
+  "modeDefault": "Default language",
+  "modeTranslatedInto": "translated into {languages}",
+  "modeConnected": "Connected translation — structure also lives in the source language",
+  "modeFree": "Free translation",
+  "badgeNew": "New in draft",
+  "badgeModified": "Changed in draft",
+  "badgeDeleted": "Marked for deletion",
+  "badgePending": "Unsaved",
+  "hiddenHint": "New entries start hidden. Show it with the eye, then Save.",
+  "hiddenOnPage": "Hidden on the live site",
+  "rowActions": "Actions for {label}",
+  "titleOf": "Title of entry {position}",
+  "moreActions": "More actions",
+  "columnTitle": "Title",
+  "columnState": "State",
+  "columnActions": "Actions",
+  "editInForm": "Edit in form",
+  "countMax": "{count} / {max}",
+  "minHint": "min {min}",
+  "draftCreated": "Draft created. Core renumbered the stored order values; the visible order is unchanged.",
+  "stage": "The element is in review; its editing stage is closed.",
   "settings": "Item settings",
   "backend": "Open backend form",
   "addAfter": "Add after",
@@ -91,10 +186,10 @@ const inlineFallbacks = {
   "actions": "Entry actions",
   "hiddenLabel": "Hidden",
   "empty": "No entries yet.",
-  "newHidden": "New entries start hidden.",
-  "structureHint": "Adding or removing entries saves immediately.",
+  "newHidden": "New entries start hidden. Show them with the eye, then Save.",
+  "structureHint": "Adding, removing and moving save immediately; titles and visibility save with the page.",
 
-  "pending": "Save or reset your changes first. If the editor state is uncertain, refresh the page.",
+  "pending": "Wait for the save to finish or fix invalid fields. If the editor state is uncertain, refresh the page.",
   "busy": "An entry operation is in progress.",
   "workspace": "Open a fully versioned parent and its entries in the backend workspace first.",
   "workspaceLiveChange": "Core attempted to change live data. The operation was rolled back. Use the backend form.",
@@ -117,7 +212,7 @@ const inlineFallbacks = {
   "token": "The editor session expired. Save pending edits before refreshing.",
   "failed": "The entry operation failed. Use the backend form for details.",
   "savedWorkspace": "Entry change saved in this workspace. Reset does not undo it.",
-  "savedHidden": "Entry added. Hidden until you enable it in the backend form.",
+  "savedHidden": "Entry added. New entries start hidden. Show it with the eye, then Save.",
   "savedLive": "Entry change saved immediately. Reset does not undo it.",
   "refreshPending": "Refresh the page after saving any new edits to see the change.",
   "refreshRequired": "Refresh the page before another entry operation.",
@@ -135,6 +230,7 @@ const inlineFallbacks = {
   "confirmStage": "Deletion is staged in this workspace; the live entry remains until publication.",
   "confirmLive": "It disappears from the live site immediately.",
   "confirmReset": "Reset does not undo this operation.",
+  "confirmLanguageOnly": "Only the entry in this language is removed; the default-language entry stays.",
   "cancel": "Cancel",
   "newEntry": "New entry",
   "unavailable": "Unavailable: {value}",

@@ -267,8 +267,8 @@
     </unit>
     <unit id="frontend.inlineRecords.pending">
       <segment state="final">
-        <source>Save or reset your changes first. If the editor state is uncertain, refresh the page.</source>
-        <target>Änderungen zuerst speichern oder zurücksetzen. Bei unklarem Editorstatus die Seite neu laden.</target>
+        <source>Wait for the save to finish or fix invalid fields. If the editor state is uncertain, refresh the page.</source>
+        <target>Warten Sie, bis das Speichern fertig ist, oder korrigieren Sie ungültige Felder. Ist der Editor-Zustand unklar, laden Sie die Seite neu.</target>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.busy">
@@ -405,8 +405,8 @@
     </unit>
     <unit id="frontend.inlineRecords.savedHidden">
       <segment state="final">
-        <source>Entry added. Hidden until you enable it in the backend form.</source>
-        <target>Eintrag angelegt. Er bleibt verborgen, bis Sie ihn im Backend-Formular aktivieren.</target>
+        <source>Entry added. New entries start hidden. Show it with the eye, then Save.</source>
+        <target>Eintrag angelegt. Neue Einträge sind zunächst ausgeblendet. Mit dem Auge einblenden, dann speichern.</target>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.savedLive">
@@ -645,14 +645,14 @@
     </unit>
     <unit id="frontend.inlineRecords.newHidden">
       <segment>
-        <source>New entries start hidden.</source>
-        <target>Neue Einträge sind zunächst ausgeblendet.</target>
+        <source>New entries start hidden. Show them with the eye, then Save.</source>
+        <target>Neue Einträge sind zunächst ausgeblendet. Mit dem Auge einblenden, dann speichern.</target>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.structureHint">
       <segment>
-        <source>Adding or removing entries saves immediately.</source>
-        <target>Hinzufügen und Entfernen wird sofort gespeichert.</target>
+        <source>Adding, removing and moving save immediately; titles and visibility save with the page.</source>
+        <target>Hinzufügen, Entfernen und Verschieben wird sofort gespeichert; Titel und Sichtbarkeit mit der Seite.</target>
       </segment>
     </unit>
     <unit id="frontend.actionBar.library">
@@ -713,6 +713,258 @@
       <segment state="final">
         <source>Hidden on the live site</source>
         <target>Auf der Live-Seite ausgeblendet</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addEntry">
+      <segment state="final">
+        <source>Add {title}</source>
+        <target>{title} hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.visible">
+      <segment state="final">
+        <source>Visible on the live site</source>
+        <target>Auf der Live-Seite sichtbar</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hide">
+      <segment state="final">
+        <source>Hide</source>
+        <target>Ausblenden</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unhide">
+      <segment state="final">
+        <source>Show</source>
+        <target>Einblenden</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.movedTo">
+      <segment state="final">
+        <source>Moved to position {position}.</source>
+        <target>An Position {position} verschoben.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.pendingRow">
+      <segment state="final">
+        <source>Save this entry's text first.</source>
+        <target>Speichern Sie zuerst den Text dieses Eintrags.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.pendingNotice">
+      <segment state="final">
+        <source>This element has unsaved changes. Removing an entry with unsaved text waits for Save.</source>
+        <target>Dieses Element hat ungespeicherte Änderungen. Ein Eintrag mit ungespeichertem Text kann erst nach dem Speichern entfernt werden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.saveNow">
+      <segment state="final">
+        <source>Save now</source>
+        <target>Jetzt speichern</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedPageLater">
+      <segment state="final">
+        <source>Saved. The page shows it after you save your text.</source>
+        <target>Gespeichert. Die Seite zeigt es, sobald Sie Ihren Text speichern.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.contextLive">
+      <segment state="final">
+        <source>Live site</source>
+        <target>Live-Seite</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.contextWorkspace">
+      <segment state="final">
+        <source>Workspace draft «{title}»</source>
+        <target>Workspace-Entwurf «{title}»</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeDefault">
+      <segment state="final">
+        <source>Default language</source>
+        <target>Standardsprache</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeTranslatedInto">
+      <segment state="final">
+        <source>translated into {languages}</source>
+        <target>übersetzt in {languages}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeConnected">
+      <segment state="final">
+        <source>Connected translation — structure also lives in the source language</source>
+        <target>Verbundene Übersetzung – die Struktur liegt auch in der Ausgangssprache</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeFree">
+      <segment state="final">
+        <source>Free translation</source>
+        <target>Freie Übersetzung</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeNew">
+      <segment state="final">
+        <source>New in draft</source>
+        <target>Neu im Entwurf</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeModified">
+      <segment state="final">
+        <source>Changed in draft</source>
+        <target>Im Entwurf geändert</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeDeleted">
+      <segment state="final">
+        <source>Marked for deletion</source>
+        <target>Zum Löschen markiert</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgePending">
+      <segment state="final">
+        <source>Unsaved</source>
+        <target>Ungespeichert</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenHint">
+      <segment state="final">
+        <source>New entries start hidden. Show it with the eye, then Save.</source>
+        <target>Neue Einträge sind zunächst ausgeblendet. Mit dem Auge einblenden, dann speichern.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rowActions">
+      <segment state="final">
+        <source>Actions for {label}</source>
+        <target>Aktionen für {label}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.titleOf">
+      <segment state="final">
+        <source>Title of entry {position}</source>
+        <target>Titel von Eintrag {position}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.moreActions">
+      <segment state="final">
+        <source>More actions</source>
+        <target>Weitere Aktionen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.editInForm">
+      <segment state="final">
+        <source>Edit in form</source>
+        <target>Im Formular bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnTitle">
+      <segment state="final">
+        <source>Title</source>
+        <target>Titel</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnState">
+      <segment state="final">
+        <source>State</source>
+        <target>Status</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnActions">
+      <segment state="final">
+        <source>Actions</source>
+        <target>Aktionen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.countMax">
+      <segment state="final">
+        <source>{count} / {max}</source>
+        <target>{count} / {max}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.minHint">
+      <segment state="final">
+        <source>min {min}</source>
+        <target>mind. {min}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.draftCreated">
+      <segment state="final">
+        <source>Draft created. Core renumbered the stored order values; the visible order is unchanged.</source>
+        <target>Entwurf angelegt. Der Core hat die gespeicherten Sortierwerte neu nummeriert; die sichtbare Reihenfolge bleibt gleich.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.stage">
+      <segment state="final">
+        <source>The element is in review; its editing stage is closed.</source>
+        <target>Das Element ist in Prüfung; die Bearbeitungsstufe ist geschlossen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmLanguageOnly">
+      <segment state="final">
+        <source>Only the entry in this language is removed; the default-language entry stays.</source>
+        <target>Nur der Eintrag in dieser Sprache wird entfernt; der Eintrag der Standardsprache bleibt.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.sync">
+      <segment state="final">
+        <source>Sync translations</source>
+        <target>Übersetzungen synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncMissing">
+      <segment state="final">
+        <source>{count} missing</source>
+        <target>{count} fehlen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeItem">
+      <segment state="final">
+        <source>Synchronize {language}</source>
+        <target>{language} synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeHint">
+      <segment state="final">
+        <source>also removes {count}</source>
+        <target>entfernt auch {count}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.localizeTo">
+      <segment state="final">
+        <source>Localize to {language}</source>
+        <target>Nach {language} übersetzen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.synced">
+      <segment state="final">
+        <source>{language}: {localized} added, {removed} removed.</source>
+        <target>{language}: {localized} hinzugefügt, {removed} entfernt.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSyncTitle">
+      <segment state="final">
+        <source>Synchronize translations</source>
+        <target>Übersetzungen synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSynchronize">
+      <segment state="final">
+        <source>Synchronize {language} with the default language? Adds {missing} missing entries and removes {orphaned} entries that exist only in {language}. This saves immediately; Reset does not undo it.</source>
+        <target>{language} mit der Standardsprache synchronisieren? Fügt {missing} fehlende Einträge hinzu und entfernt {orphaned} Einträge, die es nur in {language} gibt. Das wird sofort gespeichert; Zurücksetzen macht es nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncConfirmButton">
+      <segment state="final">
+        <source>Synchronize</source>
+        <target>Synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstVersionNext">
+      <segment state="final">
+        <source>Your next add, move or remove creates this element's first draft in this workspace.</source>
+        <target>Ihr nächstes Hinzufügen, Verschieben oder Entfernen legt den ersten Entwurf dieses Elements in diesem Workspace an.</target>
       </segment>
     </unit>
   </file>

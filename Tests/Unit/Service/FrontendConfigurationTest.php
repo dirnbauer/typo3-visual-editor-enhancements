@@ -72,6 +72,7 @@ final class FrontendConfigurationTest extends TestCase
             'elementRefreshEnabled' => true,
             'colorScheme' => 'auto',
             'actionLabelMode' => 'caption',
+            'entriesLayout' => 'inspector',
         ], $this->build([], 666));
     }
 
@@ -141,6 +142,29 @@ final class FrontendConfigurationTest extends TestCase
         self::assertSame($expected, $this->build($settings, 666)['actionLabelMode']);
         // Page-independent: also without a resolved page.
         self::assertSame($expected, $this->build($settings, null)['actionLabelMode']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function entriesLayoutProvider(): iterable
+    {
+        yield 'inspector' => ['inspector', 'inspector'];
+        yield 'tray' => ['tray', 'tray'];
+        yield 'anchored' => ['anchored', 'anchored'];
+        yield 'not set' => [null, 'inspector'];
+        yield 'unknown value' => ['drawer', 'inspector'];
+        yield 'not a string' => [2, 'inspector'];
+    }
+
+    #[Test]
+    #[DataProvider('entriesLayoutProvider')]
+    public function theEntriesLayoutIsTheUsersSettingWithInspectorAsDefault(mixed $setting, string $expected): void
+    {
+        $settings = $setting === null ? [] : ['tx_visualeditor_entriesLayout' => $setting];
+
+        self::assertSame($expected, $this->build($settings, 666)['entriesLayout']);
+        self::assertSame($expected, $this->build($settings, null)['entriesLayout']);
     }
 
     /**

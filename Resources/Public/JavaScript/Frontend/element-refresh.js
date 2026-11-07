@@ -1,6 +1,7 @@
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {isElementRefreshEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
+import {recordTree, treeHasStagedData} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 
 /**
  * Partial element refresh after a successful save.
@@ -167,14 +168,17 @@ function wrapperSelector(table, uid) {
  * Fetches the current page once and swaps every stale wrapper for its fresh
  * counterpart. Custom elements upgrade automatically on insertion.
  * @param {Map<string, Element>} staleWrappers wrapper selector -> live wrapper
+ * @param {Array<{table: string, uid: number}>} records further records owned
+ *   by the wrappers (the entries the inspector lists)
  * @return {Promise<boolean>} false when a full reload is needed instead
  */
-async function refreshWrappers(staleWrappers) {
+async function refreshWrappers(staleWrappers, records = []) {
   const response = await fetch(window.location.href, {cache: 'no-store', credentials: 'same-origin'});
   if (!response.ok) {
     return false;
   }
-  if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return false; }
+  // Typing while the request ran: never replace a wrapper holding staged text.
+  if ([...staleWrappers.values()].some((wrapper) => wrapperHasStagedData(wrapper, records))) { return false; }
   const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
   for (const [selector, wrapper] of staleWrappers) {
     const fresh = parsed.querySelector(selector);
@@ -206,9 +210,35 @@ function reExecuteScripts(root) {
   }
 }
 
-export async function refreshElement(table, uid) {
-  if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return false; }
+/**
+ * The records a wrapper owns: its own row, the editables rendered inside it
+ * and the given entries. Only staged data in THIS tree keeps the wrapper -
+ * staged text in another element never blocks its refresh (plan 2.5).
+ * @param {Element} wrapper
+ * @param {Array<{table: string, uid: number}>} records
+ * @return {boolean}
+ */
+function wrapperHasStagedData(wrapper, records = []) {
+  const editables = [...wrapper.querySelectorAll('[table][uid]')]
+    .filter((node) => node.localName.startsWith('ve-editable-'))
+    .map((node) => ({table: node.getAttribute('table'), uid: node.getAttribute('uid')}));
+  const tree = recordTree({table: wrapper.getAttribute('table'), uid: wrapper.getAttribute('uid')}, editables, records);
+  return treeHasStagedData(dataHandlerStore, tree);
+}
+
+/**
+ * Re-renders one content element after a structural entry change. Skipped
+ * (false) only when the element's own record tree has staged or invalid
+ * data - the change is then on the server and the element shows it after
+ * the next Save (the 'saved' refresh above).
+ * @param {string} table
+ * @param {number} uid
+ * @param {{records?: Array<{table: string, uid: number}>}} options
+ * @return {Promise<boolean>}
+ */
+export async function refreshElement(table, uid, {records = []} = {}) {
   const selector = wrapperSelector(table, uid);
   const wrapper = document.querySelector(selector);
-  return wrapper ? refreshWrappers(new Map([[selector, wrapper]])) : false;
+  if (!wrapper || wrapperHasStagedData(wrapper, records)) { return false; }
+  return refreshWrappers(new Map([[selector, wrapper]]), records);
 }

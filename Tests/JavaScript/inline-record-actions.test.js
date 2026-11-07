@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {collectionIntent, postCollectionIntent, structuralBlockReason} from '../../Resources/Public/JavaScript/Shared/inline-record-actions.js';
+import {collectionIntent, postCollectionIntent, recordTree, rowPendingReason, structuralBlockReason, treeHasStagedData} from '../../Resources/Public/JavaScript/Shared/inline-record-actions.js';
 
 const field = {parentTable: 'tt_content', parentUid: 5, name: 'cards', revision: 'opaque', childTable: 'ignored', hidden: 0};
 const common = {parentTable: 'tt_content', parentUid: 5, field: 'cards', revision: 'opaque'};
@@ -35,13 +35,32 @@ test('no child table, pid, sorting, language, live uid or unknown action leaves 
   }
   assert.throws(() => collectionIntent(field, 'copy', {}), /Unknown collection action/);
 });
-test('dirty, invalid, saving, unknown and uncertain editor states block actions', () => {
+test('saving, invalid and uncertain editor states block every structural action; staged changes do not', () => {
   const clean = {changesCount: 0, invalidCount: 0};
   const idle = {count: 0, invalidCount: 0, saving: false};
   assert.equal(structuralBlockReason(clean, idle), '');
-  for (const [store, backend, uncertain] of [[{...clean, changesCount: 1}, idle], [{...clean, invalidCount: 1}, idle], [clean, {...idle, saving: true}], [clean, {...idle, count: 1}], [clean, {...idle, invalidCount: 1}], [clean, null], [clean, idle, true]]) {
+  // Staged text elsewhere (this frame or another language frame) no longer blocks.
+  assert.equal(structuralBlockReason({...clean, changesCount: 3}, {...idle, count: 2}), '');
+  for (const [store, backend, uncertain] of [[{...clean, invalidCount: 1}, idle], [clean, {...idle, saving: true}], [clean, {...idle, invalidCount: 1}], [clean, null], [clean, idle, true]]) {
     assert.notEqual(structuralBlockReason(store, backend, uncertain), '');
   }
+});
+test('the record tree of an element: its row, its editables and its listed entries', () => {
+  const tree = recordTree({table: 'tt_content', uid: 1}, [{table: 'items', uid: '2'}, {table: null, uid: 3}, {table: 'items', uid: ''}], [{table: 'items', uid: 8}]);
+  assert.deepEqual([...tree], ['tt_content:1', 'items:2', 'items:8']);
+});
+test('only staged data inside the element tree counts; other elements never block it', () => {
+  const tree = recordTree({table: 'tt_content', uid: 1}, [{table: 'items', uid: 2}]);
+  assert.equal(treeHasStagedData({data: {tt_content: {9: {header: 'x'}}, items: {7: {title: 'y'}}}, invalidFields: {}, cmdArray: []}, tree), false);
+  assert.equal(treeHasStagedData({data: {items: {2: {title: 'y'}}}}, tree), true);
+  assert.equal(treeHasStagedData({data: {}, invalidFields: {tt_content: {1: {header: true}}}}, tree), true);
+  assert.equal(treeHasStagedData({data: {}, cmdArray: [{tt_content: {1: {delete: 1}}}]}, tree), true);
+  assert.equal(treeHasStagedData({data: {}, cmdArray: [{tt_content: {5: {delete: 1}}}]}, tree), false);
+});
+test('a staged change on one entry holds only that entry\'s Remove', () => {
+  const store = {data: {items: {2: {title: 'Pending'}}}};
+  assert.notEqual(rowPendingReason(store, {table: 'items', uid: 2}), '');
+  assert.equal(rowPendingReason(store, {table: 'items', uid: 3}), '');
 });
 test('HTTP failures are reported once and never retried', async () => {
   let calls = 0;

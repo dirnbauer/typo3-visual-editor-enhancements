@@ -223,7 +223,7 @@
     </unit>
     <unit id="frontend.inlineRecords.pending">
       <segment state="final">
-        <source>Save or reset your changes first. If the editor state is uncertain, refresh the page.</source>
+        <source>Wait for the save to finish or fix invalid fields. If the editor state is uncertain, refresh the page.</source>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.busy">
@@ -338,7 +338,7 @@
     </unit>
     <unit id="frontend.inlineRecords.savedHidden">
       <segment state="final">
-        <source>Entry added. Hidden until you enable it in the backend form.</source>
+        <source>Entry added. New entries start hidden. Show it with the eye, then Save.</source>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.savedLive">
@@ -538,12 +538,12 @@
     </unit>
     <unit id="frontend.inlineRecords.newHidden">
       <segment>
-        <source>New entries start hidden.</source>
+        <source>New entries start hidden. Show them with the eye, then Save.</source>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.structureHint">
       <segment>
-        <source>Adding or removing entries saves immediately.</source>
+        <source>Adding, removing and moving save immediately; titles and visibility save with the page.</source>
       </segment>
     </unit>
     <unit id="frontend.actionBar.library">
@@ -594,6 +594,216 @@
     <unit id="frontend.inlineRecords.hiddenOnPage">
       <segment>
         <source>Hidden on the live site</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addEntry">
+      <segment state="final">
+        <source>Add {title}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.visible">
+      <segment state="final">
+        <source>Visible on the live site</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hide">
+      <segment state="final">
+        <source>Hide</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unhide">
+      <segment state="final">
+        <source>Show</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.movedTo">
+      <segment state="final">
+        <source>Moved to position {position}.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.pendingRow">
+      <segment state="final">
+        <source>Save this entry's text first.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.pendingNotice">
+      <segment state="final">
+        <source>This element has unsaved changes. Removing an entry with unsaved text waits for Save.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.saveNow">
+      <segment state="final">
+        <source>Save now</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.savedPageLater">
+      <segment state="final">
+        <source>Saved. The page shows it after you save your text.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.contextLive">
+      <segment state="final">
+        <source>Live site</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.contextWorkspace">
+      <segment state="final">
+        <source>Workspace draft «{title}»</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeDefault">
+      <segment state="final">
+        <source>Default language</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeTranslatedInto">
+      <segment state="final">
+        <source>translated into {languages}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeConnected">
+      <segment state="final">
+        <source>Connected translation — structure also lives in the source language</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.modeFree">
+      <segment state="final">
+        <source>Free translation</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeNew">
+      <segment state="final">
+        <source>New in draft</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeModified">
+      <segment state="final">
+        <source>Changed in draft</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeDeleted">
+      <segment state="final">
+        <source>Marked for deletion</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgePending">
+      <segment state="final">
+        <source>Unsaved</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenHint">
+      <segment state="final">
+        <source>New entries start hidden. Show it with the eye, then Save.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rowActions">
+      <segment state="final">
+        <source>Actions for {label}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.titleOf">
+      <segment state="final">
+        <source>Title of entry {position}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.moreActions">
+      <segment state="final">
+        <source>More actions</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.editInForm">
+      <segment state="final">
+        <source>Edit in form</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnTitle">
+      <segment state="final">
+        <source>Title</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnState">
+      <segment state="final">
+        <source>State</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.columnActions">
+      <segment state="final">
+        <source>Actions</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.countMax">
+      <segment state="final">
+        <source>{count} / {max}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.minHint">
+      <segment state="final">
+        <source>min {min}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.draftCreated">
+      <segment state="final">
+        <source>Draft created. Core renumbered the stored order values; the visible order is unchanged.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.stage">
+      <segment state="final">
+        <source>The element is in review; its editing stage is closed.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmLanguageOnly">
+      <segment state="final">
+        <source>Only the entry in this language is removed; the default-language entry stays.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.sync">
+      <segment state="final">
+        <source>Sync translations</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncMissing">
+      <segment state="final">
+        <source>{count} missing</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeItem">
+      <segment state="final">
+        <source>Synchronize {language}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeHint">
+      <segment state="final">
+        <source>also removes {count}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.localizeTo">
+      <segment state="final">
+        <source>Localize to {language}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.synced">
+      <segment state="final">
+        <source>{language}: {localized} added, {removed} removed.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSyncTitle">
+      <segment state="final">
+        <source>Synchronize translations</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSynchronize">
+      <segment state="final">
+        <source>Synchronize {language} with the default language? Adds {missing} missing entries and removes {orphaned} entries that exist only in {language}. This saves immediately; Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncConfirmButton">
+      <segment state="final">
+        <source>Synchronize</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstVersionNext">
+      <segment state="final">
+        <source>Your next add, move or remove creates this element's first draft in this workspace.</source>
       </segment>
     </unit>
   </file>

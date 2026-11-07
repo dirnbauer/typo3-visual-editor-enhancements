@@ -6,41 +6,85 @@ Collection entries
 
 Enable **Edit collection entries** in User settings > Visual editor. This
 preference is initially off and is independent of the field chooser's tabs,
-sections and disabled modes. The labelled **Entries** action sits beside field
-settings in the element toolbar and appears only for elements with collections.
-It opens a compact panel at the right of the preview. Field settings keep their
-own anchored panel, with a shortcut to each collection instead of a long list
-of entry actions.
+sections and disabled modes. Two buttons sit in the element's action bar of
+every element with collections: **Entries** opens the entries inspector,
+**Add entry** adds an entry at the end and puts the cursor into it on the
+page.
 
-Click an entry's title to edit its text, media and other fields in TYPO3's
-contextual editing form. The pencil marks this action; hidden entries have a
-badge. Use **Add entry** below the list, or an entry's overflow menu for
-**Item settings**, **Add after**, **Remove** and the full backend form. A
-restriction is explained beside the relevant action. **Back** stays in the
-same panel when navigating nested collections.
+.. _collections-inspector:
 
-**Add entry**, **Add after** and **Remove** save immediately. Reset does not
-undo these operations. Removal first asks for confirmation; Cancel, Escape
-and dismissing the confirmation perform no writes. Core's modal delegates to
-the backend window on the same origin. A native browser confirmation is the
-fallback when that modal cannot be rendered.
+Entries inspector
+=================
 
-Save or reset pending changes before structural actions or opening an entry's
-contextual form. Invalid fields,
-an active save in any language frame, an unknown editor state or an ongoing
-collection request block the controls. The extension never triggers Save
-itself, retries a failed creation automatically, or treats ``saveEnded`` as
-proof that persistence succeeded. After a lost response, refresh before
-trying again. A wrapper refresh never replaces pending local text.
+The inspector lists every collection of the element. At the top a context
+line always says where you work: **Live site** or **Workspace draft «name»**,
+and the language of this frame. Each collection shows its count (``3 / 6``
+when it has a maximum, a ``min`` hint when it is at its minimum).
+
+Every entry is one row: its number, its **title** as a text field, state
+badges and its actions. The actions are quiet until you point at or focus the
+row (always visible on touch screens):
+
+*   **Move up / Move down** - also :kbd:`Alt+↑` / :kbd:`Alt+↓` anywhere in
+    the row. The status line announces the new position.
+*   **Visible on the live site** (the switch) - shows or hides the entry.
+*   **Add after** - adds a new entry right after this one.
+*   **Remove** - also :kbd:`Delete` on a focused row button. Asks first; the
+    question counts what goes with the entry ("Also removes 3 translations
+    (Deutsch, 中文, Magyar)").
+*   **More actions** - *Item settings* (the entry's own choice fields and
+    nested collections), *Edit in form* (TYPO3's contextual form for media
+    and rich text) and *Open backend form*.
+
+Badges say what the page cannot: *Hidden*, *New in draft*, *Changed in
+draft*, *Marked for deletion* (listed read-only) and *Unsaved* when the
+title or visibility waits for Save. A refused action stays focusable; with
+the keyboard on it the row shows why.
+
+The inspector stays open while you work on the page - type into the new
+entry, click another text. It closes with :kbd:`Escape`, its close button,
+its button in the action bar or when you open another element's panel;
+the focus returns to the button that opened it.
+
+What saves when
+---------------
+
+*   **Add entry, Add after, Move and Remove save immediately.** Reset does
+    not undo them. Cancel, Escape and dismissing the removal question write
+    nothing.
+*   **Titles and visibility save with the page**, exactly like text you type
+    on the page: they are staged, show the *Unsaved* badge and are written
+    by the next Save (or autosave). Typing in the title field changes the
+    page text at once; :kbd:`Escape` in the field restores the stored title,
+    :kbd:`Enter` leaves it. Switching visibility twice leaves nothing to
+    save.
+
+On the page a hidden entry never looks live: its texts are dimmed, outlined
+and titled "Hidden on the live site", following the switch at once (and
+Reset and Save). The entry whose row has focus is outlined.
+
+The pending rule
+----------------
+
+Staged text in *other* elements never blocks anything. An entry with staged
+title or visibility holds only **its own Remove** ("Save this entry's text
+first.") - adding, moving and removing other entries proceed. While the
+element has staged changes the inspector shows **Save now**, which runs the
+editor's own Save. A change made meanwhile is written and listed at once;
+the page shows it after the next Save ("Saved. The page shows it after you
+save your text."). An active save, invalid fields or a lost response block
+every structural action until the state is clear; after a lost response,
+refresh before trying again. A wrapper refresh never replaces pending local
+text.
 
 .. _collections-visibility:
 
 Visibility and backend forms
 ============================
 
-Live creation requires a writable visibility field by default. Entries stay
-hidden until an editor enables them explicitly in the backend form. Autosave
-does not enable them. Tables without such a field use the backend fallback.
+Live creation requires a writable visibility field by default. New entries
+start hidden: show one with the visibility switch, then Save. Autosave does
+not show them. Tables without such a field use the backend fallback.
 An explicit site setting ``createHidden = 0`` permits immediate visibility.
 
 **Item settings** opens the actual child's choice fields, including nested
@@ -172,6 +216,51 @@ Synchronizing (``syncTranslations = 1``, ``syncDefaultMode = localize``)
 
 Visibility stays per record: the eye on one language leaves the others as
 they are (``hiddenPerLanguage``). Titles are per language by construction.
+
+.. _collections-translations-inspector:
+
+Translations in the inspector
+-----------------------------
+
+The context line names the frame's mode: *Default language · translated into
+Deutsch, 中文, Magyar*, *Connected translation* or *Free translation*, with
+*Visibility is per language* when translations exist - the switch on one
+language leaves the others as they are.
+
+*   On the default language a row missing in some translations says so
+    (*Not translated here: Deutsch, Magyar*); its **More actions** menu offers
+    *Localize to Deutsch* for exactly that entry.
+*   **Sync translations ▾** in the collection's footer appears only when a
+    language misses entries or has orphans. Its first items add the missing
+    entries per language (``localize``, nothing is removed); below the
+    separator **Synchronize** also removes entries that exist only in the
+    translation and asks first, counted ("Adds 1 missing entries and removes 2
+    entries that exist only in Magyar"). Both save immediately. In a workspace
+    the button stays visible but unavailable, with its reason.
+*   On a connected translation, entries added there carry *Only in this
+    language*; after a sync the order follows the default language.
+*   Removing a default-language entry names the translations that go with it
+    ("Also removes 3 translations (Deutsch, 中文, Magyar)"); removing an entry
+    of a connected translation says that only this language's entry goes.
+
+.. _collections-workspaces-inspector:
+
+Workspaces in the inspector
+---------------------------
+
+In a workspace the context line reads *Workspace draft «name»*, so a parked
+workspace is never a surprise. Rows show *New in draft* and *Changed in
+draft*; entries marked for deletion stay listed read-only with *Marked for
+deletion* (undoing it is the Workspaces module's job for now). Removal says
+that the deletion is staged until publication.
+
+When the element has no draft yet, the context line says that the next add,
+move or remove creates its first draft. With ``firstVersion = 0`` such an
+action is refused and the inspector explains it ("Your first change to this
+element would create a workspace draft; ..."); with ``firstVersion = 1`` it
+succeeds and the status adds *Draft created. Core renumbered the stored order
+values; the visible order is unchanged.* Titles and visibility are always
+possible: Core drafts the entry alone.
 
 .. _collections-row-markers:
 

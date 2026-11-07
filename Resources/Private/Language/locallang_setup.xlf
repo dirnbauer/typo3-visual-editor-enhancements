@@ -111,5 +111,30 @@
         <source>Icons only (tooltips)</source>
       </segment>
     </unit>
+    <unit id="entriesLayout">
+      <segment>
+        <source>Entries panel</source>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.description">
+      <segment>
+        <source>Where the panel for a content element's entries (feature cards, FAQ items, …) opens.</source>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.inspector">
+      <segment>
+        <source>Docked at the right edge</source>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.tray">
+      <segment>
+        <source>At the bottom, full width (good for languages side by side)</source>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.anchored">
+      <segment>
+        <source>Below the element's toolbar, scrolls with it</source>
+      </segment>
+    </unit>
 </file>
 </xliff>

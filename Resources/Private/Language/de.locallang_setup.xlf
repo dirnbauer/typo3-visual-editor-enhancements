@@ -133,5 +133,35 @@
         <target>Nur Symbole (Tooltips)</target>
       </segment>
     </unit>
+    <unit id="entriesLayout">
+      <segment state="final">
+        <source>Entries panel</source>
+        <target>Einträge-Panel</target>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.description">
+      <segment state="final">
+        <source>Where the panel for a content element's entries (feature cards, FAQ items, …) opens.</source>
+        <target>Wo sich das Panel für die Einträge eines Inhaltselements (Feature-Karten, FAQ-Einträge, …) öffnet.</target>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.inspector">
+      <segment state="final">
+        <source>Docked at the right edge</source>
+        <target>Rechts angedockt</target>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.tray">
+      <segment state="final">
+        <source>At the bottom, full width (good for languages side by side)</source>
+        <target>Unten, volle Breite (gut für Sprachen nebeneinander)</target>
+      </segment>
+    </unit>
+    <unit id="entriesLayout.anchored">
+      <segment state="final">
+        <source>Below the element's toolbar, scrolls with it</source>
+        <target>Unter der Werkzeugleiste des Elements, scrollt mit</target>
+      </segment>
+    </unit>
 </file>
 </xliff>

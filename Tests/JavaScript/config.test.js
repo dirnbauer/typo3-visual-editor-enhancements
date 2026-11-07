@@ -12,6 +12,7 @@ import {
   collectionFieldsFor,
   collectionTypes,
   contentAddedFeedback,
+  entriesLayout,
   editorColorScheme,
   elementLibraryColumns,
   fieldChooserMode,
@@ -121,6 +122,23 @@ describe('with the configuration the middleware inlines', () => {
     for (const invalid of [[], 'x', null]) {
       globalThis.window.visualEditorEnhancements.collectionTypes = invalid;
       assert.equal(collectionTypes(), null);
+    }
+  });
+});
+
+describe('entriesLayout', () => {
+  it('defaults to the inspector without configuration or for unknown values', () => {
+    assert.equal(entriesLayout(), 'inspector');
+    for (const value of ['drawer', 'Tray', 1, null, ['tray']]) {
+      globalThis.window = {visualEditorEnhancements: {entriesLayout: value}};
+      assert.equal(entriesLayout(), 'inspector');
+    }
+  });
+
+  it('passes the three known layouts through', () => {
+    for (const value of ['inspector', 'tray', 'anchored']) {
+      globalThis.window = {visualEditorEnhancements: {entriesLayout: value}};
+      assert.equal(entriesLayout(), value);
     }
   });
 });

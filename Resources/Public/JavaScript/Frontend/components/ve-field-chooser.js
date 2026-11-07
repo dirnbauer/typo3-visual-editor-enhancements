@@ -1,15 +1,19 @@
 import {html, LitElement, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
-import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
+import {entriesLayout, fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
-import {linkIconSvg, listIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {documentSynchronizeIconSvg, linkIconSvg, listIconSvg, workspaceIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
 import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
-import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
+import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
+import {changeCollection, collectionBlockReason, elementHasStagedData, rowBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
-import {renderCollection} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/collections.js';
+import {effectiveHidden, markEntries, setActiveEntry, trackEntryMarks} from '@webconsulting/visual-editor-enhancements/Frontend/entry-page-marks.js';
+import {highlightRow, joinChildren, onPageRow, rowsOf} from '@webconsulting/visual-editor-enhancements/Frontend/collection-rows.js';
+import {activeChildren, renderCollection, rovingItems, setRoving} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/collections.js';
 import {styles} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/styles.js';
 
 /**
@@ -46,12 +50,15 @@ export class VeFieldChooser extends LitElement {
     bodyMinHeight: {type: Number, state: true, attribute: false},
     scopeFields: {type: Array, state: true, attribute: false},
     scopeLabel: {type: String, state: true, attribute: false},
+    pageRow: {type: String, state: true, attribute: false},
   };
 
   constructor() {
     super();
     this.view = 'settings';
     this.docked = false;
+    /** 'popover' (field settings) or the user's entries layout: 'inspector' | 'tray' | 'anchored'. */
+    this.layout = 'popover';
     this.anchorRect = null;
     this.trigger = null;
     this.viewportTracker = new ViewportTracker(() => this.#position());
@@ -73,6 +80,14 @@ export class VeFieldChooser extends LitElement {
     this.table = '';
     this.uid = 0;
     this.listening = false;
+    /** The view the panel was opened with (nested child settings keep it). */
+    this.rootView = 'settings';
+    /** The entry the last create returned: its row shows the hidden hint. */
+    this.createdUid = null;
+    /** f:mark.item row under the pointer on the page ("<table>:<uid>"), mirrored on its inspector row. */
+    this.pageRow = '';
+    this.untrackMarks = null;
+    this.unwatchPageRows = null;
     // Collapsed category nodes (uids); collapsing is purely visual - checked
     // categories inside a collapsed subtree stay part of the staged value.
     this.collapsedCategories = new Set();
@@ -89,21 +104,33 @@ export class VeFieldChooser extends LitElement {
     this.onStoreChange = (event) => {
       if (event.detail?.kind === 'saved' && this.open) {
         clearFieldOptionsCache();
-        this.#load();
+        this.#load({keep: true});
         return;
       }
       this.requestUpdate();
     };
     this.onDocumentKeydown = (event) => {
-      if (event.key === 'Escape') {
-        this.close({restoreFocus: true});
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return;
       }
+      // Escape inside a page editable belongs to the editor (CKEditor balloons, blur).
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      if (path.some((node) => node instanceof Element && node.localName.startsWith('ve-editable-'))) {
+        return;
+      }
+      this.close({restoreFocus: true});
     };
     /** @type {HTMLElement|null} the control that had focus when the popover opened */
     this.returnFocus = null;
     this.onDocumentPointerDown = (event) => {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
       if (path.includes(this)) {
+        return;
+      }
+      // The entries inspector stays open while the editor works on the page
+      // (types into the new entry, clicks another row): it closes on Escape,
+      // its close button, its trigger or another element's panel trigger.
+      if (this.rootView === 'entries') {
         return;
       }
       // Chooser buttons toggle/re-anchor via their own click handler; closing
@@ -144,8 +171,11 @@ export class VeFieldChooser extends LitElement {
       this.trigger = trigger;
       this.trigger?.setAttribute('aria-expanded', 'true');
       this.anchorRect = anchorRect;
-      this.docked = view === 'entries';
+      this.layout = view === 'entries' ? entriesLayout() : 'popover';
+      this.docked = this.layout === 'inspector' || this.layout === 'tray';
+      this.rootView = view;
       this.message = message;
+      this.createdUid = null;
     }
     this.view = view;
     // Re-filtering an already loaded element must not refetch - but after a
@@ -188,6 +218,7 @@ export class VeFieldChooser extends LitElement {
     this.trigger?.setAttribute('aria-expanded', 'false');
     this.loadSeq++;
     this.#stopListening();
+    this.#untrackPage();
     if (restoreFocus && this.returnFocus?.isConnected) {
       this.returnFocus.focus({preventScroll: true});
     }
@@ -225,14 +256,25 @@ export class VeFieldChooser extends LitElement {
   }
 
   /**
-   * Anchors the fixed popover to the action-bar button: preferred below the
-   * button, left-aligned and clamped to the viewport; when the space below is
-   * short it flips above (bottom-anchored, so it grows upwards).
+   * Places the panel for its layout. Docked layouts (inspector: right edge,
+   * tray: bottom edge) are pure CSS. Field settings and the anchored entries
+   * layout follow the action-bar button: preferred below it, left-aligned and
+   * clamped to the viewport; when the space below is short it flips above
+   * (bottom-anchored, so it grows upwards). The viewport tracker calls this on
+   * scroll, so the anchored panel scrolls with its element.
    */
   #position() {
     if (this.docked) {
       this.popoverStyle = '';
       return;
+    }
+    // An element refresh replaced the wrapper and with it the trigger.
+    if (this.trigger && !this.trigger.isConnected && this.rootView === 'entries') {
+      const replacement = this.#wrapper()?.shadowRoot?.querySelector('[data-ve-enhancement="inline-records"]');
+      if (replacement) {
+        this.trigger = replacement;
+        this.trigger.setAttribute('aria-expanded', 'true');
+      }
     }
     const edge = 12;
     const gap = 8;
@@ -260,6 +302,10 @@ export class VeFieldChooser extends LitElement {
    * scoped mode via "show all" is a scopeFields change and re-measures.
    */
   updated(changedProperties) {
+    // One tab stop per row toolbar (roving focus); new rows join it.
+    for (const toolbar of this.renderRoot.querySelectorAll('.entryActions[role="toolbar"]:not([data-roving])')) {
+      setRoving(toolbar, 0);
+    }
     if (!this.open || !(changedProperties.has('activeTab') || changedProperties.has('fields') || changedProperties.has('scopeFields'))) {
       return;
     }
@@ -282,12 +328,18 @@ export class VeFieldChooser extends LitElement {
     }
   }
 
-  async #load() {
+  /**
+   * @param {{keep?: boolean}} options keep: a refresh of the same record keeps
+   *   the current fields on screen until the new payload arrives (no "Loading…"
+   *   flash, focus and scroll position stay in the entries list)
+   */
+  async #load({keep = false} = {}) {
     const selectedTabId = this.#tabs()[this.activeTab]?.id;
     const seq = ++this.loadSeq;
-    this.loading = true;
+    keep = keep && this.fields.length > 0 && !this.error;
+    this.loading = !keep;
     this.error = false;
-    this.fields = [];
+    if (!keep) { this.fields = []; }
     this.collapsedCategories = new Set();
     this.bodyMinHeight = 0;
     try {
@@ -304,7 +356,9 @@ export class VeFieldChooser extends LitElement {
       for (const field of this.fields.filter((field) => field.type !== 'inline')) {
         dataHandlerStore.setInitialData(this.table, this.uid, field.name, this.#initialValue(field));
       }
+      this.#seedEntries();
       this.loading = false;
+      this.#trackPage();
     } catch {
       if (seq !== this.loadSeq) {
         return;
@@ -392,7 +446,7 @@ export class VeFieldChooser extends LitElement {
     const useTabs = tabs.length > 1;
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
-      <div class="popover ${this.docked ? 'isDrawer' : ''}" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
+      <div class="popover ${this.layout === 'inspector' ? 'isDrawer' : ''} ${this.layout === 'tray' ? 'isTray' : ''} ${this.layout === 'anchored' ? 'isAnchored' : ''}" data-layout=${this.layout} style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
         <header class="header">
           ${this.history.length ? html`<button type="button" class="closeButton" aria-label=${inlineLabel('back')} title=${inlineLabel('back')} @click=${() => this.#back()}>←</button>` : ''}
           <div class="heading">
@@ -401,7 +455,14 @@ export class VeFieldChooser extends LitElement {
           </div>
           <button type="button" class="closeButton" @click="${() => this.close({restoreFocus: true})}" title="${closeLabel}" aria-label="${closeLabel}">&times;</button>
         </header>
-        ${this.message ? html`<p class="notice" role="status">${this.message}</p>` : ''}
+        ${entries ? this.#renderContext() : ''}
+        <p class="notice ${this.message ? '' : 'isEmpty'}" role="status">${this.message}</p>
+        ${entries && !this.loading && elementHasStagedData(this.rootRecord, this.#entries()) ? html`
+          <div class="pendingNotice">
+            <span class="pendingDot" aria-hidden="true"></span>
+            <span>${inlineLabel('pendingNotice')}</span>
+            <button type="button" class="saveNow" @click=${() => this.#saveNow()}>${inlineLabel('saveNow')}</button>
+          </div>` : ''}
         ${useTabs ? this.#renderTabBar(tabs, activeTab) : ''}
         <div
           class="body"
@@ -420,6 +481,121 @@ export class VeFieldChooser extends LitElement {
         </footer>
       </div>
     `;
+  }
+
+  /**
+   * Where the editor works: live or the workspace draft, and the language of
+   * this frame - always visible, so a parked workspace is never a surprise.
+   */
+  #renderContext() {
+    const field = this.fields.find((entry) => entry.type === 'inline');
+    if (!field) {
+      return '';
+    }
+    const workspace = field.workspace ?? (field.workspaceId ? {id: field.workspaceId, title: ''} : null);
+    const place = workspace?.id
+      ? html`<span class="contextChip isWorkspace">${unsafeHTML(workspaceIconSvg(12))}${inlineLabel('contextWorkspace').replace('{title}', workspace.title || `#${workspace.id}`)}</span>`
+      : html`<span class="contextChip">${inlineLabel('contextLive')}</span>`;
+    const language = languageName(document.documentElement.lang);
+    return html`<p class="contextStrip">${place}${language ? html`<span class="contextChip">${language}</span>` : ''}${this.#renderMode(field)}</p>`;
+  }
+
+  /**
+   * The frame's translation mode: the default language (and the languages it
+   * is translated into), a connected translation or a free one - plus the
+   * per-language and workspace hints that change what an action means.
+   */
+  #renderMode(field) {
+    const titles = (field.translationLanguages ?? []).map((language) => language.title).filter(Boolean);
+    let mode = '';
+    if (field.translationMode === 'connected') {
+      mode = inlineLabel('modeConnected');
+    } else if (field.translationMode === 'free') {
+      mode = inlineLabel('modeFree');
+    } else if (titles.length) {
+      mode = `${inlineLabel('modeDefault')} · ${inlineLabel('modeTranslatedInto').replace('{languages}', titles.join(', '))}`;
+    }
+    const hints = [];
+    if (field.hiddenPerLanguage) { hints.push(inlineLabel('hiddenPerLanguage')); }
+    if (field.translationMode === 'connected') { hints.push(inlineLabel('orderFollowsDefault')); }
+    if (field.workspace?.id && field.workspace.firstVersion) { hints.push(inlineLabel('firstVersionNext')); }
+    return html`${mode ? html`<span class="contextMode">${mode}</span>` : ''}
+      ${hints.length ? html`<span class="contextMode contextHint">${hints.join(' ')}</span>` : ''}`;
+  }
+
+  /** @return {Map<number, string>} language id -> title */
+  #languageTitles(field) {
+    return new Map((field.translationLanguages ?? []).map((language) => [Number(language.id), language.title]));
+  }
+
+  /** Parity badges: an entry only in this language, or missing in some translations. */
+  #translationBadges(field, child) {
+    const badges = [];
+    if (child.state === 'deleted') { return badges; }
+    if (child.translationOnly) {
+      badges.push(html`<span class="entryBadge">${inlineLabel('badgeTranslationOnly')}</span>`);
+    }
+    if (field.translationMode === 'default' && child.untranslated?.length) {
+      const titles = this.#languageTitles(field);
+      const names = child.untranslated.map((id) => titles.get(Number(id)) ?? String(id)).join(', ');
+      badges.push(html`<span class="entryBadge isMuted">${inlineLabel('badgeUntranslated').replace('{languages}', names)}</span>`);
+    }
+    return badges;
+  }
+
+  /** Row menu: "Localize to <language>" for each language this entry is missing in. */
+  #localizeItems(field, child) {
+    if (field.translationMode !== 'default' || !child.untranslated?.length || child.state === 'deleted') {
+      return [];
+    }
+    const blocked = this.busy ? inlineLabel('busy') : collectionBlockReason();
+    return (field.translationLanguages ?? [])
+      .filter((language) => child.untranslated.map(Number).includes(Number(language.id)))
+      .map((language) => ({
+        label: inlineLabel('localizeTo').replace('{language}', language.title),
+        reason: blocked || (field.canSync === false && field.syncReason !== 'syncNone' ? collectionReason(field.syncReason) : '')
+          || (language.canSync === false ? collectionReason(language.syncReason) : ''),
+        run: () => this.#collectionAction(field, 'sync', null, {language: Number(language.id), mode: 'localize', ids: [child.uid]}),
+      }));
+  }
+
+  /**
+   * Footer "Sync translations ▾" on default-language elements: one item per
+   * language with missing entries (the default, add-only mode), then the
+   * destructive synchronize per language behind its own confirmation.
+   * Nothing to sync: no button at all; refused: a focusable, explained one.
+   */
+  #renderSync(field) {
+    const languages = field.translationLanguages ?? [];
+    if (field.translationMode !== 'default' || languages.length === 0) {
+      return '';
+    }
+    const reason = this.busy ? inlineLabel('busy') : collectionBlockReason()
+      || (field.canSync === false && field.syncReason !== 'syncNone' ? collectionReason(field.syncReason) : '');
+    const open = languages.filter((language) => Number(language.missing ?? 0) > 0 || Number(language.orphaned ?? 0) > 0);
+    if (open.length === 0) {
+      return '';
+    }
+    if (reason) {
+      return html`<button type="button" class="syncButton" aria-disabled="true" title=${reason}
+        aria-describedby="sync-reason-${field.name}">${unsafeHTML(documentSynchronizeIconSvg(14))}<span>${inlineLabel('sync')}</span>
+        <span class="visually-hidden" id="sync-reason-${field.name}">${reason}</span></button>`;
+    }
+    const languageReason = (language) => (language.canSync === false ? collectionReason(language.syncReason) : '');
+    const run = (language, mode) => () => this.#collectionAction(field, 'sync', null, {language: Number(language.id), mode});
+    const localize = open.filter((language) => Number(language.missing ?? 0) > 0).map((language) => ({
+      label: language.title, hint: inlineLabel('syncMissing').replace('{count}', String(language.missing)),
+      reason: languageReason(language), run: run(language, 'localize'),
+    }));
+    const synchronize = open.map((language) => ({
+      label: inlineLabel('syncSynchronizeItem').replace('{language}', language.title),
+      hint: Number(language.orphaned ?? 0) > 0 ? inlineLabel('syncSynchronizeHint').replace('{count}', String(language.orphaned)) : '',
+      reason: languageReason(language), run: run(language, 'synchronize'),
+    }));
+    const groups = field.syncDefaultMode === 'synchronize' ? [synchronize, localize] : [localize, synchronize];
+    const items = groups.filter((group) => group.length).flatMap((group, index) => index ? [{separator: true}, ...group] : group);
+    return html`<ve-row-menu class="syncMenu" .text=${inlineLabel('sync')} .label=${inlineLabel('sync')}
+      .icon=${documentSynchronizeIconSvg(14)} .items=${items}></ve-row-menu>`;
   }
 
   /**
@@ -618,7 +794,7 @@ export class VeFieldChooser extends LitElement {
 
   async refresh() {
     clearFieldOptionsCache();
-    await this.#load();
+    await this.#load({keep: true});
   }
 
   #childSettings(field, child) {
@@ -634,28 +810,125 @@ export class VeFieldChooser extends LitElement {
     if (previous) { this.openFor({...previous, anchorRect: this.anchorRect, nested: true}); }
   }
 
-  async #collectionAction(field, action, child = null) {
+  /** The entries of every collection field currently loaded. */
+  #entries() {
+    return this.fields.filter((field) => field.type === 'inline').flatMap((field) => field.children ?? []);
+  }
+
+  /**
+   * Baselines for the staged title and visibility of every listed entry -
+   * the vendor's own element pattern: setInitialData first, so toggling back
+   * (or Escape in the title) clears the staged change again.
+   */
+  #seedEntries() {
+    for (const field of this.fields.filter((field) => field.type === 'inline')) {
+      for (const child of activeChildren(field)) {
+        if (child.canEditLabel && field.labelField) {
+          dataHandlerStore.setInitialData(child.table, child.uid, field.labelField, String(child.labelValue ?? ''));
+        }
+        if (child.canHide && child.hiddenField) {
+          dataHandlerStore.setInitialData(child.table, child.uid, child.hiddenField, !!child.hidden);
+        }
+      }
+    }
+  }
+
+  /** The element's wrapper on the page (an element refresh replaces it). */
+  #wrapper() {
+    const root = this.rootRecord;
+    return root ? document.querySelector(`ve-content-element[id="${CSS.escape(`${root.table}:${root.uid}`)}"]`) : null;
+  }
+
+  /** Page marks for hidden entries and the page-to-panel row mirror, while the inspector is open. */
+  #trackPage() {
+    if (this.view !== 'entries') {
+      return;
+    }
+    // Every (re)load re-derives the marks: a reload after Save or Reset can
+    // seed the same baselines again, which the store does not announce.
+    this.untrackMarks ??= trackEntryMarks(dataHandlerStore, () => this.#wrapper(), () => this.#entries());
+    markEntries(this.#wrapper(), this.#entries(), dataHandlerStore);
+    const wrapper = this.#wrapper();
+    if (wrapper && this.watchedWrapper !== wrapper) {
+      this.unwatchPageRows?.();
+      this.watchedWrapper = wrapper;
+      this.unwatchPageRows = onPageRow(wrapper, (row) => { this.pageRow = row ? `${row.item}|${row.live}` : ''; });
+    }
+  }
+
+  #untrackPage() {
+    this.untrackMarks?.();
+    this.untrackMarks = null;
+    this.unwatchPageRows?.();
+    this.unwatchPageRows = null;
+    this.watchedWrapper = null;
+    setActiveEntry(null, null);
+    for (const node of document.querySelectorAll('[data-ve-item-highlight]')) { node.removeAttribute('data-ve-item-highlight'); }
+  }
+
+  #fieldOf(child) {
+    return this.fields.find((field) => field.type === 'inline' && (field.children ?? []).includes(child));
+  }
+
+  #title(field, child) {
+    if (!field?.labelField) { return String(child.labelValue ?? child.label ?? ''); }
+    return dataHandlerStore.data?.[child.table]?.[child.uid]?.[field.labelField]
+      ?? dataHandlerStore.initialData?.[child.table]?.[child.uid]?.[field.labelField]
+      ?? String(child.labelValue ?? '');
+  }
+
+  #highlight(field, child, on) {
+    const wrapper = this.#wrapper();
+    if (!wrapper) { return; }
+    const row = joinChildren(rowsOf(wrapper, {table: this.table, uid: this.uid}, field.name), [child]).get(child.uid);
+    highlightRow(row, on);
+  }
+
+  async #collectionAction(field, action, child = null, options = {}) {
     if (this.busy) { return; }
     const actionTrigger = deepActiveElement();
+    const control = actionTrigger?.dataset?.control ?? '';
+    const {direction, ...intentOptions} = options;
     let completed = false;
     let createdUid = null;
     this.busy = true;
     this.message = '';
     try {
-      const result = await changeCollection(field, action, child);
+      const result = await changeCollection(field, action, child, intentOptions);
       if (!result) { return; }
       completed = true;
-      this.message = field.workspaceId ? inlineLabel('savedWorkspace')
-        : field.createHidden && action === 'create' ? inlineLabel('savedHidden')
-          : inlineLabel('savedLive');
-      // Recheck after the POST and inside refreshElement after fetching: typing
-      // while a request runs must never be discarded by a wrapper replacement.
-      if (!collectionBlockReason()) {
-        const refreshed = await refreshElement(this.rootRecord.table, this.rootRecord.uid);
-        if (!refreshed) { this.message += ` ${inlineLabel('refreshPending')}`; }
+      const messages = [];
+      if (action === 'sync') {
+        const language = this.#languageTitles(field).get(Number(result.synced?.language ?? intentOptions.language)) ?? String(intentOptions.language);
+        messages.push(inlineLabel('synced').replace('{language}', language)
+          .replace('{localized}', String(result.synced?.localized ?? 0)).replace('{removed}', String(result.synced?.removed ?? 0)));
+      } else if (action === 'move') {
+        const uids = activeChildren(field).map((entry) => entry.uid);
+        const from = uids.indexOf(child.uid);
+        const position = Number(result.moved?.position ?? (from + (direction === 'up' ? -1 : 1) + 1));
+        messages.push(inlineLabel('movedTo').replace('{position}', String(position)));
+      } else if (field.workspaceId) {
+        messages.push(inlineLabel('savedWorkspace'));
+      } else if (field.createHidden && action === 'create') {
+        messages.push(inlineLabel('savedHidden'));
+      } else {
+        messages.push(inlineLabel('savedLive'));
       }
+      if (result.workspace?.firstVersion) {
+        messages.push(inlineLabel('draftCreated'));
+      }
+      // The element shows the change at once unless its own entries have
+      // staged text or visibility: then after the next Save (Save now).
+      if (!collectionBlockReason()) {
+        const refreshed = await refreshElement(this.rootRecord.table, this.rootRecord.uid, {records: this.#entries()});
+        if (!refreshed) { messages.push(inlineLabel(elementHasStagedData(this.rootRecord, this.#entries()) ? 'savedPageLater' : 'refreshPending')); }
+      }
+      this.message = messages.join(' ');
       await this.refresh();
-      if (action === 'create' && result.uid) { createdUid = Number(result.uid); }
+      if (action === 'create') {
+        createdUid = Number(result.created?.uid ?? result.uid ?? 0) || null;
+        this.createdUid = createdUid;
+      }
     } catch (error) {
       this.message = error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`;
       if (error.definitive) { await this.refresh(); }
@@ -663,12 +936,26 @@ export class VeFieldChooser extends LitElement {
       this.busy = false;
       await this.updateComplete;
       if (createdUid !== null) {
-        const button = this.renderRoot.querySelector(`[data-child-edit="${createdUid}"]`);
-        button?.focus({preventScroll: true});
-        button?.scrollIntoView({block: 'nearest'});
+        const row = this.renderRoot.querySelector(`[data-ve-row="${createdUid}"]`);
+        const target = row?.querySelector('.entryTitle, [data-child-edit]');
+        target?.focus({preventScroll: true});
+        row?.scrollIntoView({block: 'nearest'});
+      } else if (completed && action === 'move' && child) {
+        // Keep the keyboard on the moved entry's own control.
+        const button = this.renderRoot.querySelector(`[data-ve-row="${child.uid}"] [data-control="${control || (direction === 'up' ? 'up' : 'down')}"]`);
+        if (button) {
+          const toolbar = button.closest('[role="toolbar"]');
+          if (toolbar) { setRoving(toolbar, rovingItems(toolbar).indexOf(button)); }
+          button.focus({preventScroll: true});
+        }
       }
       if (!completed && actionTrigger?.isConnected) { actionTrigger.focus({preventScroll: true}); }
     }
+  }
+
+  /** The vendor's own frame-side save trigger (the backend Save button handles it). */
+  #saveNow() {
+    sendMessage('doSave');
   }
 
   #openCollection(field) {
@@ -683,8 +970,31 @@ export class VeFieldChooser extends LitElement {
   #renderCollection(field) {
     return renderCollection(field, {
       blocked: this.busy ? inlineLabel('busy') : collectionBlockReason(),
+      createdUid: this.createdUid,
+      rowBlocked: (child) => rowBlockReason(child),
+      hidden: (child) => effectiveHidden(child, dataHandlerStore.data, dataHandlerStore.initialData),
+      pending: (child) => (!!field.labelField && dataHandlerStore.hasChangedData(child.table, child.uid, field.labelField))
+        || (!!child.hiddenField && dataHandlerStore.hasChangedData(child.table, child.uid, child.hiddenField)),
+      title: (child) => this.#title(field, child),
+      stageTitle: (child, value) => dataHandlerStore.setData(child.table, child.uid, field.labelField, value),
+      restoreTitle: (child) => dataHandlerStore.setData(child.table, child.uid, field.labelField,
+        dataHandlerStore.initialData?.[child.table]?.[child.uid]?.[field.labelField] ?? String(child.labelValue ?? '')),
+      toggleHidden: (child) => {
+        if (!child.hiddenField) { return; }
+        dataHandlerStore.setData(child.table, child.uid, child.hiddenField,
+          !effectiveHidden(child, dataHandlerStore.data, dataHandlerStore.initialData));
+      },
       settings: (child) => this.#childSettings(field, child),
-      action: (action, child = null) => this.#collectionAction(field, action, child),
+      action: (action, child = null, options = {}) => this.#collectionAction(field, action, child, options),
+      activeRow: (child) => setActiveEntry(this.#wrapper(), child),
+      highlight: (child, on) => this.#highlight(field, child, on),
+      menuItems: (field, child) => this.#localizeItems(field, child),
+      footerExtras: (field) => this.#renderSync(field),
+      extraBadges: (child, field) => this.#translationBadges(field, child),
+      mirrored: (child) => {
+        const [item, liveUid] = this.pageRow.split('|');
+        return item === `${child.table}:${child.uid}` || (!!item && item.startsWith(`${child.table}:`) && liveUid === String(child.liveUid));
+      },
     });
   }
 
@@ -905,6 +1215,25 @@ function deepActiveElement() {
     active = active.shadowRoot.activeElement;
   }
   return active instanceof HTMLElement && active !== document.body ? active : null;
+}
+
+/**
+ * A language tag's name in the editor's own language (the backend frame's
+ * document language when reachable, else the browser's), e.g. "English".
+ * @param {string} tag
+ * @return {string}
+ */
+export function languageName(tag) {
+  if (!tag) {
+    return '';
+  }
+  let uiLanguage = navigator.language;
+  try { uiLanguage = window.parent.document.documentElement.lang || uiLanguage; } catch { /* cross-origin */ }
+  try {
+    return new Intl.DisplayNames([uiLanguage, 'en'], {type: 'language'}).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
 }
 
 /**
