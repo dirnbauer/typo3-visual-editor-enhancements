@@ -171,7 +171,7 @@ final readonly class InlineRecordService
                 }
                 $translations = $this->translations->of($childTable, $row);
                 // A control disabled in TCA always reports 'controls', whatever else applies.
-                $deleteReason = $controls['delete'] ? ($reason ?: $this->deleteReason($childTable, $row, $translations, $deleteTranslations, $request)) : 'controls';
+                $deleteReason = $controls['delete'] ? ($reason ?: $this->deleteReason($childTable, $row, $translations, $deleteTranslations)) : 'controls';
                 $uid = (int)$child['compileUid'];
                 $formUids[] = $uid;
                 $new = (int)($row['t3ver_state'] ?? 0) === 1;
@@ -585,16 +585,17 @@ final readonly class InlineRecordService
     /**
      * Removal refusals. Core cascades a delete to the entry's translations
      * (deleteL10nOverlayRecords) and to nested inline/file children. Translations
-     * are removable with the entry when every active one compiles for this editor
-     * (owner chain, language, page) and passes the delete access check; nested
-     * children and media stay with the backend form until their dependencies have
-     * a permission proof of their own.
+     * are removable with the entry when every active one passes the delete access
+     * check (here, for the payload) and compiles for this editor - owner chain,
+     * page, stage - which cascadeProof() runs where the delete executes, for the
+     * removed entry only. Nested children and media stay with the backend form
+     * until their dependencies have a permission proof of their own.
      *
      * @param array<string, mixed> $row
      * @param list<array<string, mixed>> $translations
      * @param 'confirm'|'refuse' $mode
      */
-    private function deleteReason(string $table, array $row, array $translations, string $mode, ServerRequestInterface $request): string
+    private function deleteReason(string $table, array $row, array $translations, string $mode): string
     {
         if ($translations !== [] && $mode === 'refuse') {
             return 'translations';
@@ -608,16 +609,46 @@ final readonly class InlineRecordService
             }
         }
         foreach ($translations as $translation) {
-            try {
-                $this->contexts->compile($table, (int)$translation['uid'], $request);
-            } catch (AccessDeniedException|DatabaseRecordException) {
-                return 'translations';
-            }
             if (!$user->checkRecordEditAccess($table, $translation, false, true)->isAllowed) {
                 return 'translations';
             }
         }
         return $user->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights';
+    }
+
+    /**
+     * The cascade's full proof, run under the lock before a delete is planned:
+     * every active translation of the removed entry compiles for this editor, as
+     * the backend form would open it. Otherwise the entry is refused 'translations'.
+     *
+     * @param array<string, mixed> $field
+     * @return array<string, mixed> the field, the entry refused when the proof fails
+     */
+    private function cascadeProof(array $field, int $childUid, ServerRequestInterface $request): array
+    {
+        $childTable = (string)$field['_config']['foreign_table'];
+        foreach ($field['children'] as &$child) {
+            if ($child['uid'] !== $childUid || $child['state'] === 'deleted' || !$child['canDelete'] || $child['cascade']['translations'] === 0) {
+                continue;
+            }
+            $row = BackendUtility::getRecord($childTable, $childUid) ?? [];
+            $proven = $row !== [] && $this->contexts->scoped(function () use ($childTable, $row, $request): bool {
+                foreach ($this->translations->of($childTable, $row) as $translation) {
+                    try {
+                        $this->contexts->compile($childTable, (int)$translation['uid'], $request);
+                    } catch (AccessDeniedException|DatabaseRecordException) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            if (!$proven) {
+                $child['canDelete'] = false;
+                $child['deleteReason'] = 'translations';
+            }
+        }
+        unset($child);
+        return $field;
     }
 
     /**
@@ -733,8 +764,18 @@ final readonly class InlineRecordService
         /** @var list<LockingStrategyInterface> $held */
         $held = [];
         try {
-            $form = $this->contexts->compile($table, $intent['parentUid'], $request);
-            $fields = $this->fields($table, $form, $request);
+            // One read pass: the parent compiled here is the owner every entry's check
+            // reuses, and a delete's cascade proof reuses the translated parents.
+            [$form, $fields] = $this->contexts->scoped(function () use ($table, $intent, $request): array {
+                [$form, $fields] = $this->readPass($table, $intent['parentUid'], $request);
+                foreach ($fields as &$candidate) {
+                    if ($intent['action'] === 'delete' && $candidate['name'] === $intent['field']) {
+                        $candidate = $this->cascadeProof($candidate, (int)$intent['childUid'], $request);
+                    }
+                }
+                unset($candidate);
+                return [$form, $fields];
+            });
             $field = current(array_filter($fields, static fn(array $field): bool => $field['name'] === $intent['field']));
             if (!$field || empty($field['revision'])) {
                 return [403, ['success' => false, 'reason' => 'rights']];
@@ -802,8 +843,7 @@ final readonly class InlineRecordService
                 $connection->rollBack();
                 throw $error;
             }
-            $fresh = $this->contexts->compile($table, $intent['parentUid'], $request);
-            $freshFields = $this->fields($table, $fresh, $request);
+            [, $freshFields] = $this->readPass($table, $intent['parentUid'], $request);
             $response = ['success' => true, 'uid' => null];
             if ($plan->newId !== null) {
                 $uid = (int)($handler->substNEWwithIDs[$plan->newId] ?? 0);
@@ -886,6 +926,19 @@ final readonly class InlineRecordService
         }
         sort($keys);
         return $keys;
+    }
+
+    /**
+     * The parent and its collections, compiled in one memo scope (nothing is written in it).
+     *
+     * @return array{array<string, mixed>, list<array<string, mixed>>}
+     */
+    private function readPass(string $table, int $parentUid, ServerRequestInterface $request): array
+    {
+        return $this->contexts->scoped(function () use ($table, $parentUid, $request): array {
+            $form = $this->contexts->compile($table, $parentUid, $request);
+            return [$form, $this->fields($table, $form, $request)];
+        });
     }
 
     /**

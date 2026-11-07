@@ -7,11 +7,44 @@ namespace Webconsulting\VisualEditorEnhancements\Service;
 /** TCA candidates only; callers must verify the resolved owner's actual field. */
 final class InlineOwnership
 {
-    /** @return list<array{table: string, field: string, config: array<string, mixed>}> */
+    /**
+     * The TCA the memo was built from, held by value. PHP shares an unchanged
+     * array instead of copying it, and === on two references to the same array
+     * compares one pointer (zend_is_identical); after a write to $GLOBALS['TCA']
+     * only the separated path is compared. So the check costs nothing while the
+     * TCA is unchanged and still notices any change.
+     *
+     * @var array<string, mixed>|null
+     */
+    private static ?array $source = null;
+
+    /** @var list<array{table: string, field: string, config: array<string, mixed>}> */
+    private static array $relations = [];
+
+    /**
+     * Every inline column with foreign_field (base columns and columnsOverrides),
+     * built once per TCA: every compile's owner check reads it.
+     *
+     * @return list<array{table: string, field: string, config: array<string, mixed>}>
+     */
     public static function relations(): array
     {
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        if (self::$source === null || $tca !== self::$source) {
+            self::$relations = self::scan($tca);
+            self::$source = $tca;
+        }
+        return self::$relations;
+    }
+
+    /**
+     * @param array<string, mixed> $tables
+     * @return list<array{table: string, field: string, config: array<string, mixed>}>
+     */
+    private static function scan(array $tables): array
+    {
         $relations = [];
-        foreach ($GLOBALS['TCA'] as $table => $tca) {
+        foreach ($tables as $table => $tca) {
             $sets = [$tca['columns'] ?? []];
             foreach ($tca['types'] ?? [] as $type) {
                 $sets[] = $type['columnsOverrides'] ?? [];
