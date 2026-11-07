@@ -58,6 +58,9 @@ final class FrontendConfigurationTest extends TestCase
     #[Test]
     public function everythingIsOnByDefault(): void
     {
+        $configuration = $this->build([], 666);
+        self::assertSame('{}', json_encode($configuration['collectionTypes'], JSON_THROW_ON_ERROR));
+        unset($configuration['collectionTypes']);
         self::assertSame([
             'elementLibraryEnabled' => true,
             'elementLibraryColumns' => 3,
@@ -66,14 +69,13 @@ final class FrontendConfigurationTest extends TestCase
             'fieldChooserMode' => 'tabs',
             'fieldChooserTables' => ['tt_content'],
             'inlineRecordsEnabled' => false,
-            'collectionTypes' => [],
             'workspaceId' => 0,
             'workspaceTitle' => '',
             'elementRefreshEnabled' => true,
             'colorScheme' => 'auto',
             'actionLabelMode' => 'caption',
             'entriesLayout' => 'inspector',
-        ], $this->build([], 666));
+        ], $configuration);
     }
 
     #[Test]
@@ -94,10 +96,26 @@ final class FrontendConfigurationTest extends TestCase
         self::assertSame($index, $on['collectionTypes']);
         self::assertSame(4, $on['workspaceId']);
         self::assertSame('Staging', $on['workspaceTitle']);
-        self::assertSame([], $this->build([], 666, $index)['collectionTypes'], 'The user preference is off by default.');
-        self::assertSame([], $this->build(['tx_visualeditor_inlineRecords' => 1], null, $index)['collectionTypes'], 'No page, no TSconfig scope.');
+        $encoded = static fn(array $configuration): string => json_encode($configuration['collectionTypes'], JSON_THROW_ON_ERROR);
+        self::assertSame('{}', $encoded($this->build([], 666, $index)), 'The user preference is off by default.');
+        self::assertSame('{}', $encoded($this->build(['tx_visualeditor_inlineRecords' => 1], null, $index)), 'No page, no TSconfig scope.');
         $this->primePageTsConfig(668, 'tx_visualeditorenhancements.inlineRecords.enabled = 0');
-        self::assertSame([], $this->build(['tx_visualeditor_inlineRecords' => 1], 668, $index)['collectionTypes']);
+        self::assertSame('{}', $encoded($this->build(['tx_visualeditor_inlineRecords' => 1], 668, $index)));
+    }
+
+    /**
+     * An index without entries is still an index: the edit frame renders no
+     * collection buttons and never falls back to hover discovery, which it does
+     * only when the key is missing (null). PHP encodes [] as a JSON array, so the
+     * empty index must be an object.
+     */
+    #[Test]
+    public function anEmptyCollectionIndexIsSerialisedAsAJsonObject(): void
+    {
+        $json = json_encode($this->build(['tx_visualeditor_inlineRecords' => 1], 666, []), JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('"collectionTypes":{}', $json);
+        self::assertStringContainsString('"collectionTypes":{}', json_encode($this->build([], 666, []), JSON_THROW_ON_ERROR), 'Feature off: an empty index, not "no index"');
+        self::assertStringContainsString('"collectionTypes":{"tt_content":{"cards":["items"]}}', json_encode($this->build(['tx_visualeditor_inlineRecords' => 1], 666, ['tt_content' => ['cards' => ['items']]]), JSON_THROW_ON_ERROR));
     }
 
     /**

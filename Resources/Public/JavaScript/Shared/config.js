@@ -89,20 +89,27 @@ export function entriesLayout() {
  * type, `{<table>: {<recordType>: [inlineFieldNames]}}`, built server-side
  * from the TCA schema. It lists field names only - whether the user may
  * modify them is decided by the capability fetch on click.
- * @return {Record<string, Record<string, string[]>>|null} null when the
- *   server did not send the index (older server, or the key is missing):
+ *
+ * The server always sends an index; an empty one is `{}` (nothing to offer,
+ * also when the feature is off), so an empty index never triggers discovery.
+ * `[]` - how 1.6.0 encoded the same empty index - is read as `{}`.
+ * @return {Record<string, Record<string, string[]>>|null} the index, `{}` when
+ *   empty; null only when the server sent none (key missing, or not an index):
  *   callers then fall back to discovering collections on interaction
  */
 export function collectionTypes() {
   const types = enhancementConfig().collectionTypes;
-  return types !== null && typeof types === 'object' && !Array.isArray(types) ? types : null;
+  if (Array.isArray(types)) {
+    return types.length === 0 ? {} : null;
+  }
+  return types !== null && typeof types === 'object' ? types : null;
 }
 
 /**
  * @param {string} table
  * @param {string} recordType the element's record type (tt_content: CType)
- * @return {string[]|null} the collection field names of that type (possibly
- *   empty), or null when no index is available
+ * @return {string[]|null} the collection field names of that type (empty when
+ *   the index lists none - no discovery), or null when no index was sent
  */
 export function collectionFieldsFor(table, recordType) {
   const types = collectionTypes();

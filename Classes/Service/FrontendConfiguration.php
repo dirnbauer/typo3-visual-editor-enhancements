@@ -36,7 +36,7 @@ final readonly class FrontendConfiguration
      *     fieldChooserMode: value-of<FieldChooserMode>,
      *     fieldChooserTables: list<string>,
      *     inlineRecordsEnabled: bool,
-     *     collectionTypes: array<string, array<string, list<string>>>,
+     *     collectionTypes: array<string, array<string, list<string>>>|\stdClass,
      *     workspaceId: int,
      *     workspaceTitle: string,
      *     elementRefreshEnabled: bool,
@@ -72,7 +72,7 @@ final readonly class FrontendConfiguration
             'fieldChooserMode' => $fieldChooserMode->value,
             'fieldChooserTables' => $fieldChooserTables,
             'inlineRecordsEnabled' => $inlineRecordsEnabled,
-            'collectionTypes' => $inlineRecordsEnabled && $pageId !== null ? ($this->collectionFieldIndex?->build($pageId) ?? []) : [],
+            'collectionTypes' => $this->collectionTypes($inlineRecordsEnabled ? $pageId : null),
             'workspaceId' => $workspaceId,
             'workspaceTitle' => $this->backendUserProvider->workspaceTitle($workspaceId),
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
@@ -80,6 +80,22 @@ final readonly class FrontendConfiguration
             'actionLabelMode' => ActionLabelMode::fromUserSetting($userSettings['tx_visualeditor_actionLabels'] ?? null)->value,
             'entriesLayout' => EntriesLayout::fromUserSetting($userSettings['tx_visualeditor_entriesLayout'] ?? null)->value,
         ];
+    }
+
+    /**
+     * The collection index for the edit frame. Always an index: an empty one is
+     * encoded as a JSON object ({}), because json_encode([]) is an array, which
+     * the client reads as "no index" and answers with hover discovery. With the
+     * feature off for this user or page the index is empty as well - nothing is
+     * offered, so nothing may be discovered. (The edit frame skips collections
+     * entirely then; the encoding stays honest regardless.)
+     *
+     * @return array<string, array<string, list<string>>>|\stdClass
+     */
+    private function collectionTypes(?int $pageId): array|\stdClass
+    {
+        $index = $pageId !== null ? ($this->collectionFieldIndex?->build($pageId) ?? []) : [];
+        return $index === [] ? new \stdClass() : $index;
     }
 
     /**

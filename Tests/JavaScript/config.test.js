@@ -119,9 +119,19 @@ describe('with the configuration the middleware inlines', () => {
     assert.deepEqual(collectionFieldsFor('tt_content', 'feature_cards'), ['cards']);
     assert.deepEqual(collectionFieldsFor('tt_content', 'text'), []);
     assert.deepEqual(collectionFieldsFor('pages', '1'), []);
-    for (const invalid of [[], 'x', null]) {
+    for (const invalid of ['x', null, 3, ['tt_content']]) {
       globalThis.window.visualEditorEnhancements.collectionTypes = invalid;
       assert.equal(collectionTypes(), null);
+      assert.equal(collectionFieldsFor('tt_content', 'feature_cards'), null, 'no usable index: discover on interaction');
+    }
+  });
+
+  it('treats an empty index as "nothing to offer", never as "no index"', () => {
+    // {} is what the server sends; [] is how 1.6.0 encoded the same empty index.
+    for (const empty of [{}, []]) {
+      globalThis.window.visualEditorEnhancements.collectionTypes = empty;
+      assert.deepEqual(collectionTypes(), {});
+      assert.deepEqual(collectionFieldsFor('tt_content', 'feature_cards'), [], 'no discovery request');
     }
   });
 });

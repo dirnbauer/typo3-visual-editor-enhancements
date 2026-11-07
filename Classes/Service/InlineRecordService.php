@@ -32,6 +32,9 @@ final readonly class InlineRecordService
     /** Relation options this endpoint does not reproduce; FormEngine stays the editor for them. */
     private const UNSUPPORTED_OPTIONS = ['MM', 'foreign_selector', 'foreign_unique', 'foreign_types', 'foreign_default_sortby', 'symmetric_field', 'symmetric_label', 'symmetric_sortby', 'foreign_record_defaults', 'overrideChildTca'];
 
+    /** Core's maxitems when TCA sets none (TcaInlineConfiguration, DataHandler): no limit. */
+    private const UNLIMITED_ITEMS = 99999;
+
     /** @var array<string, OperationInterface> */
     private array $operations;
 
@@ -188,7 +191,7 @@ final readonly class InlineRecordService
                     'hidden' => $hiddenField !== '' && !empty($row[$hiddenField]),
                     'hiddenField' => $hiddenField,
                     'canHide' => $hideReason === '', 'hideReason' => $hideReason,
-                    'canEditLabel' => $labelReason === '', 'labelReason' => $labelReason, 'labelValue' => $labelField !== '' ? (string)($row[$labelField] ?? '') : '',
+                    'canEditLabel' => $labelReason === '', 'labelReason' => $labelReason, 'labelValue' => $labelField !== '' ? self::labelValue((string)($row[$labelField] ?? '')) : '',
                     'translationOnly' => $context['translationMode'] === 'connected' && $this->isTranslationOnly($childTable, $row),
                     'untranslated' => array_values(array_diff($parentLanguages, $this->translations->languagesOf($childTable, $translations))),
                     'cascade' => ['translations' => count($translations), 'languages' => $this->translations->languagesOf($childTable, $translations)],
@@ -244,7 +247,7 @@ final readonly class InlineRecordService
                 $createReason = 'rights';
             }
         }
-        $max = (int)($config['maxitems'] ?? 0);
+        $max = self::maxItems($config);
         if ($createReason === '' && $max > 0 && count($uids) >= $max) {
             $createReason = 'max';
         }
@@ -255,7 +258,7 @@ final readonly class InlineRecordService
             'name' => $field, 'label' => $column['label'] ?? $field, 'type' => 'inline',
             'parentTable' => $table, 'parentUid' => (int)$form['requestedUid'],
             'childTitle' => (string)($GLOBALS['TCA'][$childTable]['ctrl']['title'] ?? $childTable),
-            'labelField' => $labelField, 'hiddenField' => $hiddenField,
+            'labelField' => $labelField, 'labelMultiline' => self::labelMultiline($childTable), 'hiddenField' => $hiddenField,
             'typeField' => (string)($GLOBALS['TCA'][$childTable]['ctrl']['type'] ?? ''),
             'controls' => $controls,
             'backendUrl' => $this->backendUrl($table, (int)$form['compileUid']),
@@ -366,6 +369,36 @@ final readonly class InlineRecordService
             return '';
         }
         return $label;
+    }
+
+    /** The label column is a plain textarea: its value may hold line breaks. */
+    public static function labelMultiline(string $childTable): bool
+    {
+        $label = self::labelField($childTable);
+        return $label !== '' && ($GLOBALS['TCA'][$childTable]['columns'][$label]['config']['type'] ?? '') === 'text';
+    }
+
+    /**
+     * The label as the vendor's page editable seeds it (TextViewHelper::renderInput,
+     * input and plain text alike): a stored <br> is a line break. The inspector's
+     * baseline is then byte-identical to the editable's, and a title edit stages
+     * exactly what the page editable would stage.
+     */
+    private static function labelValue(string $stored): string
+    {
+        return str_replace('<br>', "\n", $stored);
+    }
+
+    /**
+     * The resolved entry limit, 0 for none. FormEngine resolves a missing maxitems
+     * to Core's 99999; that is no limit, so the payload, create and sync agree.
+     *
+     * @param array<string, mixed> $config resolved inline column config
+     */
+    public static function maxItems(array $config): int
+    {
+        $max = (int)($config['maxitems'] ?? 0);
+        return $max >= self::UNLIMITED_ITEMS ? 0 : max(0, $max);
     }
 
     /**

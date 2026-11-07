@@ -56,6 +56,55 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
     }
 
     #[Test]
+    public function collectionsWithoutAnEntryLimitPublishMaxItemsZero(): void
+    {
+        $config = &$GLOBALS['TCA']['tt_content']['columns']['vee_items']['config'];
+        self::assertSame(3, $this->field()['maxItems'], 'An explicit maxitems is the limit');
+
+        unset($config['maxitems']);
+        $field = $this->field();
+        self::assertSame(0, $field['maxItems'], 'Core resolves a missing maxitems to 99999: no limit');
+        self::assertSame('', $field['createReason']);
+        $config['maxitems'] = 99999;
+        self::assertSame(0, $this->field()['maxItems'], 'Core default spelled out: no limit');
+        $config['maxitems'] = 100000;
+        self::assertSame(0, $this->field()['maxItems']);
+
+        // tt_content 2 (language 1) has one translation-only entry; entry 1 is missing there.
+        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', ['uid' => 2, 'pid' => 666, 'lang' => 1, 'title' => 'Nur Deutsch', 'owner' => 2, 'owner_table' => 'tt_content', 'slot' => 'items', 'sorting' => 1]);
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['vee_items' => 1], ['uid' => 2]);
+        unset($config['maxitems']);
+        $field = $this->field();
+        self::assertSame([1, 1, true, ''], [$field['translationLanguages'][0]['missing'], $field['translationLanguages'][0]['id'], $field['canSync'], $field['translationLanguages'][0]['syncReason']], 'No limit, no sync refusal');
+
+        // A real limit still refuses create and a sync that would exceed it.
+        $config['maxitems'] = 1;
+        $field = $this->field();
+        self::assertSame([1, 'max', 'max'], [$field['maxItems'], $field['createReason'], $field['translationLanguages'][0]['syncReason']]);
+        self::assertSame([409, 'max'], [($refused = $this->act($field, 'create'))[0], $refused[1]['reason']]);
+        unset($config);
+    }
+
+    #[Test]
+    public function textareaLabelsAreAnnouncedAsMultiLineAndSeededLikeThePageEditable(): void
+    {
+        $items = $this->getConnectionPool()->getConnectionForTable('tx_vee_item');
+        $items->update('tx_vee_item', ['title' => 'Summer<br>Sale'], ['uid' => 1]);
+        $field = $this->field();
+        self::assertSame(['title', false], [$field['labelField'], $field['labelMultiline']], 'type=input is single-line');
+        self::assertSame("Summer\nSale", $field['children'][0]['labelValue'], 'The vendor editable seeds str_replace(<br>, LF): same baseline');
+
+        $GLOBALS['TCA']['tx_vee_item']['columns']['title']['config'] = ['type' => 'text', 'required' => true];
+        $items->update('tx_vee_item', ['title' => "Line one\nLine two"], ['uid' => 1]);
+        $field = $this->field();
+        self::assertSame(['title', true], [$field['labelField'], $field['labelMultiline']], 'A plain textarea label is multi-line');
+        self::assertSame("Line one\nLine two", $field['children'][0]['labelValue'], 'Stored line breaks reach the client unchanged');
+
+        $GLOBALS['TCA']['tx_vee_item']['columns']['title']['config']['enableRichtext'] = true;
+        self::assertSame(['', false], [($field = $this->field())['labelField'], $field['labelMultiline']], 'Rich text is no label field at all');
+    }
+
+    #[Test]
     public function translatedChildrenCarryTheirParentsLanguageContext(): void
     {
         $content = $this->getConnectionPool()->getConnectionForTable('tt_content');

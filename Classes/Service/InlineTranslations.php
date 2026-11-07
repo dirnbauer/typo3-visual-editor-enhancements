@@ -134,7 +134,7 @@ final readonly class InlineTranslations
         $childPointer = (string)($GLOBALS['TCA'][$childTable]['ctrl']['transOrigPointerField'] ?? '');
         $members = array_values(array_filter($children, static fn(array $child): bool => $child['state'] !== 'deleted'));
         $memberLiveUids = array_map(static fn(array $child): int => (int)$child['liveUid'], $members);
-        $max = (int)($config['maxitems'] ?? 0);
+        $max = InlineRecordService::maxItems($config);
         $user = $this->users->getOrThrow();
         $languages = [];
         $internal = [];
