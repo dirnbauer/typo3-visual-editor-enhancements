@@ -63,7 +63,7 @@ With DDEV:
 Switch the features on
 ======================
 
-All four features default to on. They are toggled install-wide from a
+All five features default to on. They are toggled install-wide from a
 sitepackage's :file:`ext_localconf.php`:
 
 ..  code-block:: php
@@ -73,6 +73,7 @@ sitepackage's :file:`ext_localconf.php`:
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['fieldChooserEnabled'] = true;
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['editableLinksEnabled'] = true;
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementRefreshEnabled'] = true;
+    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['inlineRecordsEnabled'] = true;
 
 ..  important::
 
@@ -80,6 +81,13 @@ sitepackage's :file:`ext_localconf.php`:
     That file is git-ignored in most setups, so a flag set there is lost on
     the next deployment and the feature silently disappears for everyone but
     the developer who set it.
+
+``inlineRecordsEnabled`` is the install-wide switch for collection editing
+(:ref:`collections`). With it on, an editor still needs the user setting
+:confval:`tx_visualeditor_inlineRecords`, which is off by default; switch it
+on for a whole group with ``setup.override``
+(:ref:`configuration-user-install-wide`). ``inlineRecordsEnabled = false``
+removes the feature for everyone, whatever the user setting says.
 
 The element library additionally needs a catalog provider to answer
 ``?elementLibrary=1``; without one the panel opens and reports that it could

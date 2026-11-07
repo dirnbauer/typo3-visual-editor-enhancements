@@ -10,10 +10,11 @@ Compatibility
 This package sits close to the Visual Editor's own runtime, so every release
 of it is audited against a concrete upstream version. 1.2.0, every
 1.3 release and 1.4.0 are audited against **friendsoftypo3/visual-editor 1.10.3** (21 September 2026), the newest
-published version at release time; the test suites run against it. 1.6.0 is
-tested against **1.10.4**, the newest published version on 7 November 2026
-(component specs and the lab's regular-runtime suite); the selectors the
-action-bar labels rely on are audited in :ref:`compatibility-action-bar-labels`.
+published version at release time; the test suites run against it. 1.6.0
+and 1.6.1 are tested against **1.10.4**, the newest published version on 7
+November 2026 (component specs and the lab's regular-runtime suite); the
+selectors the action-bar labels rely on are audited in
+:ref:`compatibility-action-bar-labels`.
 
 1.10.3 changes one file, :file:`Classes/Middleware/EditModeMiddleware.php`:
 edit mode keeps the preview simulator's decision about hidden pages and
@@ -228,7 +229,11 @@ The labels (:ref:`usage-action-bar-labels`) patch nothing. Audited against
     intercepted, and the labels have ``pointer-events: none``, so the whole
     bar stays the vendor's drag handle.
 *   Should a later Visual Editor render labels of its own (a ``.label``
-    element in the bar, or ``veInfo.actionBarLabels``), nothing is adopted.
+    element in the bar, or ``veInfo.actionBarLabels``), only the label rules
+    are skipped. The base rules are still adopted (one sheet of ours per
+    shadow root): ``[hidden]`` buttons stay ``display: none`` and
+    ``aria-disabled`` buttons stay dimmed, so a refused or absent *Entries*
+    or *Add entry* never looks available (1.6.1; 1.6.0 adopted nothing).
 
 ..  _compatibility-not-here:
 
@@ -254,6 +259,11 @@ Version support
         -   TYPO3
         -   PHP
         -   Visual Editor
+
+    *   -   1.5.x - 1.6.x
+        -   14.3.7+
+        -   8.4, 8.5
+        -   1.10.2+ (audited: 1.10.4)
 
     *   -   1.2.x - 1.4.x
         -   14.3.7+

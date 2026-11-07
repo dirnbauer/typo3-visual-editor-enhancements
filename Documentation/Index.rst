@@ -14,7 +14,7 @@ Visual Editor Enhancements
     webconsulting/visual-editor-enhancements
 
 :Version:
-    1.0.0
+    1.6.1
 
 :Language:
     en
@@ -82,8 +82,8 @@ saving.
 
     ..  card:: Compatibility
 
-        What this package does against Visual Editor 1.10.3, feature by
-        feature, and why each part still exists.
+        What this package does against Visual Editor 1.10.3 and 1.10.4,
+        feature by feature, and why each part still exists.
 
         ..  card-footer:: :ref:`Check compatibility <compatibility>`
             :button-style: btn btn-secondary stretched-link

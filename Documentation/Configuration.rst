@@ -85,17 +85,35 @@ On the *Visual editor* tab of :guilabel:`User settings`:
         the element's action bar, scrolling with it). Unknown values mean
         ``inspector``. See :ref:`usage-entries-layout`.
 
-Install-wide defaults for these settings are Core User TSconfig, for
-example for an editor group:
+..  _configuration-user-install-wide:
+
+Setting a value for a whole group
+---------------------------------
+
+To give every member of an editor group a value, including editors who have
+logged in before, use Core's User TSconfig ``setup.override``:
 
 ..  code-block:: typoscript
-    :caption: User TSconfig
+    :caption: User TSconfig of the editor group
 
-    setup.default.tx_visualeditor_actionLabels = inline
-    setup.default.tx_visualeditor_inlineRecords = 1
-    setup.default.tx_visualeditor_entriesLayout = tray
+    setup.override.tx_visualeditor_actionLabels = inline
+    setup.override.tx_visualeditor_inlineRecords = 1
+    setup.override.tx_visualeditor_entriesLayout = tray
 
-A user's own choice in :guilabel:`User settings` still wins.
+Core merges ``setup.override.*`` into the user's stored settings on every
+backend request, and this extension reads those stored settings. The value
+wins over the user's own choice: :guilabel:`User settings` shows an
+overridden field read-only. Every setting that is not overridden stays the
+user's choice.
+
+``setup.default.*`` does **not** do this. Core applies it only while a
+user's stored settings are empty - a user who has never logged in, or who
+reset their settings. For everyone else Core fills a missing setting with
+its default from the field definition (``0``, ``caption``, ``inspector``
+above), so a ``setup.default`` line added later never reaches them.
+1.6.0 documented ``setup.default`` here; that recipe did not work for
+existing users. The behaviour is pinned by
+:file:`Tests/Functional/Service/UserSettingsOverrideTest.php`.
 
 ..  _configuration-field-chooser:
 

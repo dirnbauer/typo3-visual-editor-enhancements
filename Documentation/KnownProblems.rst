@@ -112,14 +112,60 @@ Add, move or remove is refused in a workspace
 =============================================
 
 The element has no draft in this workspace yet, and page TSconfig
-``firstVersion`` is ``0`` (the 1.6.0 default). The context line says "Your
-next add, move or remove creates this element's first draft" and **Add** is
-refused up front with the reason. Other structural actions show the reason
-after the server answered ``409 firstVersion``; nothing is written either
-way. Change a text of the element first (the Visual Editor versions it), use
-the backend workspace, or allow first drafts with ``firstVersion = 1``
-(:ref:`collections-configuration`). Titles and visibility of entries are not
-structural and always work.
+``firstVersion`` is ``0`` (the default). The context line says so, and
+**Add**, **Move** and **Remove** are all refused up front: the capability
+payload carries ``createReason``, ``sortReason`` and ``deleteReason``
+``firstVersion``, so the controls are ``aria-disabled`` with the reason and
+no request is sent. An intent sent anyway (an old tab, a script) is answered
+``409 firstVersion``; nothing is written either way. Change a text of the
+element first (the Visual Editor versions it), use the backend workspace, or
+allow first drafts with ``firstVersion = 1``
+(:ref:`collections-configuration`).
+
+The visibility switch of an entry that has nested entries or media of its
+own is refused the same way (``hideReason`` ``firstVersion``, a staged save
+gets ``409 firstVersion``): Core would version the entry together with its
+nested members and renumber their live sorting. Titles stay editable, and
+the switch of an entry without nested members is not affected by this rule.
+
+The hint "Your next add, move or remove creates this element's first draft"
+appears only where first drafts are allowed.
+
+..  _known-problems-entries-nested-text:
+
+Live nested entries get a new tstamp after a text edit in a workspace
+=====================================================================
+
+Core behaviour, not governed by ``firstVersion``. Editing a text (or a
+title in the inspector) of an entry that has nested entries or media, in a
+workspace, makes Core version the entry with its nested members; its
+versioning renumbers the live members' ``sorting`` (visible order unchanged)
+and stamps their ``tstamp``. A FormEngine save of the same entry does the
+same. The extension's own visibility switch refuses this under
+``firstVersion = 0`` (see above); text edits are the Visual Editor's
+ordinary saves and are left alone.
+
+..  _known-problems-entries-load-error:
+
+Entries opens with "Could not load entries"
+===========================================
+
+The capability request failed: most often the editing session expired
+(401/403), otherwise the record was removed (404) or the server failed.
+Save what you can, reload the page and log in again if asked. Until 1.6.1 a
+click on **Entries** did nothing in this case.
+
+..  _known-problems-entries-language-422:
+
+A default-language action fails with "Language was not allowed"
+===============================================================
+
+Known, pre-existing. When a structural action on the default-language
+element makes Core also write a translation in a language the editor does
+not have, the payload may still offer it, and Core refuses the write: the
+endpoint rolls back and answers ``422`` with Core's error log ("Language was
+not allowed"). Nothing is written. Give the editor the language, or let an
+editor who has every language of the element do it.
 
 ..  _known-problems-entries-page-later:
 
@@ -139,6 +185,13 @@ Remove is disabled for an entry
 Its reason is on the row. Common ones: the collection is at its minimum
 (``min``); the entry has nested entries or media (``cascade``, backend form
 until 1.7); a translation of it cannot be removed by this editor
-(``translations``); or this entry's title or visibility is staged (save
+(``translations``); the list of this translation follows another language
+(``synchronized``); or this entry's title or visibility is staged (save
 first). With ``deleteTranslations = refuse`` every translated entry is refused
 as in 1.5.
+
+Since 1.6.1 the full check of every translation that goes with an entry
+(owner chain and page, as the backend form opens it) runs when you click
+**Remove**, not when the panel loads. A Remove offered in the panel can
+therefore still be refused with ``translations`` after the click; the
+answer marks that entry with the reason.

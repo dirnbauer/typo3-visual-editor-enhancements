@@ -18,18 +18,22 @@ Entries inspector
 
 The inspector lists every collection of the element. At the top a context
 line always says where you work: **Live site** or **Workspace draft «name»**,
-and the language of this frame. Each collection shows its count (``3 / 6``
-when it has a maximum, a ``min`` hint when it is at its minimum).
+and the language of this frame. Each collection shows its count: ``3 / 6``
+when it has a maximum, ``3`` alone when it has none (a column without
+``maxitems`` gets Core's internal 99999, which counts as no maximum), and a
+``min`` hint when it is at its minimum.
 
 Every entry is one row: its number, its **title** as a text field, state
 badges and its actions. The actions are quiet until you point at or focus the
 row (always visible on touch screens):
 
-*   **Move up / Move down** - also :kbd:`Alt+↑` / :kbd:`Alt+↓` anywhere in
-    the row. The status line announces the new position.
+*   **Move up / Move down** - also :kbd:`Alt+↑` / :kbd:`Alt+↓` on the row's
+    controls (not inside the title field, where these keys move the caret).
+    The status line announces the new position.
 *   **Visible on the live site** (the switch) - shows or hides the entry.
 *   **Add after** - adds a new entry right after this one.
-*   **Remove** - also :kbd:`Delete` on a focused row button. Asks first; the
+*   **Remove** - also :kbd:`Delete` on a focused row button (not inside the
+    title field). Asks first; the
     question counts what goes with the entry ("Also removes 3 translations
     (Deutsch, 中文, Magyar)").
 *   **More actions** - *Item settings* (the entry's own choice fields and
@@ -44,7 +48,14 @@ the keyboard on it the row shows why.
 The inspector stays open while you work on the page - type into the new
 entry, click another text. It closes with :kbd:`Escape`, its close button,
 its button in the action bar or when you open another element's panel;
-the focus returns to the button that opened it.
+the focus returns to the button that opened it. That holds in every layout
+after add, move and remove too, when the element is re-rendered and its
+action bar replaced: the new **Entries** button reads as expanded and takes
+the focus back. **Add entry** in the action bar opens the panel with the
+element's **Entries** button as its opener, so the anchored layout scrolls
+with the element. When the panel cannot load the element's entries (an
+expired session, a removed record) **Entries** opens it with "Could not
+load entries. Open the backend form." instead of doing nothing.
 
 What saves when
 ---------------
@@ -58,6 +69,13 @@ What saves when
     page text at once; :kbd:`Escape` in the field restores the stored title,
     :kbd:`Enter` leaves it. Switching visibility twice leaves nothing to
     save.
+*   **Multi-line titles.** When the title column is a plain text area (TCA
+    ``type=text``), or a stored title already contains a line break, the
+    title field is a one-row text area that grows with its content:
+    :kbd:`Shift+Enter` inserts a line break, :kbd:`Enter` leaves the field,
+    :kbd:`Escape` restores. A stored ``<br>`` arrives as a line break, the
+    way the page editable shows it, so opening the inspector never stages a
+    change by itself.
 
 On the page a hidden entry never looks live: its texts are dimmed, outlined
 and titled "Hidden on the live site", following the switch at once (and
@@ -72,7 +90,8 @@ first.") - adding, moving and removing other entries proceed. While the
 element has staged changes the inspector shows **Save now**, which runs the
 editor's own Save. A change made meanwhile is written and listed at once;
 the page shows it after the next Save ("Saved. The page shows it after you
-save your text."). An active save, invalid fields or a lost response block
+save your text."), also when everything that Save writes is text covered by
+the page's own editables. An active save, invalid fields or a lost response block
 every structural action until the state is clear; after a lost response,
 refresh before trying again. A wrapper refresh never replaces pending local
 text.
@@ -116,10 +135,14 @@ Workspace boundary
 
 Below an existing draft, every structural action (add, remove, reorder)
 writes drafts only. Inside the transaction the endpoint compares the live
-rows it could reach — the parent and its connected translations, every
-inline and file relation of them and of their entries up to three levels,
-and the entries' translations — and rolls back with ``workspaceLiveChange``
-if a single byte differs.
+rows it could reach — the parent and every connected translation Core's
+``DataMapProcessor`` reaches from it (via ``l10n_parent`` or
+``l10n_source``, transitively: a Hungarian translation made from the German
+one counts for the German one and for the default language), every inline and
+file relation of them and of their entries up to three levels, and the
+entries' translations — and rolls back with ``workspaceLiveChange`` if a
+single byte differs. These translations are compared whether or not Core
+synchronizes their table.
 
 **The first draft.** When the element has no draft in the workspace yet, the
 first structural action makes Core create it: ``process_datamap`` versions the
@@ -127,9 +150,17 @@ parent together with all its relations (stock auto-versioning, the same path a
 FormEngine save or a text edit in the visual editor takes). Core's versioning
 renumbers the live entries' sorting values (``10, 30`` becomes ``1, 2`` — the
 visible order stays) and stamps their ``tstamp``. Core's ``DataMapProcessor``
-also pushes the change into connected translations, so a translated parent
-without a draft gets its first draft — with the same bookkeeping on its live
-entries — even when the default-language element already has one.
+also pushes the change into the translations Core synchronizes — connected
+translations pointing at the record via ``l10n_parent`` or ``l10n_source``,
+transitively, of a table that has an ``l10n_mode = exclude`` or an
+``allowLanguageSynchronization`` column — so such a translation without a
+draft gets its first draft, with the same bookkeeping on its live entries,
+even when the element you act on already has one. That applies to the
+default-language element and to a connected translation that is itself the
+source of another translation. Translations of a table Core does not
+synchronize (for example the child tables of Content Blocks collections) get
+no draft this way, so an undrafted translation there neither refuses the
+action nor is announced as a first draft.
 
 ``firstVersion = 0`` (default) refuses these actions before any write with the
 reason ``firstVersion``; open the element in the backend workspace first.
@@ -148,9 +179,20 @@ webhooks) may react to them, as they do to the same bookkeeping of a backend
 save. Stored sorting values are renumbered. Enable ``firstVersion`` where that
 is acceptable.
 
-Visibility and title changes are not structural: Core versions the entry alone
-and needs no parent draft, whatever ``firstVersion`` says. Sync is refused in
-workspaces (:ref:`collections-translations`). In the field payload,
+Visibility and title changes are not structural and need no parent draft.
+For an entry without nested entries or media of its own Core versions the
+entry alone, whatever ``firstVersion`` says. For a live entry that has live
+nested inline or file members, Core versions the entry together with them,
+renumbers their live ``sorting`` and stamps their ``tstamp`` — a first
+version with live bookkeeping. So the visibility switch, the extension's own
+control, follows ``firstVersion``: under ``0`` the payload refuses it
+(``hideReason`` ``firstVersion``) and a staged save of the visibility column
+is answered ``409 firstVersion``; under ``1`` Core versions the entry with
+its nested members. The title stays editable either way: a title write is
+the same write as a text edit on the page, an ordinary Visual Editor save
+that Core versions as it always does (with the same renumbering of the
+nested live members - Core behaviour that ``firstVersion`` does not govern).
+Sync is refused in workspaces (:ref:`collections-translations`). In the field payload,
 ``workspace.firstVersion`` is true when the next structural action would
 create a first draft; in an action's response, it is true when this action did.
 
@@ -177,6 +219,20 @@ Connected translations (``translatedParents = parity``, default)
     on connected translations again (reason ``translation``). Free-mode
     translations (no pointer) always manage their own entries. Fields with
     ``l10n_mode = exclude`` stay refused.
+
+    A collection column with ``behaviour.allowLanguageSynchronization``
+    follows another language as long as the translation's ``l10n_state``
+    for it is unset, ``parent`` or ``source``. Core then drops every list
+    written on the translation and copies it from that language instead, so
+    add, move and remove on the translation are refused with
+    ``synchronized`` (409 for an intent): "This list follows the default or
+    source language. Set the field to “Custom value” in the backend form to
+    change it here." With ``custom`` the list is the translation's own and
+    the parity rules above apply. For such a translated parent the sync
+    preflight answers ``translation``; on translations the field chooser does
+    not offer fields whose state follows another language; and the
+    visibility or title column of a translated entry that follows another
+    language this way answers ``translation``.
 
 Removing default-language entries (``deleteTranslations = confirm``, default)
     Core removes an entry's translations with it (``deleteL10nOverlayRecords``;
@@ -254,13 +310,16 @@ draft*; entries marked for deletion stay listed read-only with *Marked for
 deletion* (undoing it is the Workspaces module's job for now). Removal says
 that the deletion is staged until publication.
 
-When the element has no draft yet, the context line says that the next add,
-move or remove creates its first draft. With ``firstVersion = 0`` such an
-action is refused and the inspector explains it ("Your first change to this
-element would create a workspace draft; ..."); with ``firstVersion = 1`` it
-succeeds and the status adds *Draft created. Core renumbered the stored order
-values; the visible order is unchanged.* Titles and visibility are always
-possible: Core drafts the entry alone.
+When the element has no draft yet, the next add, move or remove creates its
+first draft. With ``firstVersion = 0`` these actions are refused up front:
+the controls are unavailable and explain it ("Your first change to this
+element would create a workspace draft; ..."), and the context line does not
+promise a first draft. With ``firstVersion = 1`` the context line says that
+the next add, move or remove creates the first draft; the action succeeds
+and the status adds *Draft created. Core renumbered the stored order values;
+the visible order is unchanged.* Titles are always editable. The visibility
+switch is too, except on a live entry with nested entries or media of its
+own under ``firstVersion = 0`` (see :ref:`collections-workspace`).
 
 .. _collections-row-markers:
 
@@ -319,7 +378,7 @@ into the page or guesses row boundaries from the layout.
 What it does not do
 ===================
 
-Honest limits of 1.6.0. Items marked 1.7 are planned; the rest follow from
+Honest limits of 1.6.1. Items marked 1.7 are planned; the rest follow from
 how TYPO3 or the Visual Editor work.
 
 ..  list-table::
@@ -371,12 +430,18 @@ how TYPO3 or the Visual Editor work.
     *   -   First workspace draft by default
         -   ``firstVersion = 0``
         -   Opt-in per page TSconfig; the default flips only after the owner's
-            written decision (planned for 1.6.1).
+            written decision. Under ``0`` the visibility switch of a live entry
+            with nested members is refused as well.
     *   -   Live ``tstamp`` writes under ``firstVersion = 1`` are harmless for
             every consumer
         -   cannot be proven
         -   They are real writes (Solr queue, reference index, webhooks may
             react), the same bookkeeping as a backend save of the element.
+    *   -   Refusal ``stage`` (element in review)
+        -   Core behaviour
+        -   Core 14.3 lets every workspace member edit at any stage:
+            DataHandler checks only ``workspaceCheckStageForCurrent(0)`` and
+            resets an edited version to stage 0. The reason is not emitted.
     *   -   Drag-and-drop reordering
         -   deferred
         -   Move up/down and Alt+Arrow cover it; the ``move`` intent already
@@ -443,9 +508,11 @@ reason key (``frontend.inlineRecords.<reason>``).
         -   Identity of the relation and the opaque revision every intent echoes.
     *   -   ``childTitle``
         -   Translated title of the child table, for "Add …" labels.
-    *   -   ``labelField``, ``hiddenField``, ``typeField``
+    *   -   ``labelField``, ``labelMultiline``, ``hiddenField``, ``typeField``
         -   The child's plain-text label column (empty for rich text or other
-            types), its visibility column and, when present, the record type
+            types), whether that column is a plain text area (TCA
+            ``type=text``; the inspector then edits titles in a multi-line
+            field), its visibility column and, when present, the record type
             column that sends creation to the backend form.
     *   -   ``controls``
         -   ``appearance.enabledControls`` resolved with FormEngine's defaults:
@@ -453,6 +520,9 @@ reason key (``frontend.inlineRecords.<reason>``).
             ``info``. A disabled control always reports the reason ``controls``.
     *   -   ``uids``, ``minItems``, ``maxItems``
         -   Current members (FormEngine identities) and limits; ``0`` = unlimited.
+            A column without ``maxitems`` resolves to Core's 99999, and any
+            value of 99999 or more is published as ``0``; create's ``max``
+            refusal and the sync preflight's ``max`` use the same rule.
     *   -   ``canSort``, ``sortReason``
         -   Whether entries can be reordered: ``unsorted`` when the child table
             has no sorting column, ``controls`` when the field disables both
@@ -495,10 +565,17 @@ reason key (``frontend.inlineRecords.<reason>``).
         -   The visibility column exists, the editor may write it (not an
             exclude field, or the ``non_exclude_fields`` right), the ``hide``
             control is enabled and the owner chain compiled. DataHandler drops
-            exclude fields silently, so the eye is never offered where the write
-            would vanish.
+            exclude fields - and, for non-admins, columns with ``displayCond =
+            HIDE_FOR_NON_ADMINS`` - silently, so the eye is never offered where
+            the write would vanish (``rights``; such a visibility column makes
+            creation report ``hidden``). In a workspace the eye of a live entry
+            with live nested members reports ``firstVersion`` under
+            ``firstVersion = 0`` (:ref:`collections-workspace`).
     *   -   ``canEditLabel``, ``labelReason``, ``labelValue``
-        -   The same rule for ``labelField``; ``labelValue`` is the raw stored value.
+        -   The same rule for ``labelField`` (no ``firstVersion`` rule: a title
+            is an ordinary text save). ``labelValue`` is the stored value seeded
+            the way the page editable seeds it: a stored ``<br>`` becomes a line
+            break, so the inspector and the editable share one baseline.
     *   -   ``translationOnly``, ``untranslated``
         -   In a connected translation: the row exists only in this language. In
             the default language: languages with a translated parent but no
@@ -512,15 +589,106 @@ reason key (``frontend.inlineRecords.<reason>``).
 
 Visibility and title are no intents. The inspector stages them in the vendor
 store and the ordinary Save persists them; the generic save guard authorizes
-the child's owner chain first. In a workspace Core versions the child alone, so
-these edits need no parent draft.
+the child's owner chain first. In a workspace these edits need no parent
+draft. Core versions a leaf child alone; a live child with live nested members
+is versioned with them (their live sorting renumbered, their ``tstamp``
+stamped), so with collection editing on and ``firstVersion = 0`` the guard
+answers a staged write of the visibility column ``409 firstVersion``, the
+same refusal the payload shows. Text columns, the title included, are saved
+as always.
+
+The default-language delete check in the payload is the record-level part:
+refuse mode, nested children, and the delete access check of the entry and
+of every active translation. The full compile of each translation (owner
+chain, page) runs when the delete executes, under the lock, for the removed
+entry only. A Remove the payload offered can therefore be answered ``409
+translations``; the returned collection marks that entry.
 
 The edit frame configuration (``window.visualEditorEnhancements``) adds
 ``collectionTypes`` — ``{tt_content: {<CType>: [field names]}}``, built from
 TCA for the CTypes and child tables the editor may use and the relations this
 API supports — so the toolbar can show *Entries* before any request, and
 ``workspaceTitle``. The index lists field names only; rights per record are
-decided by the payload above.
+decided by the payload above. An empty index is sent as ``{}``, also when the
+feature is off for this user or page, so nothing is discovered on hover; a
+missing key (``null``) means an older server, for which the client falls back
+to discovering collections on hover.
+
+.. _collections-reasons:
+
+Refusal reasons
+---------------
+
+Every reason key has a sentence ``frontend.inlineRecords.<reason>`` in
+English and German. A refused intent is answered with the same key, HTTP 409
+unless noted.
+
+.. list-table:: Reason keys
+    :header-rows: 1
+    :widths: 25 75
+
+    *   -   Key
+        -   When
+    *   -   ``rights``
+        -   The editor may not write the relation, the entry or the column
+            (exclude field, ``HIDE_FOR_NON_ADMINS``, ``readOnly``). HTTP 403
+            when the parent itself cannot be opened.
+    *   -   ``language``
+        -   The editor lacks the language.
+    *   -   ``controls``
+        -   The action is disabled in ``appearance.enabledControls``.
+    *   -   ``unsorted``
+        -   The child table has no sorting column.
+    *   -   ``min``, ``max``
+        -   The collection is at its minimum or maximum (``0`` = no maximum).
+    *   -   ``hidden``, ``required``
+        -   Creation needs a writable visibility field; required media or
+            complex fields need the backend form (``requiredBackend``).
+    *   -   ``label``
+        -   The title column is not plain text.
+    *   -   ``cascade``
+        -   The entry has nested entries or media; removal uses the backend form.
+    *   -   ``translations``
+        -   A translation that goes with the entry cannot be removed by this
+            editor, or ``deleteTranslations = refuse``. Also returned at click
+            time when the cascade proof fails.
+    *   -   ``translation``
+        -   Structure of a connected translation under ``translatedParents =
+            default-only``, a field with ``l10n_mode = exclude``, a translated
+            entry column that follows another language, or a sync of a
+            translated parent whose list Core synchronizes.
+    *   -   ``synchronized``
+        -   Add, move or remove on a connected translation whose collection
+            column has ``allowLanguageSynchronization`` and whose
+            ``l10n_state`` for it is unset, ``parent`` or ``source``
+            (:ref:`collections-translations`). New in 1.6.1.
+    *   -   ``firstVersion``
+        -   The action would create the first workspace draft of the element
+            or of a translation Core synchronizes, or the eye of a live entry
+            with nested members would version them, and ``firstVersion = 0``.
+    *   -   ``workspace``, ``workspaceLiveChange``
+        -   The relation cannot be versioned safely here (for example deeper
+            than three levels); Core attempted to change live data and the
+            transaction was rolled back.
+    *   -   ``syncNone``, ``syncWorkspace``, ``syncDisabled``
+        -   Nothing to sync; sync is not available in a workspace; sync is
+            switched off for the site.
+    *   -   ``unsupported``, ``connection``, ``disabled``
+        -   A relation configuration this endpoint does not reproduce; a
+            relation across database connections; collection actions are
+            disabled for the table by page TSconfig.
+    *   -   ``deleted``
+        -   The entry is a delete placeholder of this workspace (read-only).
+    *   -   ``busy``, ``stale``, ``membership``, ``record``, ``token``
+        -   Another entry operation holds the lock; the collection changed
+            since it was loaded; the entry no longer belongs to it; the record
+            is gone; the editor session expired.
+
+``stage`` is not emitted. Core 14.3 has no closed editing stage for workspace
+members (DataHandler checks only ``workspaceCheckStageForCurrent(0)`` and
+resets an edited version to stage 0), so an element in review stays
+editable, as it is in the backend form. The sentence for it remains in the
+catalogue unused.
 
 .. _collections-api:
 
@@ -567,11 +735,22 @@ reorder updates the parent's ``tstamp`` and translation diff source (Core
 bookkeeping) and the renumbered entries' ``sorting`` and ``tstamp``; in a
 workspace only drafts are renumbered.
 
-A Core nonblocking relation lock is shared across workspace identities. The
-server rereads ownership, access, limits and revision under that lock.
-Conflicting or stale requests return HTTP 409. A successful response includes
-the new UID, refreshed revisions and capabilities. Internal defaults and
-command identities are removed from public payloads.
+A Core nonblocking relation lock, ``vee-inline:<table>:<live uid>:<field>``,
+is shared across workspace identities. The server rereads ownership, access,
+limits and revision under that lock. A sync, a removal that cascades to
+translations, and every action on a column with
+``allowLanguageSynchronization`` also write translated parents' lists; they
+additionally take the lock of each translated parent they write
+(``vee-inline:<table>:<translated live uid>:<field>``, sorted, released in
+``finally``) - the key a parity action on that translation takes, so the two
+exclude each other. Conflicting or stale requests return HTTP 409 (``busy``,
+``stale``). A successful response includes the new UID, refreshed revisions
+and capabilities. Internal defaults and command identities are removed from
+public payloads.
+
+Outside the locks remain the writes Core makes on other columns: a
+default-language write stamps the translated element row itself (``tstamp``,
+``l18n_diffsource``).
 
 One scoped DataHandler instance executes the operation using stock Core
 relation handling and compiled draft child identities. Datamap errors stop

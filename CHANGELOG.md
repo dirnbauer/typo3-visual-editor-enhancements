@@ -6,6 +6,129 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-11-07
+
+Fixes from the adversarial review of 1.6.0 (23 confirmed findings). Collection
+actions now follow Core's translation and workspace semantics where 1.6.0
+assumed them, the entries inspector keeps its trigger, line breaks and
+deferred entries, and the documentation says what Core actually does.
+Collection editing stays off by default (`tx_visualeditor_inlineRecords = 0`)
+and `firstVersion` stays `0`; flipping it still waits for the owner's
+decision.
+
+### Behaviour changes
+
+| Change | Before (1.6.0) | 1.6.1 |
+|---|---|---|
+| New refusal reason `synchronized` (409): add, move and remove on a connected translation whose collection column has `behaviour.allowLanguageSynchronization` and whose `l10n_state` for it is unset, `parent` or `source` | the list write was accepted; Core dropped it (create left an orphan child, move was a no-op reported as success) | refused up front; `l10n_state` `custom` makes the list the translation's own |
+| `firstVersion` also covers the staged eye (visibility) on a live entry that has its own live nested inline/file members | saved; Core versioned the nested members and renumbered their live `sorting`/`tstamp` unguarded | under `firstVersion = 0`: payload `hideReason firstVersion`, staged save 409 `firstVersion`; under `1` Core versions the entry with its nested members. Titles stay available (an ordinary text save, as the page editable's); leaf entries unchanged |
+| `maxItems` of a column without `maxitems` (Core's 99999) | `99999`, header "3 / 99999" | `0` = unlimited, header "3"; same rule for create's `max` and the sync preflight's `max` |
+| Install-wide user-setting recipe | documented `setup.default.tx_visualeditor_*` | `setup.override.tx_visualeditor_*` (wins over the user's choice; the field shows read-only in User settings). `setup.default.*` only seeds users who have never logged in or reset their settings |
+| Empty collection index in the edit-frame configuration | `[]` (read as "no index": hover discovery requests came back) | `{}`, also when the feature is off; a missing key still means an older server |
+| Delete cascade proof | full compile of every translation while building the payload | runs at click time, under the lock, for the removed entry only; a Remove the payload offered can now be answered 409 `translations` when a translation fails a check only the full compile catches (owner chain, page) |
+| Reason `stage` | documented as planned | not emitted: Core 14.3 lets every workspace member edit at any stage (DataHandler checks only `workspaceCheckStageForCurrent(0)` and resets the version to stage 0) |
+
+### Fixed
+
+- Server: the workspace live-row snapshot and the `firstVersion` decision use
+  Core's `DataMapProcessor` dependency set: connected translations reached via
+  `l10n_parent` or `l10n_source`, transitively, also when acting on a
+  translation that is itself a source (#2).
+- Server: the first-draft check only considers translations of tables Core
+  synchronizes (an `l10n_mode = exclude` or `allowLanguageSynchronization`
+  column, the mirror of `DataMapProcessor::isApplicable()`). Collections whose
+  child table Core does not synchronize - all Content Blocks child tables - are
+  no longer refused or announced `firstVersion` because of an undrafted
+  translation; translations stay strict snapshot roots (#6).
+- Server: the sync preflight answers `translation` for a translated parent
+  whose list Core synchronizes; the field chooser no longer offers such fields
+  on translations; a translated entry's own synchronized eye or title column
+  answers `translation` (#1).
+- Server: `mayWrite()` honours `displayCond = HIDE_FOR_NON_ADMINS` for
+  non-admins (`hideReason`/`labelReason` `rights`, `createReason` `hidden`),
+  which DataHandler drops silently (#12).
+- Server: sync and cascading removals - and every action on a column with
+  `allowLanguageSynchronization` - also take the nonblocking lock
+  `vee-inline:<table>:<translated live uid>:<field>` of each translated parent
+  they write (sorted, released in `finally`), the key a parity action on that
+  translation takes; the two now exclude each other (409 `busy`). Still
+  outside the locks: Core stamps the translated element row (`tstamp`,
+  `l18n_diffsource`) on default-language writes.
+- Server: `labelMultiline` (field level) is published for a TCA `type=text`
+  label column; `labelValue` is seeded like the vendor editable (`<br>` becomes
+  a line break), so the inspector's baseline is byte-identical (#4, #17).
+- Inspector: multi-line titles are edited in a one-row auto-growing textarea
+  (Enter commits, Shift+Enter inserts a line break, Escape restores); a
+  single-line label holding a line break gets the textarea too, so no break is
+  dropped (#4). Opening the inspector no longer overwrites a page editable's
+  baseline (#17).
+- Inspector: an entry added while the element had staged text reaches the page
+  after Save, also when everything that Save wrote was inline-covered text; Add
+  entry during a running save or with invalid fields is deferred the same way
+  (#3).
+- Inspector: in every layout the Entries button stays `aria-expanded="true"`
+  and Escape returns the focus to it after add, move and remove (#9). Add entry
+  in the bar passes the Entries button as the panel's trigger, so the anchored
+  panel scrolls with the element (#7, #10).
+- Entries opens the panel with "Could not load entries. Open the backend
+  form." when the capability request fails (expired session, 403/404/5xx)
+  instead of ignoring the click (#8).
+- Caption mode follows the keyboard focus after Tab inside the bar (#13).
+- When a Visual Editor version renders its own labels, the base rules
+  (`[hidden]`, `aria-disabled`) are still adopted and only the label rules are
+  skipped (#15).
+- The first-draft hint in the context line only shows where first drafts are
+  allowed (#16).
+- Alt+↑/↓ and Delete act on the row's controls only, no longer inside the
+  title field.
+
+### Changed
+
+- Performance: `InlineOwnership` relations are built once per TCA, and the
+  full compile of each translation for a cascade delete moved from the payload
+  to the Remove execution. On a 10-entry, 3-language fixture: compiles per
+  payload 36 → 16, move 73 → 31, delete 70 → 32 (SQLite median 90.6 → 65.1 ms,
+  125.2 → 69.5 ms, 119.0 → 68.6 ms).
+
+### Documentation
+
+- `guides.xml` declares `interlink-shortcode`; the manual renders with
+  `--fail-on-log` and 0 warnings; `Index.rst` shows the release (#19).
+- Installation and README list all five install-wide flags, including
+  `inlineRecordsEnabled`; a unit test keeps the flag blocks in step with
+  `FeatureFlags` (#20).
+- Compatibility support table and README requirements name 1.5.x-1.6.x,
+  audited against Visual Editor 1.10.4 (#21).
+- The 1.6.0 CI sentence now says the `components` job runs on pushes to main,
+  tags and every pull request (#22).
+- Known problems: Add, Move and Remove are all refused up front under
+  `firstVersion = 0` (a forged intent gets 409); new entries for the
+  load-error panel, Core's renumbering of live nested members on text edits in
+  a workspace, and Core's 422 "Language was not allowed" when a
+  default-language action writes a translation in a language the editor lacks
+  (known, pre-existing) (#23).
+- Collections: the `synchronized` rule next to `l10n_mode = exclude`, the
+  translations Core synchronizes (via `l10n_parent` or `l10n_source`), the
+  staged eye and title in workspaces, `labelMultiline`, `maxItems 0`,
+  `collectionTypes {}`, the lock scope and a list of every refusal reason.
+
+### Tests
+
+- Functional: `InlineLanguageSynchronizationTest`,
+  `InlineWorkspaceDependentsTest`, `InlineStagedChildWriteTest`,
+  `InlineLockScopeTest`, `InlinePayloadPerformanceTest` (compile counter) and
+  `UserSettingsOverrideTest` (`setup.override` reaches existing users,
+  `setup.default` does not); payload cases for `maxItems`, `labelMultiline`
+  and `HIDE_FOR_NON_ADMINS`, a characterization that an element in review
+  stays editable for members (no `stage`), and a field-options case for
+  synchronized fields on translations.
+- Unit: `FeatureFlagsDocumentedTest`; `FrontendConfigurationTest` for the
+  empty index. Node: title key handling, the collection limit, `{}` in
+  `config.js`. Component specs for the post-Save render, aria-expanded and
+  Escape after Add after in all three layouts, the anchored Add entry, the
+  multi-line label, the load error, caption focus and the vendor-label base
+  rules; they fail against 1.6.0.
+
 ## [1.6.0] — 2026-11-07
 
 Repeatable entries (collections) become a first-class part of the editor: an
@@ -23,7 +146,7 @@ patched.
 | Connected translations manage their own entries (FormEngine parity) | `translatedParents = parity` | page TSconfig `tx_visualeditorenhancements.inlineRecords.translatedParents = default-only` |
 | Removing a default-language entry also removes its translations, after a counted confirmation | `deleteTranslations = confirm` | `…inlineRecords.deleteTranslations = refuse` |
 | *Sync translations* is offered on default-language elements | `syncTranslations = 1`, `syncDefaultMode = localize` | `…inlineRecords.syncTranslations = 0` |
-| Action-bar buttons show a very small label on hover, focus or click; our own buttons drop their `title` | user setting `tx_visualeditor_actionLabels = caption` | User TSconfig `setup.default.tx_visualeditor_actionLabels = icons` |
+| Action-bar buttons show a very small label on hover, focus or click; our own buttons drop their `title` | user setting `tx_visualeditor_actionLabels = caption` | User TSconfig `setup.override.tx_visualeditor_actionLabels = icons` (corrected in 1.6.1: `setup.default` only seeds users who have never logged in) |
 | The workspace live-row check also covers connected translations and nested relations | always | none (stricter by design); allow first drafts with `firstVersion = 1` |
 | The entries panel stays open while the editor works on the page | always | none; Escape, × or the trigger close it |
 
@@ -167,7 +290,7 @@ for the owner's written decision and is planned for 1.6.1.
 ### Tests and CI
 
 - New CI job `components`: the login-free Playwright component specs
-  (Chromium) run on every push and pull request.
+  (Chromium) run on pushes to main, tags and every pull request.
 - The lab's regular-runtime suite (`Build/Scripts/ve-runtime.sh`, 16
   scenarios against real Core, FormEngine and MariaDB with disposable admin,
   editor and restricted `ve_editor` users and a disposable workspace) passes,

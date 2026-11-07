@@ -144,6 +144,27 @@ same rows and actions; only the place differs:
 On a narrow screen every layout uses the full width. The panel never closes
 by itself while you work on the page; see :ref:`collections-inspector`.
 
+..  _usage-entries-rows:
+
+Working with the rows
+---------------------
+
+*   Each collection's heading shows how many entries it has: ``3 / 6`` when
+    it has a maximum, ``3`` alone when it has none.
+*   Type a title in its row; :kbd:`Enter` leaves the field, :kbd:`Escape`
+    restores the stored title. A title that may span several lines (a text
+    area in the backend form) gets a field that grows with its text:
+    :kbd:`Shift+Enter` starts a new line there.
+*   :kbd:`Alt+↑` / :kbd:`Alt+↓` move an entry and :kbd:`Delete` removes it
+    while the focus is on one of the row's buttons. Inside the title field
+    these keys edit the text as usual.
+*   After adding, moving or removing an entry the panel stays open and
+    :kbd:`Escape` returns the focus to the element's :guilabel:`Entries`
+    button.
+*   If the entries cannot be loaded - usually because the editing session
+    expired - :guilabel:`Entries` opens the panel with "Could not load
+    entries. Open the backend form."; reload the page.
+
 ..  _usage-links:
 
 Editing a link

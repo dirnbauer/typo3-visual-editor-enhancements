@@ -34,7 +34,7 @@ regions and focus handling follow WCAG 2.2 AA.
 |---|---|
 | TYPO3 | 14.3.7+ |
 | PHP | 8.4+ |
-| `friendsoftypo3/visual-editor` | 1.10.2+ (audited against 1.10.3) |
+| `friendsoftypo3/visual-editor` | 1.10.2+ (audited against 1.10.4) |
 | `friendsoftypo3/content-blocks` | optional — auto-enables Content Blocks tables |
 
 Distributed through Composer and Git only; there is no TER release.
@@ -48,7 +48,7 @@ vendor/bin/typo3 cache:flush
 
 ## Configure
 
-All features default to on. Toggle them install-wide from a **sitepackage's
+All five features default to on. Toggle them install-wide from a **sitepackage's
 `ext_localconf.php`** — not from `config/system/settings.php`, which is
 git-ignored in most setups, so a flag set there is lost on the next deployment:
 
@@ -57,12 +57,17 @@ $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['element
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['fieldChooserEnabled'] = true;
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['editableLinksEnabled'] = true;
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['elementRefreshEnabled'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['inlineRecordsEnabled'] = true;
 ```
 
 Per backend user, on the *Visual editor* tab of User settings:
 `tx_visualeditor_showLibrary`, `tx_visualeditor_showContextButtons`,
 `tx_visualeditor_fieldChooserMode` (`tabs` | `sections` | `disabled`),
-`tx_visualeditor_panelColumns`.
+`tx_visualeditor_panelColumns`, `tx_visualeditor_inlineRecords` (off by
+default), `tx_visualeditor_actionLabels`, `tx_visualeditor_entriesLayout`.
+To set one for a whole editor group, existing users included, use User
+TSconfig `setup.override.<setting>` (it then wins over the user's choice);
+`setup.default.<setting>` only seeds users who have never logged in.
 
 Page TSconfig:
 
@@ -114,7 +119,7 @@ a menu (item settings, Core's form, translations); titles and visibility are
 staged and saved with the page, while add, move and remove save at once.
 Translations follow FormEngine (translation-only entries, counted removal of
 translations, *Sync translations*), workspaces work on existing drafts, and a
-first workspace draft is a page-TSconfig opt-in (`firstVersion`, off in 1.6.0).
+first workspace draft is a page-TSconfig opt-in (`firstVersion`, off by default).
 Three panel layouts (inspector, tray, anchored) are a user setting. Details,
 limits and every TSconfig key: [Collection entries](Documentation/Collections.rst).
 
