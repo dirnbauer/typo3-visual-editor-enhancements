@@ -14,6 +14,10 @@ import {refreshCollectionCapability} from '@webconsulting/visual-editor-enhancem
  *    collection's own Add button focused (one more click, by design).
  * Rights come from the capability fetch on click; a refusal leaves the button
  * aria-disabled with its reason.
+ * The inspector always opens with the element's Entries button as its
+ * trigger (the dialog it controls): the anchored layout follows that button
+ * when the page scrolls, it reads aria-expanded="true" while the inspector is
+ * open, and Escape hands the focus back to it.
  */
 
 let busy = false;
@@ -32,6 +36,27 @@ async function openInspector(options) {
   }
   await chooser?.updateComplete;
   return chooser;
+}
+
+/**
+ * The element's Entries button in the CURRENT wrapper: refreshElement()
+ * replaces the <ve-content-element> (and its action bar) the click came from,
+ * and the shared injection pass (Frontend/index.js) adds the button to the
+ * fresh bar only after the vendor's first render - so wait for it, bounded.
+ * @param {string|null} wrapperId
+ * @param {Element} element the wrapper the click came from
+ * @return {Promise<HTMLElement|null>}
+ */
+async function entriesButton(wrapperId, element) {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const wrapper = (wrapperId ? document.querySelector(`ve-content-element[id="${CSS.escape(wrapperId)}"]`) : null)
+      ?? (element.isConnected ? element : null);
+    const button = wrapper?.shadowRoot?.querySelector('[data-ve-enhancement="inline-records"]');
+    if (button instanceof HTMLElement && !button.hidden) { return button; }
+    await wrapper?.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return null;
 }
 
 /**
@@ -73,15 +98,19 @@ export async function addEntryFromBar(element, button) {
   const uid = Number(element.getAttribute('uid'));
   const wrapperId = element.getAttribute('id');
   const base = {table, uid, elementName: element.getAttribute('elementName') ?? '', anchorRect: button.getBoundingClientRect()};
+  const open = async (extra = {}) => {
+    const trigger = await entriesButton(wrapperId, element);
+    return openInspector({...base, ...extra, ...(trigger ? {trigger, anchorRect: trigger.getBoundingClientRect()} : {})});
+  };
   try {
     const capability = await refreshCollectionCapability(element);
     if (capability === null) {
-      await openInspector({...base, message: inlineLabel('loadError')});
+      await open({message: inlineLabel('loadError')});
       return;
     }
     if (capability.addReason) { return; }
     if (capability.creatable.length !== 1) {
-      const chooser = await openInspector(base);
+      const chooser = await open();
       chooser?.renderRoot.querySelector('.addEntry:not([disabled]):not([aria-disabled="true"])')?.focus({preventScroll: false});
       return;
     }
@@ -90,14 +119,14 @@ export async function addEntryFromBar(element, button) {
     if (blocked) {
       // Pending text, an active save or an uncertain earlier write: the
       // inspector explains it next to its own (disabled) Add button.
-      await openInspector({...base, message: blocked});
+      await open({message: blocked});
       return;
     }
     let result;
     try {
       result = await changeCollection(field, 'create');
     } catch (error) {
-      await openInspector({...base, message: error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`});
+      await open({message: error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`});
       return;
     }
     if (!result) { return; }
@@ -109,7 +138,7 @@ export async function addEntryFromBar(element, button) {
     const records = field.children ?? [];
     const refreshed = collectionBlockReason() ? false : await refreshElement(table, uid, {records});
     if (!refreshed) { message += ` ${inlineLabel(elementHasStagedData({table, uid}, records) ? 'savedPageLater' : 'refreshPending')}`; }
-    const chooser = await openInspector({...base, message});
+    const chooser = await open({message});
     const createdUid = Number(result.created?.uid ?? result.uid ?? 0);
     if (!createdUid) { return; }
     const childTable = result.created?.table ?? field.children?.[0]?.table ?? null;

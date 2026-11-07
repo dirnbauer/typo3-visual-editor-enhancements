@@ -104,11 +104,12 @@ function element(uid, cType, name, inner) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean, layout?: 'inspector'|'tray'|'anchored', htmlLang?: string|null}} options
+ * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean, layout?: 'inspector'|'tray'|'anchored', htmlLang?: string|null, veInfo?: object}} options
+ *   veInfo: extra window.veInfo keys (e.g. actionBarLabels: true for a vendor that renders its own labels)
  * @return {Promise<{posts: object[], state: {created: boolean}}>}
  */
 export async function actionBarHarness(page, {mode = 'caption', collectionTypes = {tt_content: {feature_cards: ['cards']}}, lang = 'en',
-  scheme = 'light', field = {}, inlineRecords = true, markers = false, layout = 'inspector', htmlLang = null} = {}) {
+  scheme = 'light', field = {}, inlineRecords = true, markers = false, layout = 'inspector', htmlLang = null, veInfo = {}} = {}) {
   const imports = await importMap();
   const lang_ = await labels(lang);
   const posts = [];
@@ -119,7 +120,7 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
   const html = () => `<!doctype html><html lang="${htmlLang ?? lang}"><head><meta charset="utf-8"><title>Action bar harness</title>
     <script type="importmap">${JSON.stringify({imports})}</script>
     <script>window.visualEditorEnhancements = ${JSON.stringify(config)};
-      window.veInfo = {token: 'token', allowNewContent: true, languageId: 0, editContentUrl: '/edit/__TABLE__/__UID__', editContentContextualUrl: '/contextual/__TABLE__/__UID__'};
+      window.veInfo = {token: 'token', allowNewContent: true, languageId: 0, editContentUrl: '/edit/__TABLE__/__UID__', editContentContextualUrl: '/contextual/__TABLE__/__UID__', ...${JSON.stringify(veInfo)}};
       window.TYPO3 = {lang: ${JSON.stringify(lang_)}, settings: {ajaxUrls: {visual_editor_save: '/save'}}};</script>
     <link rel="stylesheet" href="/css/editable-overrides.css">
     <style>
@@ -191,8 +192,10 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
   });
   await page.goto('https://component.test/');
   await page.waitForFunction(() => window.harnessReady === true);
-  // The injection pass runs after the vendor's first render.
-  await page.waitForFunction(() => document.querySelector('ve-content-element')?.shadowRoot?.querySelector('.action-bar[data-ve-labels]'));
+  // The injection pass runs after the vendor's first render. A vendor that
+  // renders its own labels gets no label mode of ours: wait for our buttons.
+  await page.waitForFunction((labelled) => document.querySelector('ve-content-element')?.shadowRoot
+    ?.querySelector(labelled ? '.action-bar [data-ve-enhancement]' : '.action-bar[data-ve-labels]'), !!veInfo.actionBarLabels);
   await mkdir(screenshotDir, {recursive: true});
   return {posts, state};
 }

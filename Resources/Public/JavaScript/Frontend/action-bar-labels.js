@@ -17,8 +17,8 @@ import {shortVendorLabel} from '@webconsulting/visual-editor-enhancements/Shared
  * on the labels keeps the whole bar the vendor's drag handle.
  */
 
-/** @type {CSSStyleSheet|null} */
-let sharedSheet = null;
+/** @type {Map<string, CSSStyleSheet>} label mode -> the one shared sheet of that mode */
+const sharedSheets = new Map();
 /** @type {WeakSet<Element>} bars whose pointer/focus/click state is wired */
 const wiredBars = new WeakSet();
 /** @type {WeakSet<Element>} content elements whose mouseleave is wired */
@@ -28,17 +28,24 @@ const pinned = new WeakMap();
 /** @type {WeakSet<Element>} bars the pointer is currently inside */
 const pointerInside = new WeakSet();
 
-function sheet() {
-  if (sharedSheet === null) {
-    sharedSheet = new CSSStyleSheet();
-    sharedSheet.replaceSync(buildActionBarLabelCss(actionLabelMode()));
+/**
+ * @param {string} mode
+ * @return {CSSStyleSheet}
+ */
+function sheet(mode) {
+  let modeSheet = sharedSheets.get(mode);
+  if (modeSheet === undefined) {
+    modeSheet = new CSSStyleSheet();
+    modeSheet.replaceSync(buildActionBarLabelCss(mode));
+    sharedSheets.set(mode, modeSheet);
   }
-  return sharedSheet;
+  return modeSheet;
 }
 
 /**
- * A future vendor release that renders its own labels wins: then nothing is
- * adopted (Compatibility.rst).
+ * A future vendor release that renders its own labels wins: then none of our
+ * label rules apply - only the base rules of the `icons` sheet, which keep
+ * hidden buttons hidden and refused ones visibly refused (Compatibility.rst).
  * @param {Element} bar
  */
 function vendorRendersLabels(bar) {
@@ -107,7 +114,16 @@ function wireBar(bar) {
   });
   bar.addEventListener('focusin', (event) => {
     const button = buttonFrom(event);
-    if (button !== null && button.matches(':focus-visible')) {
+    if (button === null) {
+      return;
+    }
+    // The focus moved on from the clicked button (Tab): the pin is over, so
+    // leaving the bar later shows the focused button, not the stale pin. A
+    // click on another button pins that one again right after its focusin.
+    if (pinned.has(bar) && pinned.get(bar) !== button) {
+      unpin(bar);
+    }
+    if (button.matches(':focus-visible')) {
       setCurrent(bar, button);
     }
   });
@@ -180,14 +196,18 @@ function applyShortLabels(bar, mode) {
 export function installActionBarLabels(element) {
   const root = element.shadowRoot;
   const bar = root?.querySelector('.action-bar');
-  if (!root || !bar || vendorRendersLabels(bar)) {
+  if (!root || !bar) {
     return;
   }
-  const labelSheet = sheet();
+  const vendorLabels = vendorRendersLabels(bar);
+  const mode = vendorLabels ? 'icons' : actionLabelMode();
+  const labelSheet = sheet(mode);
   if (!root.adoptedStyleSheets.includes(labelSheet)) {
-    root.adoptedStyleSheets = [...root.adoptedStyleSheets, labelSheet];
+    // One of our sheets per root: drop another mode's (the vendor started
+    // rendering labels after the first pass).
+    const own = new Set(sharedSheets.values());
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets.filter((adopted) => !own.has(adopted)), labelSheet];
   }
-  const mode = actionLabelMode();
   if (bar.getAttribute('data-ve-labels') !== mode) {
     bar.setAttribute('data-ve-labels', mode);
   }

@@ -327,3 +327,110 @@ test('f:mark.item markers: hidden rows are dimmed from the first render, rows gr
   expect(result).toEqual({rows: ['items:2', 'items:3'], hiddenRow: true, opacity: ['1', '0.55'], outline: 'dashed',
     title: 'Hidden on the live site', visibleTitle: null, highlight: [true, 'solid']});
 });
+
+/* ------------------------------------------------------------------------
+ * 1.6.1 regressions (review 2026-11-07: #7/#10, #8, #13, #14, #15).
+ * --------------------------------------------------------------------- */
+
+/** The CURRENT wrapper's Entries button (an element refresh replaces the wrapper). */
+const entriesState = (page, uid = 1) => page.evaluate((uid) => {
+  const element = document.querySelector(`ve-content-element[uid="${uid}"]`);
+  const button = element.shadowRoot.querySelector('[data-ve-enhancement="inline-records"]');
+  const rect = button.getBoundingClientRect();
+  return {expanded: button.getAttribute('aria-expanded'), top: rect.top, bottom: rect.bottom, focused: element.shadowRoot.activeElement === button};
+}, uid);
+
+test('#7/#10 anchored layout: Add entry ties the panel to the Entries button, so it scrolls with the element, says expanded and takes Escape back', async ({page}) => {
+  await actionBarHarness(page, {layout: 'anchored'});
+  await page.evaluate(() => { document.body.style.minHeight = '300vh'; });
+  await showBar(page);
+  await buttonLocator(page, '[data-ve-enhancement="inline-add"]').click();
+  const panel = page.locator('ve-field-chooser .popover');
+  await expect(panel).toHaveAttribute('data-layout', 'anchored');
+  // The new entry got the focus on the page, the wrapper was replaced.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('ve-editable-text')?.getAttribute('uid') ?? null)).toBe('8');
+  await page.waitForTimeout(100);
+  const before = {panel: (await panel.boundingBox()).y, trigger: await entriesState(page)};
+  expect(before.trigger.expanded).toBe('true');
+  expect(Math.round(before.panel)).toBe(Math.round(before.trigger.bottom + 8));
+  await page.evaluate(() => window.scrollBy(0, 120));
+  await page.waitForTimeout(150);
+  const after = {panel: (await panel.boundingBox()).y, trigger: await entriesState(page)};
+  // Below the trigger, clamped at the viewport edge (12 px) like the Entries-button control case.
+  expect(Math.round(after.trigger.top)).toBe(Math.round(before.trigger.top - 120));
+  expect(Math.round(after.panel)).toBe(Math.round(Math.max(12, after.trigger.bottom) + 8));
+  expect(after.panel).toBeLessThan(before.panel);
+  // Escape from the panel closes it and hands the focus back to the Entries button.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await panel.focus();
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  const closed = await entriesState(page);
+  expect(closed).toMatchObject({expanded: 'false', focused: true});
+});
+
+test('#8 Entries explains a failed capability fetch (403) in the inspector instead of ignoring the click', async ({page}) => {
+  await actionBarHarness(page);
+  await page.route((url) => url.searchParams.has('veFieldOptions'), (route) => route.fulfill({status: 403, json: {error: 'Forbidden'}}));
+  await showBar(page);
+  const entries = buttonLocator(page, '[data-ve-enhancement="inline-records"]');
+  await entries.click();
+  const dialog = page.getByRole('dialog', {name: 'Entries'});
+  await expect(dialog).toBeVisible({timeout: 800});
+  await expect(dialog.getByText('Could not load entries. Open the backend form.')).toBeVisible({timeout: 800});
+  await expect(entries).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('#13 caption follows the keyboard focus after Tab inside the bar, not the earlier click pin', async ({page}) => {
+  await actionBarHarness(page);
+  await showBar(page);
+  await buttonLocator(page, 'button[role="switch"]').click();
+  await page.keyboard.press('Tab');
+  await expect.poll(() => page.evaluate(() => document.querySelector('ve-content-element').shadowRoot.activeElement?.getAttribute('aria-label'))).toBe('Delete content element');
+  const rect = await barRect(page);
+  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height + 60, {steps: 4}); // out of the bar, still inside the element
+  await page.waitForTimeout(200);
+  const current = await page.evaluate(() => [...document.querySelector('ve-content-element').shadowRoot.querySelectorAll('.action-bar [data-ve-label-current]')]
+    .map((button) => button.getAttribute('aria-label')));
+  expect(current).toEqual(['Delete content element']);
+  const shown = (await describeButtons(page)).filter((button) => button.opacity === '1').map((button) => button.content);
+  expect(shown).toEqual(['"Delete"']);
+});
+
+test('#14 an empty collection index ({}) is authoritative: hovering fires zero ?veFieldOptions requests and no collection buttons show', async ({page}) => {
+  const requests = [];
+  page.on('request', (request) => { if (new URL(request.url()).searchParams.has('veFieldOptions')) { requests.push(request.url()); } });
+  await actionBarHarness(page, {collectionTypes: {}});
+  for (const uid of [5, 1]) {
+    await showBar(page, uid);
+    await page.waitForTimeout(150);
+  }
+  const state = await page.evaluate(() => [...document.querySelectorAll('ve-content-element')].map((element) => {
+    const actionBar = element.shadowRoot.querySelector('.action-bar');
+    return ['inline-records', 'inline-add'].map((kind) => actionBar.querySelector(`[data-ve-enhancement="${kind}"]`).hidden);
+  }));
+  expect(state).toEqual([[true, true], [true, true]]);
+  expect(requests).toEqual([]);
+});
+
+test('#15 a vendor that renders its own labels still gets the base rules: hidden buttons stay hidden, refused ones look refused', async ({page}) => {
+  await actionBarHarness(page, {veInfo: {actionBarLabels: true}, field: {canCreate: false, createReason: 'max'}});
+  await showBar(page, 5);
+  const text = await page.evaluate(() => {
+    const actionBar = document.querySelector('ve-content-element[uid="5"]').shadowRoot.querySelector('.action-bar');
+    return ['inline-records', 'inline-add'].map((kind) => {
+      const button = actionBar.querySelector(`[data-ve-enhancement="${kind}"]`);
+      return {hidden: button.hidden, display: getComputedStyle(button).display};
+    });
+  });
+  expect(text).toEqual([{hidden: true, display: 'none'}, {hidden: true, display: 'none'}]);
+  await showBar(page, 1);
+  const add = buttonLocator(page, '[data-ve-enhancement="inline-add"]');
+  await add.click();
+  await expect(add).toHaveAttribute('aria-disabled', 'true');
+  const look = await add.evaluate((button) => ({opacity: getComputedStyle(button).opacity, cursor: getComputedStyle(button).cursor}));
+  expect(look).toEqual({opacity: '0.5', cursor: 'not-allowed'});
+  // Our label rules stay off: the vendor renders the labels.
+  const labels = (await describeButtons(page)).filter((button) => !button.hidden).map((button) => button.content);
+  expect(labels.every((content) => content === 'none' || content === 'normal')).toBe(true);
+});

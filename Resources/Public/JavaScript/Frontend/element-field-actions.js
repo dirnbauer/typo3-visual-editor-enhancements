@@ -3,6 +3,7 @@ import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-ut
 import {addEntryIconSvg, listIconSvg, slidersIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 import {collectionCapability} from '@webconsulting/visual-editor-enhancements/Shared/collection-capability.js';
+import {inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 
 /** @type {WeakMap<HTMLElement, string>} button -> its long description (icons mode tooltip) */
 const descriptions = new WeakMap();
@@ -133,9 +134,11 @@ export function injectInlineRecordsAction(element) {
     // Re-check on every click: a refusal may have been lifted (entries
     // removed, rights changed) - the cache is cleared after each change.
     const capability = await refreshCollectionCapability(element);
-    if (capability === null || capability.entriesReason) { return; }
+    if (capability?.entriesReason) { return; }
     const {openFieldChooser} = await import('@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser.js');
-    openFieldChooser({...options(element, entries), view: 'entries'});
+    // Not loadable (expired session, 403/404/5xx, network): open the
+    // inspector with the reason, as Add entry does - never ignore the click.
+    openFieldChooser({...options(element, entries), view: 'entries', ...(capability === null ? {message: inlineLabel('loadError')} : {})});
   });
   add.addEventListener('click', async () => {
     const {addEntryFromBar} = await import('@webconsulting/visual-editor-enhancements/Frontend/add-entry.js');
