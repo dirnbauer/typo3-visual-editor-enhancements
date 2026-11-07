@@ -18,6 +18,7 @@ final readonly class FrontendConfiguration
         private FeatureFlags $features,
         private FieldChooserConfigurationService $fieldChooserConfiguration,
         private BackendUserProvider $backendUserProvider,
+        private ?CollectionFieldIndex $collectionFieldIndex = null,
     ) {}
 
     /**
@@ -33,7 +34,9 @@ final readonly class FrontendConfiguration
      *     fieldChooserMode: value-of<FieldChooserMode>,
      *     fieldChooserTables: list<string>,
      *     inlineRecordsEnabled: bool,
+     *     collectionTypes: array<string, array<string, list<string>>>,
      *     workspaceId: int,
+     *     workspaceTitle: string,
      *     elementRefreshEnabled: bool,
      *     colorScheme: 'auto'|'light'|'dark'
      * }
@@ -53,6 +56,9 @@ final readonly class FrontendConfiguration
             }
         }
 
+        $inlineRecordsEnabled = $pageId !== null && (new InlineRecordConfiguration($this->backendUserProvider, $this->features))->enabled($pageId);
+        $workspaceId = $this->backendUserProvider->getOrThrow()->workspace;
+
         return [
             'elementLibraryEnabled' => $this->features->isElementLibraryEnabled()
                 && (bool)($userSettings['tx_visualeditor_showLibrary'] ?? true),
@@ -61,8 +67,10 @@ final readonly class FrontendConfiguration
             'editableLinksEnabled' => $contextButtonsEnabled && $this->features->isEditableLinksEnabled(),
             'fieldChooserMode' => $fieldChooserMode->value,
             'fieldChooserTables' => $fieldChooserTables,
-            'inlineRecordsEnabled' => $pageId !== null && (new InlineRecordConfiguration($this->backendUserProvider, $this->features))->enabled($pageId),
-            'workspaceId' => $this->backendUserProvider->getOrThrow()->workspace,
+            'inlineRecordsEnabled' => $inlineRecordsEnabled,
+            'collectionTypes' => $inlineRecordsEnabled && $pageId !== null ? ($this->collectionFieldIndex?->build($pageId) ?? []) : [],
+            'workspaceId' => $workspaceId,
+            'workspaceTitle' => $this->backendUserProvider->workspaceTitle($workspaceId),
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
             'colorScheme' => $this->colorScheme($userSettings['colorScheme'] ?? null),
         ];

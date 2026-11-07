@@ -1,11 +1,53 @@
 import {translate} from './dom-utils.js';
 
-/** Pure server-intent builders. Relation and DataHandler identities never come from the client. */
-export function collectionIntent(field, action, childUid = null) {
+/**
+ * The keys each action may carry besides the common identity (mirrors InlineIntent::KEYS).
+ * Anything else is dropped here and rejected by the server.
+ */
+const intentKeys = {
+  create: {afterUid: 'optional'},
+  delete: {childUid: 'required'},
+  move: {childUid: 'required', afterUid: 'nullable'},
+  sync: {language: 'required', mode: 'mode', ids: 'ids'},
+};
+
+/**
+ * Pure server-intent builder. Relation and DataHandler identities never come from
+ * the client: no child table, pid, sorting, language or live uid leaves the browser.
+ *
+ * @param {object} field   collection payload (parentTable, parentUid, name, revision)
+ * @param {string} action  create | delete | move | sync
+ * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
+ *                         · sync {language, mode: 'localize'|'synchronize', ids?: [default entry uids], localize only}
+ */
+export function collectionIntent(field, action, options = {}) {
+  const keys = intentKeys[action];
+  if (!keys) {
+    throw new Error(`Unknown collection action ${action}`);
+  }
   const intent = {action, parentTable: field.parentTable, parentUid: field.parentUid,
     field: field.name, revision: field.revision};
-  if (childUid !== null) {
-    intent[action === 'delete' ? 'childUid' : 'afterUid'] = childUid;
+  for (const [key, rule] of Object.entries(keys)) {
+    const value = options?.[key];
+    if (rule === 'mode') {
+      if (!['localize', 'synchronize'].includes(value)) {
+        throw new Error(`Collection action ${action} needs mode localize or synchronize`);
+      }
+      intent[key] = value;
+    } else if (rule === 'ids') {
+      if (Array.isArray(value) && value.length > 0 && value.every(Number.isInteger)) {
+        if (options.mode !== 'localize') {
+          throw new Error('Only localize accepts selected entries');
+        }
+        intent[key] = [...new Set(value)];
+      }
+    } else if (rule === 'nullable') {
+      intent[key] = Number.isInteger(value) ? value : null;
+    } else if (Number.isInteger(value)) {
+      intent[key] = value;
+    } else if (rule === 'required') {
+      throw new Error(`Collection action ${action} needs ${key}`);
+    }
   }
   return {inlineRecord: intent};
 }
@@ -95,5 +137,20 @@ const inlineFallbacks = {
   "confirmReset": "Reset does not undo this operation.",
   "cancel": "Cancel",
   "newEntry": "New entry",
-  "unavailable": "Unavailable: {value}"
+  "unavailable": "Unavailable: {value}",
+  "deleted": "Marked for deletion in this workspace. Publish or discard it in the Workspaces module.",
+  "label": "This entry's title is not a plain text field. Edit it in the form.",
+  "moveUp": "Move up",
+  "moveDown": "Move down",
+  "unsorted": "This collection has no stored order. Use the backend form.",
+  "syncNone": "All translations are complete.",
+  "syncWorkspace": "Synchronize translations in the live site; it is not available in a workspace.",
+  "syncDisabled": "Synchronizing translations is switched off for this site.",
+  "orderFollowsDefault": "Order follows the default language after a sync.",
+  "confirmTranslations": "Also removes {count} translations ({languages}).",
+  "confirmTranslationsStage": "Also marks {count} translations ({languages}) for deletion.",
+  "badgeTranslationOnly": "Only in this language",
+  "badgeUntranslated": "Not translated here: {languages}",
+  "hiddenPerLanguage": "Visibility is per language.",
+  "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
 };

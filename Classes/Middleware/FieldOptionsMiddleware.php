@@ -95,6 +95,9 @@ final readonly class FieldOptionsMiddleware implements MiddlewareInterface
                 foreach ($this->inlineRecords->fields($step['table'], $parent, $request) as $collection) {
                     if ($collection['name'] === $step['field']) {
                         foreach ($collection['children'] as $child) {
+                            if (($child['state'] ?? '') === 'deleted') {
+                                continue; // listed read-only; not a context for nested settings
+                            }
                             $previous[] = [$child['table'], $child['uid']];
                         }
                     }

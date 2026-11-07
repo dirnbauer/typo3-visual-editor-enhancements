@@ -1,4 +1,4 @@
-CREATE TABLE tt_content ( vee_items int unsigned DEFAULT 0 NOT NULL, vee_shared int unsigned DEFAULT 0 NOT NULL );
+CREATE TABLE tt_content ( vee_items int unsigned DEFAULT 0 NOT NULL, vee_shared int unsigned DEFAULT 0 NOT NULL, tx_container_parent int unsigned DEFAULT 0 NOT NULL );
 CREATE TABLE tx_vee_item (
  uid int unsigned auto_increment PRIMARY KEY, pid int DEFAULT 0 NOT NULL,
  title varchar(255) DEFAULT '' NOT NULL, owner int DEFAULT 0 NOT NULL,

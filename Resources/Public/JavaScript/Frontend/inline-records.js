@@ -13,7 +13,13 @@ export function collectionBlockReason() {
   return inFlight ? inlineLabel('busy') : structuralBlockReason(dataHandlerStore, backend, uncertain);
 }
 
-export async function changeCollection(field, action, child = null) {
+/**
+ * @param {object} field
+ * @param {string} action  create | delete | move
+ * @param {object|null} child the row acted on (create: insert after it; delete/move: the row)
+ * @param {object} options extra intent options, e.g. move {afterUid}
+ */
+export async function changeCollection(field, action, child = null, options = {}) {
   if (collectionBlockReason()) {
     throw new Error(collectionBlockReason());
   }
@@ -27,7 +33,7 @@ export async function changeCollection(field, action, child = null) {
   inFlight = true;
   try {
     const result = await postCollectionIntent(window.TYPO3.settings.ajaxUrls.visual_editor_save,
-      window.veInfo.token, collectionIntent(field, action, child?.uid ?? null));
+      window.veInfo.token, collectionIntent(field, action, {...rowOptions(action, child), ...options}));
     clearFieldOptionsCache();
     return result;
   } catch (error) {
@@ -37,4 +43,11 @@ export async function changeCollection(field, action, child = null) {
   } finally {
     inFlight = false;
   }
+}
+
+function rowOptions(action, child) {
+  if (!child) {
+    return {};
+  }
+  return action === 'create' ? {afterUid: child.uid} : {childUid: child.uid};
 }
