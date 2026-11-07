@@ -101,6 +101,92 @@ Core TCAdefaults and safe scalar defaults supply new records. An empty text
 label receives ``New entry``. Required files or unsupported defaults defer
 to FormEngine; the API accepts no arbitrary initial field values.
 
+.. _collections-payload:
+
+Capability payload
+==================
+
+The field options response (``?veFieldOptions=1``) lists each collection as a
+field of ``type: inline``. The server computes every capability; the browser
+renders it and never derives rights itself. A refused control carries a
+reason key (``frontend.inlineRecords.<reason>``).
+
+.. list-table:: Collection (field) keys
+    :header-rows: 1
+    :widths: 25 75
+
+    *   -   Key
+        -   Meaning
+    *   -   ``name``, ``label``, ``parentTable``, ``parentUid``, ``revision``
+        -   Identity of the relation and the opaque revision every intent echoes.
+    *   -   ``childTitle``
+        -   Translated title of the child table, for "Add …" labels.
+    *   -   ``labelField``, ``hiddenField``, ``typeField``
+        -   The child's plain-text label column (empty for rich text or other
+            types), its visibility column and, when present, the record type
+            column that sends creation to the backend form.
+    *   -   ``controls``
+        -   ``appearance.enabledControls`` resolved with FormEngine's defaults:
+            ``new``, ``delete``, ``hide``, ``sort``, ``dragdrop``, ``localize``,
+            ``info``. A disabled control always reports the reason ``controls``.
+    *   -   ``uids``, ``minItems``, ``maxItems``
+        -   Current members (FormEngine identities) and limits; ``0`` = unlimited.
+    *   -   ``canCreate``, ``createReason``, ``createHidden``, ``requiredBackend``
+        -   Whether *Add entry* works here, why not, whether live creations start
+            hidden and which required fields need the backend form.
+    *   -   ``workspace``
+        -   ``{id, title, firstVersion}``. ``firstVersion`` is true when the next
+            structural action would create the first draft of the parent or of a
+            listed child in this workspace.
+    *   -   ``languageId``, ``translationMode``
+        -   Language of the parent and ``default``, ``connected`` (a translation
+            whose structure also lives in the source language) or ``free``.
+    *   -   ``children``
+        -   One entry per child, see below.
+
+.. list-table:: Entry (child) keys
+    :header-rows: 1
+    :widths: 25 75
+
+    *   -   Key
+        -   Meaning
+    *   -   ``uid``, ``table``, ``liveUid``
+        -   The identity editables carry (translated or draft uid) and the live
+            uid for display and joins. ``liveUid`` is never accepted by an intent.
+    *   -   ``state``
+        -   ``live``, ``new`` (created in this workspace), ``modified`` (has a
+            draft here) or ``deleted`` (a delete placeholder of this workspace,
+            listed read-only under its live uid; not a member of ``uids``).
+    *   -   ``label``, ``hidden``
+        -   Record title and current visibility.
+    *   -   ``canHide``, ``hideReason``
+        -   The visibility column exists, the editor may write it (not an
+            exclude field, or the ``non_exclude_fields`` right), the ``hide``
+            control is enabled and the owner chain compiled. DataHandler drops
+            exclude fields silently, so the eye is never offered where the write
+            would vanish.
+    *   -   ``canEditLabel``, ``labelReason``, ``labelValue``
+        -   The same rule for ``labelField``; ``labelValue`` is the raw stored value.
+    *   -   ``translationOnly``, ``untranslated``
+        -   In a connected translation: the row exists only in this language. In
+            the default language: languages with a translated parent but no
+            translation of this row.
+    *   -   ``canDelete``, ``deleteReason``, ``verb``
+        -   Removal capability and the Core verb: ``delete`` (live),
+            ``markForDeletion`` (workspace) or ``discard`` (new in this workspace).
+
+Visibility and title are no intents. The inspector stages them in the vendor
+store and the ordinary Save persists them; the generic save guard authorizes
+the child's owner chain first. In a workspace Core versions the child alone, so
+these edits need no parent draft.
+
+The edit frame configuration (``window.visualEditorEnhancements``) adds
+``collectionTypes`` — ``{tt_content: {<CType>: [field names]}}``, built from
+TCA for the CTypes and child tables the editor may use and the relations this
+API supports — so the toolbar can show *Entries* before any request, and
+``workspaceTitle``. The index lists field names only; rights per record are
+decided by the payload above.
+
 .. _collections-api:
 
 Server intent and concurrency

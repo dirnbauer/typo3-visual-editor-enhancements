@@ -441,6 +441,16 @@
         <source>Unavailable: {value}</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.deleted">
+      <segment state="final">
+        <source>Marked for deletion in this workspace. Publish or discard it in the Workspaces module.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.label">
+      <segment state="final">
+        <source>This entry's title is not a plain text field. Edit it in the form.</source>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

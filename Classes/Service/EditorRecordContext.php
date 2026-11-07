@@ -12,9 +12,41 @@ use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /** One identity/access boundary for both field discovery and structural writes. */
-final readonly class EditorRecordContext
+final class EditorRecordContext
 {
-    public function __construct(private FormDataCompiler $compiler, private BackendUserProvider $users) {}
+    /**
+     * Compiled records of the active read scope, keyed table:uid:workspace:user.
+     * Only filled inside scoped(): writes never see a memoized compile.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $memo = [];
+
+    private int $scopeDepth = 0;
+
+    public function __construct(private readonly FormDataCompiler $compiler, private readonly BackendUserProvider $users) {}
+
+    /**
+     * Run one read pass (payload build, discovery, preflight) with a compile memo,
+     * so a parent compiled once for its own payload is not recompiled for every
+     * child's owner check, translated parent or sync preflight. The memo is dropped
+     * when the outermost scope ends; nothing written inside a scope is cached.
+     *
+     * @template T
+     * @param callable(): T $read
+     * @return T
+     */
+    public function scoped(callable $read): mixed
+    {
+        $this->scopeDepth++;
+        try {
+            return $read();
+        } finally {
+            if (--$this->scopeDepth === 0) {
+                $this->memo = [];
+            }
+        }
+    }
 
     /** @param array<string, mixed> $form */
     public function mayEditField(string $table, string $field, array $form): bool
@@ -32,6 +64,13 @@ final readonly class EditorRecordContext
     public function compile(string $table, int $requestedUid, ServerRequestInterface $request, array $ancestors = []): array
     {
         $user = $this->users->getOrThrow();
+        $memoKey = $table . ':' . $requestedUid . ':' . $user->workspace . ':' . (int)($user->user['uid'] ?? 0) . ':' . spl_object_id($user);
+        if ($this->scopeDepth > 0 && isset($this->memo[$memoKey])) {
+            if (in_array($table . ':' . $this->memo[$memoKey]['compileUid'], $ancestors, true)) {
+                $this->denyOwner();
+            }
+            return $this->memo[$memoKey];
+        }
         $raw = BackendUtility::getRecord($table, $requestedUid);
         if (!$raw || ((int)($raw['t3ver_wsid'] ?? 0) !== 0 && (int)$raw['t3ver_wsid'] !== $user->workspace)) {
             throw new DatabaseRecordException('Record unavailable in this workspace', 1783261101, null, $table, $requestedUid);
@@ -70,6 +109,9 @@ final readonly class EditorRecordContext
             $this->denyOwner();
         }
         $this->authorizeOwners($table, $form, $request, [...$ancestors, $key]);
+        if ($this->scopeDepth > 0) {
+            $this->memo[$memoKey] = $form;
+        }
         return $form;
     }
     /** @param array<string, mixed> $form

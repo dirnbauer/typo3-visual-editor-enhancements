@@ -95,5 +95,7 @@ const inlineFallbacks = {
   "confirmReset": "Reset does not undo this operation.",
   "cancel": "Cancel",
   "newEntry": "New entry",
-  "unavailable": "Unavailable: {value}"
+  "unavailable": "Unavailable: {value}",
+  "deleted": "Marked for deletion in this workspace. Publish or discard it in the Workspaces module.",
+  "label": "This entry's title is not a plain text field. Edit it in the form."
 };

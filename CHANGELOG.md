@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Publish a capability payload for collection entries: resolved
+  `enabledControls`, child title, label/visibility/type fields, per-entry state
+  (live, new, modified, deleted), live uid, `canHide` and `canEditLabel` with
+  reasons, translation mode and badges (`translationOnly`, `untranslated`),
+  workspace `{id, title, firstVersion}` and the fields that need the backend
+  form. Delete placeholders are listed read-only instead of being skipped.
+- In a workspace, collections whose entries have no drafts yet are listed (so
+  visibility and title edits work); structural actions still refuse.
+- Add `collectionTypes` and `workspaceTitle` to the edit-frame configuration
+  (`CollectionFieldIndex`), memoize record compiles within one read pass and
+  split collection writes into per-action operations.
+
 ## [1.5.1] — 2026-11-06
 
 - Fix field settings breaking after opening collection entries. Both toolbar

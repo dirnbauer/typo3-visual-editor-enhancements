@@ -529,6 +529,18 @@
         <target>Nicht verfügbar: {value}</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.deleted">
+      <segment state="final">
+        <source>Marked for deletion in this workspace. Publish or discard it in the Workspaces module.</source>
+        <target>In diesem Arbeitsbereich zum Löschen markiert. Im Modul Arbeitsbereiche veröffentlichen oder verwerfen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.label">
+      <segment state="final">
+        <source>This entry's title is not a plain text field. Edit it in the form.</source>
+        <target>Der Titel dieses Eintrags ist kein einfaches Textfeld. Bitte im Formular bearbeiten.</target>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

@@ -6,43 +6,13 @@ namespace Webconsulting\VisualEditorEnhancements\Tests\Functional\Backend\Contro
 
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\FormProtection\FormProtectionFactory;
-use TYPO3\CMS\Core\Http\ServerRequest;
-use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
-use Webconsulting\VisualEditorEnhancements\Backend\Controller\PersistenceController;
 use Webconsulting\VisualEditorEnhancements\Service\EditorRecordContext;
 use Webconsulting\VisualEditorEnhancements\Service\FieldOptionsService;
 use Webconsulting\VisualEditorEnhancements\Service\InlineRecordService;
 
-final class InlineRecordTest extends FunctionalTestCase
+final class InlineRecordTest extends InlineRecordTestCase
 {
-    protected array $coreExtensionsToLoad = ['rte_ckeditor'];
-    protected array $testExtensionsToLoad = [
-        'friendsoftypo3/visual-editor', 'webconsulting/visual-editor-enhancements',
-        __DIR__ . '/../../../../vendor/typo3/cms-workspaces',
-        __DIR__ . '/../../Fixtures/Extensions/inline_fixture',
-    ];
-
-    #[\Override]
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../../Middleware/Fixtures/be_users.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Middleware/Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Middleware/Fixtures/tt_content.csv');
-        $this->setUpBackendUser(1);
-        $GLOBALS['LANG'] = $this->get(\TYPO3\CMS\Core\Localization\LanguageServiceFactory::class)->createFromUserPreferences($GLOBALS['BE_USER']);
-        $GLOBALS['BE_USER']->uc['tx_visualeditor_inlineRecords'] = 1;
-        $GLOBALS['BE_USER']->workspace = 0;
-        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', [
-            'uid' => 1, 'pid' => 666, 'title' => 'Existing', 'owner' => 1, 'owner_table' => 'tt_content', 'slot' => 'items', 'sorting' => 10,
-        ]);
-        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['vee_items' => 1], ['uid' => 1]);
-        $GLOBALS['TYPO3_REQUEST'] = $this->request();
-    }
-
     #[Test]
     public function repeatedCreateDeleteAndStaleRevisionRespectLimits(): void
     {
@@ -130,7 +100,8 @@ final class InlineRecordTest extends FunctionalTestCase
         // Existing FormEngine drafts. Core 14.3.10 first-versioning itself changes
         // live child sorting; the endpoint refuses that unproven path.
         self::assertSame('workspace', $this->field()['createReason']);
-        self::assertSame(403, $this->act($this->field(), 'create')[0]);
+        $refused = $this->act($this->field(), 'create');
+        self::assertSame([409, 'workspace'], [$refused[0], $refused[1]['reason']]);
         $parentDraft = $beforeParent;
         $parentDraft['uid'] = 10;
         $parentDraft['t3ver_oid'] = 1;
@@ -429,66 +400,6 @@ final class InlineRecordTest extends FunctionalTestCase
         }
         $GLOBALS['TCA']['tt_content']['columns']['vee_ambiguous'] = $GLOBALS['TCA']['tt_content']['columns']['vee_items'];
         self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0]);
-    }
-
-    private function restrictedOwnerUser(string $tables): void
-    {
-        $conn = $this->getConnectionPool()->getConnectionForTable('be_groups');
-        $conn->delete('be_groups', ['uid' => 10]);
-        $conn->insert('be_groups', ['uid' => 10, 'pid' => 0, 'title' => 'Owner rights', 'tables_modify' => $tables,
-            'db_mountpoints' => '1', 'allowed_languages' => '0', 'explicit_allowdeny' => 'tt_content:CType:text', 'non_exclude_fields' => 'tx_vee_item:hidden']);
-        $this->getConnectionPool()->getConnectionForTable('be_users')->update('be_users', ['usergroup' => '10', 'workspace_perms' => 1], ['uid' => 2]);
-        foreach ([1, 666] as $pid) {
-            $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['perms_everybody' => 31], ['uid' => $pid]);
-        }
-        $user = $this->setUpBackendUser(2);
-        $user->workspace = 0;
-        $user->uc['tx_visualeditor_inlineRecords'] = 1;
-    }
-
-    private function request(): ServerRequest
-    {
-        return new ServerRequest('https://vee.test/typo3/ajax/visual-editor/save', 'POST')
-            ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
-            ->withQueryParams(['editMode' => 1]);
-    }
-
-    /** @return array<string, mixed> */
-    private function field(): array
-    {
-        $form = $this->get(EditorRecordContext::class)->compile('tt_content', 1, $this->request());
-        $fields = $this->get(InlineRecordService::class)->fields('tt_content', $form, $this->request());
-        return array_column($fields, null, 'name')['vee_items'];
-    }
-
-    /** @param array<string, mixed> $field
-     * @return array{int, array<string, mixed>}
-     */
-    private function act(array $field, string $action, ?int $uid = null): array
-    {
-        $intent = ['action' => $action, 'parentTable' => 'tt_content', 'parentUid' => 1, 'field' => 'vee_items', 'revision' => $field['revision'] ?? 'unavailable'];
-        if ($uid !== null) {
-            $intent[$action === 'create' ? 'afterUid' : 'childUid'] = $uid;
-        }
-        return $this->save(['inlineRecord' => $intent]);
-    }
-
-    /** @param array<string, mixed> $payload
-     * @return array{int, array<string, mixed>}
-     */
-    private function save(array $payload): array
-    {
-        $token = $this->get(FormProtectionFactory::class)->createForType('backend')->generateToken('visual_editor', 'save');
-        $request = $this->request()->withParsedBody($payload)->withHeader('X-Request-Token', $token);
-        $GLOBALS['TYPO3_REQUEST'] = $request;
-        $response = $this->get(PersistenceController::class)->saveAction($request);
-        return [$response->getStatusCode(), json_decode((string)$response->getBody(), true)];
-    }
-
-    /** @return array<string, mixed> */
-    private function row(int $uid): array
-    {
-        return $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->executeQuery('SELECT * FROM tx_vee_item WHERE uid = ?', [$uid])->fetchAssociative() ?: throw new \RuntimeException('Fixture row missing');
     }
 }
 
