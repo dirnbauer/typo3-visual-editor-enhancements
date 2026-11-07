@@ -131,6 +131,10 @@ reason key (``frontend.inlineRecords.<reason>``).
             ``info``. A disabled control always reports the reason ``controls``.
     *   -   ``uids``, ``minItems``, ``maxItems``
         -   Current members (FormEngine identities) and limits; ``0`` = unlimited.
+    *   -   ``canSort``, ``sortReason``
+        -   Whether entries can be reordered: ``unsorted`` when the child table
+            has no sorting column, ``controls`` when the field disables both
+            sort controls and drag and drop.
     *   -   ``canCreate``, ``createReason``, ``createHidden``, ``requiredBackend``
         -   Whether *Add entry* works here, why not, whether live creations start
             hidden and which required fields need the backend form.
@@ -171,6 +175,8 @@ reason key (``frontend.inlineRecords.<reason>``).
         -   In a connected translation: the row exists only in this language. In
             the default language: languages with a translated parent but no
             translation of this row.
+    *   -   ``canMoveUp``, ``canMoveDown``
+        -   Reordering is possible and the entry is not already first or last.
     *   -   ``canDelete``, ``deleteReason``, ``verb``
         -   Removal capability and the Core verb: ``delete`` (live),
             ``markForDeletion`` (workspace) or ``discard`` (new in this workspace).
@@ -194,9 +200,38 @@ Server intent and concurrency
 
 The authenticated ``visual_editor_save`` route accepts either a normal save
 or one ``inlineRecord`` intent. Mixing intents with ``data`` or ``cmdArray``
-is rejected. Create accepts parent table/UID, field, revision and an optional
-``afterUid``. Delete accepts a ``childUid`` instead. The browser never sends
-a child table, PID, language, workspace fields or a DataHandler map.
+is rejected. Every intent carries ``action``, ``parentTable``, ``parentUid``,
+``field`` and ``revision``; each action allows exactly these further keys
+(anything else is HTTP 400 before a record is read):
+
+.. list-table:: Intent keys per action
+    :header-rows: 1
+    :widths: 15 40 45
+
+    *   -   Action
+        -   Keys
+        -   Core mechanism
+    *   -   ``create``
+        -   ``afterUid`` (optional, a member)
+        -   Parent inline list with one NEW child; Core writes owner, match
+            fields and sorting.
+    *   -   ``delete``
+        -   ``childUid``
+        -   Parent list without the child plus Core ``delete`` (live), delete
+            placeholder (workspace) or discard (new draft).
+    *   -   ``move``
+        -   ``childUid``, ``afterUid`` (a member, or ``null`` for the first
+            position; the key is required)
+        -   The parent list in the new order, as FormEngine posts after sorting;
+            ``RelationHandler::writeForeignField`` renumbers the members' sorting.
+            An unchanged order is a successful no-op without writes.
+
+The browser never sends a child table, PID, sorting, language, workspace
+fields, live uids or a DataHandler map. A ``childUid`` or ``afterUid`` that is
+not a current member returns HTTP 409 ``stale``. Like a FormEngine save, a
+reorder updates the parent's ``tstamp`` and translation diff source (Core
+bookkeeping) and the renumbered entries' ``sorting`` and ``tstamp``; in a
+workspace only drafts are renumbered.
 
 A Core nonblocking relation lock is shared across workspace identities. The
 server rereads ownership, access, limits and revision under that lock.

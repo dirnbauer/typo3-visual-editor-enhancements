@@ -22,6 +22,7 @@ use Webconsulting\VisualEditorEnhancements\DataHandling\InlineDataHandler;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\CreateOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\DeleteOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\IntentRefused;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\MoveOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\OperationInterface;
 
 /**
@@ -45,8 +46,9 @@ final readonly class InlineRecordService
         private FormDataCompiler $compiler,
         CreateOperation $create,
         DeleteOperation $delete,
+        MoveOperation $move,
     ) {
-        $this->operations = ['create' => $create, 'delete' => $delete];
+        $this->operations = ['create' => $create, 'delete' => $delete, 'move' => $move];
     }
 
     public function backendUrl(string $table, int $uid, bool $contextual = false): string
@@ -198,6 +200,14 @@ final readonly class InlineRecordService
         }
         unset($entry);
         $context['workspace']['firstVersion'] = $context['workspace']['firstVersion'] || $liveChildInWorkspace;
+        $sortReason = $reason ?: self::sortReason($childTable, $config, $controls);
+        foreach ($children as &$entry) {
+            // Members only: a listed delete placeholder is not part of $uids.
+            $index = $entry['state'] === 'deleted' ? false : array_search($entry['uid'], $uids, true);
+            $entry['canMoveUp'] = $sortReason === '' && $index !== false && $index > 0;
+            $entry['canMoveDown'] = $sortReason === '' && $index !== false && $index < count($uids) - 1;
+        }
+        unset($entry);
         $createReason = $reason;
         $defaults = [];
         $requiredBackend = [];
@@ -230,6 +240,7 @@ final readonly class InlineRecordService
             'minItems' => $min, 'maxItems' => $max,
             'canCreate' => $createReason === '', 'createReason' => $createReason,
             'requiredBackend' => $requiredBackend,
+            'canSort' => $sortReason === '', 'sortReason' => $sortReason,
             'createHidden' => $form['workspaceId'] === 0 && (bool)($this->configuration->forPage((int)$form['scopePageId'])['createHidden'] ?? true),
             // Internal only; stripped at the public field boundary.
             '_defaults' => $defaults, '_config' => $config,
@@ -293,6 +304,22 @@ final readonly class InlineRecordService
             $controls[$control] = (bool)($enabled[$control] ?? true);
         }
         return $controls;
+    }
+
+    /**
+     * Why the entries cannot be reordered here: 'unsorted' when Core has no
+     * sorting column to renumber (no foreign_sortby, no ctrl sortby), 'controls'
+     * when the field disables both FormEngine sort controls and drag and drop.
+     *
+     * @param array<string, mixed> $config
+     * @param array<string, bool> $controls
+     */
+    public static function sortReason(string $childTable, array $config, array $controls): string
+    {
+        if (empty($config['foreign_sortby']) && empty($GLOBALS['TCA'][$childTable]['ctrl']['sortby'])) {
+            return 'unsorted';
+        }
+        return !$controls['sort'] && !$controls['dragdrop'] ? 'controls' : '';
     }
 
     /**
@@ -625,6 +652,11 @@ final readonly class InlineRecordService
                 $plan = $operation->apply($field, $form, $intent);
             } catch (IntentRefused $refusal) {
                 return [$refusal->status, ['success' => false, 'reason' => $refusal->reason, 'collection' => self::publicField($field)]];
+            }
+            if (!$plan->write) {
+                return [200, ['success' => true, 'uid' => null, ...$plan->result,
+                    'workspace' => ['id' => (int)$form['workspaceId'], 'firstVersion' => false],
+                    'collections' => array_map(self::publicField(...), $fields)]];
             }
             $childTable = $field['_config']['foreign_table'];
             $connection = $this->connections->getConnectionForTable($table);

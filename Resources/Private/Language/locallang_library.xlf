@@ -451,6 +451,21 @@
         <source>This entry's title is not a plain text field. Edit it in the form.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.moveUp">
+      <segment state="final">
+        <source>Move up</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.moveDown">
+      <segment state="final">
+        <source>Move down</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unsorted">
+      <segment state="final">
+        <source>This collection has no stored order. Use the backend form.</source>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

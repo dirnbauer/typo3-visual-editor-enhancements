@@ -17,6 +17,13 @@ All notable changes to this project are documented here. The format follows
 - Add `collectionTypes` and `workspaceTitle` to the edit-frame configuration
   (`CollectionFieldIndex`), memoize record compiles within one read pass and
   split collection writes into per-action operations.
+- Add the `move` intent (`childUid`, `afterUid` or `null`): the parent's inline
+  list in the new order, renumbered by Core like a FormEngine sort. Members are
+  checked against the compiled list (409 `stale`), an unchanged order is a
+  no-op, and `canSort`/`sortReason` (`unsorted`, `controls`) plus per-entry
+  `canMoveUp`/`canMoveDown` are published. Intents are validated with a
+  per-action key table; `collectionIntent(field, action, options)` builds
+  only the documented keys.
 
 ## [1.5.1] — 2026-11-06
 

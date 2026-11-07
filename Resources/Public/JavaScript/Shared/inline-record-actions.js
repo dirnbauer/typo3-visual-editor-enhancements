@@ -1,11 +1,39 @@
 import {translate} from './dom-utils.js';
 
-/** Pure server-intent builders. Relation and DataHandler identities never come from the client. */
-export function collectionIntent(field, action, childUid = null) {
+/**
+ * The keys each action may carry besides the common identity (mirrors InlineIntent::KEYS).
+ * Anything else is dropped here and rejected by the server.
+ */
+const intentKeys = {
+  create: {afterUid: 'optional'},
+  delete: {childUid: 'required'},
+  move: {childUid: 'required', afterUid: 'nullable'},
+};
+
+/**
+ * Pure server-intent builder. Relation and DataHandler identities never come from
+ * the client: no child table, pid, sorting, language or live uid leaves the browser.
+ *
+ * @param {object} field   collection payload (parentTable, parentUid, name, revision)
+ * @param {string} action  create | delete | move
+ * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
+ */
+export function collectionIntent(field, action, options = {}) {
+  const keys = intentKeys[action];
+  if (!keys) {
+    throw new Error(`Unknown collection action ${action}`);
+  }
   const intent = {action, parentTable: field.parentTable, parentUid: field.parentUid,
     field: field.name, revision: field.revision};
-  if (childUid !== null) {
-    intent[action === 'delete' ? 'childUid' : 'afterUid'] = childUid;
+  for (const [key, rule] of Object.entries(keys)) {
+    const value = options?.[key];
+    if (rule === 'nullable') {
+      intent[key] = Number.isInteger(value) ? value : null;
+    } else if (Number.isInteger(value)) {
+      intent[key] = value;
+    } else if (rule === 'required') {
+      throw new Error(`Collection action ${action} needs ${key}`);
+    }
   }
   return {inlineRecord: intent};
 }
@@ -97,5 +125,8 @@ const inlineFallbacks = {
   "newEntry": "New entry",
   "unavailable": "Unavailable: {value}",
   "deleted": "Marked for deletion in this workspace. Publish or discard it in the Workspaces module.",
-  "label": "This entry's title is not a plain text field. Edit it in the form."
+  "label": "This entry's title is not a plain text field. Edit it in the form.",
+  "moveUp": "Move up",
+  "moveDown": "Move down",
+  "unsorted": "This collection has no stored order. Use the backend form."
 };

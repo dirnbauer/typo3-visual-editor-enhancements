@@ -13,6 +13,7 @@ final readonly class OperationPlan
      * @param bool                                                   $cmdFirst run the cmdmap before the datamap (sync)
      * @param string|null                                            $newId    NEW placeholder of a created child
      * @param array<string, mixed>                                   $result   additional public response keys
+     * @param bool                                                   $write    false: nothing to change (no-op), no DataHandler run
      */
     public function __construct(
         public array $data,
@@ -20,5 +21,6 @@ final readonly class OperationPlan
         public bool $cmdFirst = false,
         public ?string $newId = null,
         public array $result = [],
+        public bool $write = true,
     ) {}
 }
