@@ -516,6 +516,11 @@
         <source>Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.synchronized">
+      <segment state="final">
+        <source>This list follows the default or source language. Set the field to “Custom value” in the backend form to change it here.</source>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

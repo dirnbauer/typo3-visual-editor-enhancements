@@ -160,9 +160,10 @@ final readonly class InlineRecordService
                         return $this->unavailable($field, $column, $table, $form, 'workspace');
                     }
                     // Listed, so staged visibility/title edits work (Core versions the
-                    // child alone). Below an existing parent draft a structural write
-                    // would renumber this live row directly; below a live parent Core
-                    // versions it together with the parent (first version).
+                    // child with its own nested members, see stagedWriteNeedsFirstVersion).
+                    // Below an existing parent draft a structural write would renumber
+                    // this live row directly; below a live parent Core versions it
+                    // together with the parent (first version).
                     $liveChildInWorkspace = $liveChildInWorkspace || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== 0;
                 }
                 $translations = $this->translations->of($childTable, $row);
@@ -173,6 +174,10 @@ final readonly class InlineRecordService
                 $new = (int)($row['t3ver_state'] ?? 0) === 1;
                 $hideReason = $this->writeReason($childTable, $hiddenField, 'hidden', $row, $controls['hide'], $reason);
                 $labelReason = $this->writeReason($childTable, $labelField, 'label', $row, true, $reason);
+                if (($hideReason === '' || $labelReason === '') && $this->stagedWriteNeedsFirstVersion($childTable, $row, $form)) {
+                    $hideReason = $hideReason ?: 'firstVersion';
+                    $labelReason = $labelReason ?: 'firstVersion';
+                }
                 $children[] = [
                     'uid' => $uid, 'table' => $childTable,
                     'liveUid' => (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']),
@@ -382,11 +387,31 @@ final readonly class InlineRecordService
             return 'controls';
         }
         $languageField = (string)($GLOBALS['TCA'][$childTable]['ctrl']['languageField'] ?? '');
-        if (($GLOBALS['TCA'][$childTable]['columns'][$fieldName]['l10n_mode'] ?? '') === 'exclude'
-            && $languageField !== '' && (int)($row[$languageField] ?? 0) > 0) {
+        if ((($GLOBALS['TCA'][$childTable]['columns'][$fieldName]['l10n_mode'] ?? '') === 'exclude'
+            && $languageField !== '' && (int)($row[$languageField] ?? 0) > 0)
+            || InlineTranslations::followsOtherLanguage($childTable, $fieldName, $row)) {
             return 'translation';
         }
         return $this->mayWrite($childTable, $fieldName) ? '' : 'rights';
+    }
+
+    /**
+     * A staged (generic save) write on this live entry in a workspace makes Core
+     * version it - and with it its own nested inline/file members, whose live
+     * sorting and tstamp RelationHandler::writeForeignField renumbers. That is a
+     * first version with live bookkeeping: refused unless the site enabled
+     * firstVersion. A leaf entry is versioned alone and stays editable.
+     * InlineGenericSaveGuard enforces the same rule on the save itself.
+     *
+     * @param array<string, mixed> $row  stored child row (live, or its draft)
+     * @param array<string, mixed> $form compiled parent
+     */
+    private function stagedWriteNeedsFirstVersion(string $childTable, array $row, array $form): bool
+    {
+        $workspace = (int)$form['workspaceId'];
+        return $workspace > 0 && (int)($row['t3ver_wsid'] ?? 0) === 0
+            && !$this->configuration->firstVersion((int)$form['scopePageId'])
+            && $this->snapshots->needsFirstVersion($childTable, (int)$row['uid'], $workspace);
     }
 
     /**
@@ -411,8 +436,9 @@ final readonly class InlineRecordService
                 'id' => $workspaceId,
                 'title' => $this->users->workspaceTitle($workspaceId),
                 // The next structural action would create a first draft here: of the
-                // parent, or of a connected translation Core versions along with it.
-                'firstVersion' => $firstVersion || ($workspaceId > 0 && $mode === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, $workspaceId)),
+                // parent, or of a translation Core versions along with it (reached via
+                // its parent or source pointer, see translatedParentsNeedFirstVersion).
+                'firstVersion' => $firstVersion || ($workspaceId > 0 && $this->translatedParentsNeedFirstVersion($table, $form, $workspaceId)),
             ],
             'languageId' => $languageId,
             'translationMode' => $mode,
@@ -420,16 +446,25 @@ final readonly class InlineRecordService
     }
 
     /**
-     * Core's DataMapProcessor pushes a default-language change into the element's
-     * translations; in a workspace that creates the translated parent's first draft,
-     * whose versioning bookkeeping stamps its live entries.
+     * Core's DataMapProcessor pushes a change of this record into every connected
+     * translation that points at it through its parent or source pointer
+     * (transitively: de -> hu translated from de), but only for tables it applies to
+     * (an l10n_mode = exclude or allowLanguageSynchronization column). In a
+     * workspace that creates such a translation's first draft, whose versioning
+     * bookkeeping stamps its live entries. Works for any record: default language
+     * or a connected translation that is itself a source.
      *
      * @param array<string, mixed> $form
      */
     private function translatedParentsNeedFirstVersion(string $table, array $form, int $workspaceId): bool
     {
-        foreach ($this->translations->parentsByLanguage($table, $form) as $translation) {
-            if ($this->snapshots->needsFirstVersion($table, (int)(($translation['t3ver_oid'] ?? 0) ?: $translation['uid']), $workspaceId)) {
+        if (!$this->snapshots->synchronizesTranslations($table)) {
+            return false;
+        }
+        $live = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
+        $deleted = (string)($GLOBALS['TCA'][$table]['ctrl']['delete'] ?? '');
+        foreach ($this->snapshots->dependents($table, $live) as $uid => $row) {
+            if (($deleted === '' || empty($row[$deleted])) && $this->snapshots->needsFirstVersion($table, $uid, $workspaceId)) {
                 return true;
             }
         }
@@ -462,7 +497,7 @@ final readonly class InlineRecordService
             // The first structural action would create the parent's first draft
             // (Core auto-versioning). Allowed only where the site opted in.
             if (!$this->configuration->firstVersion((int)$form['scopePageId']) && ($parentWorkspace === 0
-                || ($this->context($table, $form)['translationMode'] === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, (int)$form['workspaceId'])))) {
+                || $this->translatedParentsNeedFirstVersion($table, $form, (int)$form['workspaceId']))) {
                 return 'firstVersion';
             }
         }
@@ -474,6 +509,12 @@ final readonly class InlineRecordService
         if (($form['processedTca']['columns'][$field]['l10n_mode'] ?? '') === 'exclude'
             && (int)($form['resolvedRow'][$form['processedTca']['ctrl']['languageField'] ?? ''] ?? 0) > 0) {
             return 'translation';
+        }
+        // allowLanguageSynchronization: Core drops the list write of a translation
+        // that follows its parent/source language (create would leave an orphan,
+        // move would be a silent no-op). 'custom' makes the list the translation's own.
+        if (InlineTranslations::followsOtherLanguage($table, $field, $form['resolvedRow'])) {
+            return 'synchronized';
         }
         return '';
     }
@@ -622,11 +663,19 @@ final readonly class InlineRecordService
         return true;
     }
 
+    /**
+     * Whether DataHandler::fillInFieldArray keeps a submitted value of this column:
+     * it silently skips readOnly columns, HIDE_FOR_NON_ADMINS columns for non-admins
+     * (string form, checked before the exclude right) and exclude columns without
+     * the non_exclude_fields right.
+     */
     private function mayWrite(string $table, string $field): bool
     {
         $user = $this->users->getOrThrow();
-        return empty($GLOBALS['TCA'][$table]['columns'][$field]['config']['readOnly'])
-            && ($user->isAdmin() || empty($GLOBALS['TCA'][$table]['columns'][$field]['exclude']) || $user->check('non_exclude_fields', $table . ':' . $field));
+        $column = $GLOBALS['TCA'][$table]['columns'][$field] ?? [];
+        return empty($column['config']['readOnly'])
+            && ($user->isAdmin() || (($column['displayCond'] ?? '') !== 'HIDE_FOR_NON_ADMINS'
+                && (empty($column['exclude']) || $user->check('non_exclude_fields', $table . ':' . $field))));
     }
 
     /**
@@ -644,21 +693,27 @@ final readonly class InlineRecordService
         $form = $this->contexts->compile($table, $intent['parentUid'], $request);
         $live = (int)(($form['databaseRow']['t3ver_oid'] ?? 0) ?: $form['databaseRow']['uid']);
         // All workspaces share the lock: never serialize by a client-supplied version uid.
-        $lock = $this->locks->createLocker('vee-inline:' . $table . ':' . $live . ':' . $intent['field'], LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
-        try {
-            $acquired = $lock->acquire(LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
-        } catch (LockAcquireWouldBlockException) {
-            $acquired = false;
-        }
-        if (!$acquired) {
+        $lock = $this->locks->createLocker(self::lockKey($table, $live, $intent['field']), LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
+        if (!self::acquire($lock)) {
             return [409, ['success' => false, 'reason' => 'busy']];
         }
+        /** @var list<LockingStrategyInterface> $held */
+        $held = [];
         try {
             $form = $this->contexts->compile($table, $intent['parentUid'], $request);
             $fields = $this->fields($table, $form, $request);
             $field = current(array_filter($fields, static fn(array $field): bool => $field['name'] === $intent['field']));
             if (!$field || empty($field['revision'])) {
                 return [403, ['success' => false, 'reason' => 'rights']];
+            }
+            // A sync or a cascading removal also writes translated parents' relations:
+            // hold their locks too - the key a parity action on that translation takes.
+            foreach ($this->translatedParentLockKeys($table, $live, $field, $intent) as $key) {
+                $translated = $this->locks->createLocker($key, LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
+                if (!self::acquire($translated)) {
+                    return [409, ['success' => false, 'reason' => 'busy']];
+                }
+                $held[] = $translated;
             }
             if (!hash_equals($field['revision'], $intent['revision'])) {
                 return [409, ['success' => false, 'reason' => 'stale', 'collection' => self::publicField($field)]];
@@ -730,8 +785,74 @@ final readonly class InlineRecordService
             $response['collections'] = array_map(self::publicField(...), $freshFields);
             return [200, $response];
         } finally {
+            foreach (array_reverse($held) as $translated) {
+                $translated->release();
+            }
             $lock->release();
         }
+    }
+
+    /** One collection of one live record; shared by every workspace. */
+    private static function lockKey(string $table, int $liveUid, string $field): string
+    {
+        return 'vee-inline:' . $table . ':' . $liveUid . ':' . $field;
+    }
+
+    private static function acquire(LockingStrategyInterface $lock): bool
+    {
+        try {
+            return $lock->acquire(LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
+        } catch (LockAcquireWouldBlockException) {
+            return false;
+        }
+    }
+
+    /**
+     * Locks of the connected translated parents an action on a default-language
+     * collection writes besides its own: a sync writes the synced language's
+     * parent list and entries; a removal that cascades (deleteL10nOverlayRecords)
+     * deletes entries of the translations' parents; with allowLanguageSynchronization
+     * on the column every action makes DataMapProcessor rewrite the translated
+     * lists. Sorted, without the acting record's own key.
+     *
+     * @param array<string, mixed> $field  internal collection payload
+     * @param array<string, mixed> $intent validated intent
+     * @return list<string>
+     */
+    private function translatedParentLockKeys(string $table, int $live, array $field, array $intent): array
+    {
+        if ($field['translationMode'] !== 'default') {
+            return [];
+        }
+        $config = $field['_config'];
+        $parents = [];
+        foreach ($field['translationLanguages'] as $language) {
+            if (!empty($config['behaviour']['allowLanguageSynchronization'])
+                || ($intent['action'] === 'sync' && (int)$language['id'] === (int)$intent['language'])) {
+                $parents[] = (int)$language['parentUid'];
+            }
+        }
+        if ($intent['action'] === 'delete') {
+            $childTable = (string)$config['foreign_table'];
+            foreach ($field['children'] as $child) {
+                if ($child['uid'] !== $intent['childUid'] || $child['state'] === 'deleted' || (int)$child['cascade']['translations'] === 0) {
+                    continue;
+                }
+                foreach ($this->translations->of($childTable, BackendUtility::getRecord($childTable, (int)$child['liveUid']) ?? []) as $translation) {
+                    if (empty($config['foreign_table_field']) || ($translation[$config['foreign_table_field']] ?? '') === $table) {
+                        $parents[] = (int)($translation[$config['foreign_field']] ?? 0);
+                    }
+                }
+            }
+        }
+        $keys = [];
+        foreach (array_unique($parents) as $uid) {
+            if ($uid > 0 && $uid !== $live) {
+                $keys[] = self::lockKey($table, $uid, (string)$field['name']);
+            }
+        }
+        sort($keys);
+        return $keys;
     }
 
     /**

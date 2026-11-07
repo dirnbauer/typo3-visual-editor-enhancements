@@ -200,6 +200,7 @@ const inlineFallbacks = {
   "rights": "Access to this relation or one of its entries is restricted.",
   "language": "This language cannot be edited here. Use the backend form.",
   "translation": "Connected translations inherit structure. Edit the source language in the backend form.",
+  "synchronized": "This list follows the default or source language. Set the field to “Custom value” in the backend form to change it here.",
   "translations": "Connected translations require the backend form for removal.",
   "cascade": "Nested entries or media require the backend form for removal.",
   "controls": "This action is disabled in the backend field configuration.",

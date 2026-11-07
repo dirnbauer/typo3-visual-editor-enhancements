@@ -6,14 +6,24 @@ namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\IntentRefused;
 
 /** Close structural bypasses even when the feature or preference is disabled. */
 final class InlineGenericSaveGuard
 {
-    public function __construct(private readonly EditorRecordContext $contexts) {}
+    public function __construct(
+        private readonly EditorRecordContext $contexts,
+        private readonly InlineRecordConfiguration $configuration,
+        private readonly LiveSnapshot $snapshots,
+    ) {}
 
     /** @param array<string, mixed> $data
      * @param list<array<string, mixed>> $commands
+     *
+     * @throws \InvalidArgumentException a structural bypass (400)
+     * @throws \TYPO3\CMS\Backend\Form\Exception\AccessDeniedException owner chain refused (403)
+     * @throws \TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException record unavailable (403)
+     * @throws IntentRefused 409 firstVersion: a staged write the collection payload refuses
      */
     public function check(array $data, array $commands, ?ServerRequestInterface $request = null): void
     {
@@ -46,7 +56,7 @@ final class InlineGenericSaveGuard
                 $row = $new ? [] : (BackendUtility::getRecordWSOL($table, (int)$uid) ?: []);
                 $owned = $this->owned($table, $row);
                 if ($owned && $request !== null) {
-                    $this->contexts->compile($table, (int)$uid, $request);
+                    $this->refuseFirstVersion($table, $row, $this->contexts->compile($table, (int)$uid, $request));
                 }
                 $placement = ['pid', $GLOBALS['TCA'][$table]['ctrl']['sortby'] ?? '', $GLOBALS['TCA'][$table]['ctrl']['languageField'] ?? '', $GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? ''];
                 foreach ($fields as $field => $value) {
@@ -94,6 +104,37 @@ final class InlineGenericSaveGuard
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * The server side of the payload's hideReason/labelReason 'firstVersion'
+     * (InlineRecordService::stagedWriteNeedsFirstVersion): where the collection
+     * editor is on and the site keeps firstVersion = 0, a workspace write on a live
+     * entry of a collection the editor offers is refused when Core would version
+     * the entry's own live nested members with it. Identities come from the
+     * compiled record, never from the request.
+     *
+     * @param array<string, mixed> $row  workspace-overlaid stored row
+     * @param array<string, mixed> $form compiled entry (EditorRecordContext::compile)
+     */
+    private function refuseFirstVersion(string $table, array $row, array $form): void
+    {
+        $workspace = (int)$form['workspaceId'];
+        $pid = (int)$form['scopePageId'];
+        if ($workspace <= 0 || !$this->configuration->enabled($pid) || $this->configuration->firstVersion($pid)) {
+            return;
+        }
+        $settings = $this->configuration->forPage($pid);
+        $offered = false;
+        foreach (InlineOwnership::relations() as $relation) {
+            $config = $relation['config'];
+            $offered = $offered || ($config['foreign_table'] === $table && (int)($row[$config['foreign_field']] ?? 0) > 0
+                && InlineOwnership::matches($row, $relation['table'], $config) && InlineRecordService::relationReason($config, $settings) === '');
+        }
+        $live = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
+        if ($offered && $this->snapshots->needsFirstVersion($table, $live, $workspace)) {
+            throw new IntentRefused('firstVersion');
         }
     }
 

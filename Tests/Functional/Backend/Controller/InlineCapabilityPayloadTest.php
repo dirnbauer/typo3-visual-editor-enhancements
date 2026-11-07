@@ -140,6 +140,49 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
         self::assertSame('', $this->field()['labelField'], 'Rich text labels are edited in the form, not the inspector');
     }
 
+    /**
+     * DataHandler::fillInFieldArray skips a HIDE_FOR_NON_ADMINS column for
+     * non-admins before the exclude check, silently: no control may promise it.
+     */
+    #[Test]
+    public function hideForNonAdminsDisplayConditionRefusesVisibilityForEditorsOnly(): void
+    {
+        $GLOBALS['TCA']['tx_vee_item']['columns']['hidden']['displayCond'] = 'HIDE_FOR_NON_ADMINS';
+        $field = $this->field();
+        self::assertSame([true, '', ''], [$field['children'][0]['canHide'], $field['children'][0]['hideReason'], $field['createReason']], 'Admin unaffected');
+
+        $this->restrictedOwnerUser('tt_content,tx_vee_item');
+        $field = $this->field();
+        self::assertSame([false, 'rights'], [$field['children'][0]['canHide'], $field['children'][0]['hideReason']]);
+        self::assertSame([false, 'hidden'], [$field['canCreate'], $field['createReason']], 'createHidden cannot be honoured');
+        self::assertSame([true, ''], [$field['children'][0]['canEditLabel'], $field['children'][0]['labelReason']], 'Other columns unaffected');
+    }
+
+    /**
+     * Core 14.3 has no closed editing stage for workspace members: DataHandler
+     * only asks workspaceCheckStageForCurrent(0) (editing-stage access, which every
+     * member has) and restarts the workflow - any write sets the version back to
+     * stage 0, exactly like a backend-form save. The extension mirrors that
+     * instead of inventing a stricter 'stage' refusal.
+     */
+    #[Test]
+    public function elementInReviewStageStaysEditableForMembersAndReturnsToEditingStage(): void
+    {
+        $this->useWorkspace();
+        $this->getConnectionPool()->getConnectionForTable('sys_workspace')->update('sys_workspace', ['members' => 'be_users_2'], ['uid' => 1]);
+        $this->draftParentAndChild();
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['t3ver_stage' => 1], ['uid' => 10]);
+        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->update('tx_vee_item', ['t3ver_stage' => 1], ['uid' => 10]);
+        $this->restrictedOwnerUser('tt_content,tx_vee_item', 'tx_vee_item:hidden', '0,1');
+        $GLOBALS['BE_USER']->workspace = 1;
+
+        $field = $this->field();
+        self::assertSame(['', '', ''], [$field['createReason'], $field['sortReason'], $field['children'][0]['hideReason']]);
+        $created = $this->act($field, 'create');
+        self::assertSame(200, $created[0], json_encode($created, JSON_THROW_ON_ERROR));
+        self::assertSame(0, (int)$this->row(10, 'tt_content')['t3ver_stage'], 'Core moved the element back to the editing stage');
+    }
+
     #[Test]
     public function childHiddenToggleInWorkspaceCreatesChildDraftOnly(): void
     {

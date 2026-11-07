@@ -12,6 +12,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
+use TYPO3\CMS\Core\DataHandling\Localization\State;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -57,6 +58,30 @@ final readonly class InlineTranslations
             }
         }
         return $active;
+    }
+
+    /**
+     * Whether Core keeps this field of a connected translation in step with another
+     * language: allowLanguageSynchronization on the column and the row's l10n_state
+     * says 'parent' (also when unset) or 'source' for it. DataMapProcessor then drops
+     * every value submitted for the field from the translation's datamap
+     * (sanitizeTranslationItem) and synchronizes it from that language instead;
+     * FormEngine shows it read-only behind the localization-state selector. Only
+     * 'custom' makes it the translation's own value.
+     *
+     * @param array<string, mixed> $row the stored row (workspace version when there is one)
+     */
+    public static function followsOtherLanguage(string $table, string $field, array $row): bool
+    {
+        $ctrl = $GLOBALS['TCA'][$table]['ctrl'] ?? [];
+        $pointer = (string)($ctrl['transOrigPointerField'] ?? '');
+        $language = (string)($ctrl['languageField'] ?? '');
+        if ($pointer === '' || $language === '' || (int)($row[$pointer] ?? 0) <= 0 || (int)($row[$language] ?? 0) <= 0) {
+            return false; // default language or free translation: DataMapProcessor leaves it alone
+        }
+        $state = State::fromJSON($table, is_string($row['l10n_state'] ?? null) ? $row['l10n_state'] : null);
+        return $state !== null && ($state->isParentState($field)
+            || ($state->isSourceState($field) && !empty($ctrl['translationSource'])));
     }
 
     /**
@@ -129,7 +154,9 @@ final readonly class InlineTranslations
                 if (!$this->contexts->mayEditField($table, $field, $translatedForm)
                     || !empty($translatedForm['processedTca']['columns'][$field]['config']['readOnly'])) {
                     $reason = 'rights';
-                } elseif (($translatedForm['processedTca']['columns'][$field]['l10n_mode'] ?? '') === 'exclude') {
+                } elseif (($translatedForm['processedTca']['columns'][$field]['l10n_mode'] ?? '') === 'exclude'
+                    || self::followsOtherLanguage($table, $field, $translatedForm['resolvedRow'])) {
+                    // Core keeps a synchronized list in step itself; FormEngine offers no localize there.
                     $reason = 'translation';
                 }
             } catch (AccessDeniedException|DatabaseRecordException) {

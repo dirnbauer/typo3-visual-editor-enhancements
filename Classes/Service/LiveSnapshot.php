@@ -6,14 +6,19 @@ namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\Localization\State;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
  * The live rows a structural workspace action could reach, captured before and
  * after the write inside the transaction.
  *
- * Roots: the live parent and its live connected translations. Core's
- * DataMapProcessor pushes changes of a default-language record into its
- * translations, which in a workspace versions the translated parent as well.
+ * Roots: the live parent and every live record Core's DataMapProcessor can
+ * reach from it (dependents()): connected translations pointing at it through
+ * their parent OR their source pointer, transitively. DataMapProcessor pushes
+ * changes into them, which in a workspace versions them as well. They are roots
+ * whether or not Core synchronizes the table (strict roots Core never touches
+ * stay byte-identical anyway).
  * Per root: the root row; every inline/file relation of the root and,
  * recursively, of its live members up to a depth of three (Core versions all of
  * them together with their owner); the live translations of every member that no
@@ -35,7 +40,7 @@ final readonly class LiveSnapshot
 {
     public const MAX_DEPTH = 3;
 
-    public function __construct(private ConnectionPool $connections) {}
+    public function __construct(private ConnectionPool $connections, private TcaSchemaFactory $schemas) {}
 
     /**
      * @return Snapshot
@@ -44,7 +49,7 @@ final readonly class LiveSnapshot
     {
         $snapshot = ['roots' => [], 'relations' => [], 'translations' => [], 'truncated' => false];
         $roots = [$liveUid => $this->connections->getConnectionForTable($table)->select(['*'], $table, ['uid' => $liveUid])->fetchAssociative()];
-        foreach ($this->liveTranslations($table, $liveUid) as $uid => $row) {
+        foreach ($this->dependents($table, $liveUid) as $uid => $row) {
             $roots[$uid] = $row;
         }
         $covered = [];
@@ -66,6 +71,81 @@ final readonly class LiveSnapshot
         ksort($snapshot['relations']);
         ksort($snapshot['translations']);
         return $snapshot;
+    }
+
+    /**
+     * The live records Core's DataMapProcessor reaches from this one, found the way
+     * DataMapProcessor::fetchDependentElements() finds them: connected translations
+     * (language > 0, transOrigPointerField > 0) whose transOrigPointerField OR
+     * translationSource points at the record or at a record already reached,
+     * repeated until nothing new turns up (Core repeats it for every dependent it
+     * writes). Deleted rows are included; callers deciding what Core writes skip
+     * them (Core's query has the deleted restriction).
+     *
+     * @return array<int, array<string, mixed>> live uid => row, by uid
+     */
+    public function dependents(string $table, int $liveUid): array
+    {
+        $ctrl = $GLOBALS['TCA'][$table]['ctrl'] ?? [];
+        $pointer = (string)($ctrl['transOrigPointerField'] ?? '');
+        $language = (string)($ctrl['languageField'] ?? '');
+        if ($pointer === '' || $language === '') {
+            return [];
+        }
+        $source = (string)($ctrl['translationSource'] ?? '');
+        $found = [];
+        $seen = [$liveUid => true];
+        $targets = [$liveUid];
+        while ($targets !== []) {
+            $query = $this->connections->getQueryBuilderForTable($table);
+            $query->getRestrictions()->removeAll();
+            $ancestors = [$query->expr()->in($pointer, $query->createNamedParameter($targets, Connection::PARAM_INT_ARRAY))];
+            if ($source !== '') {
+                $ancestors[] = $query->expr()->in($source, $query->createNamedParameter($targets, Connection::PARAM_INT_ARRAY));
+            }
+            $query->select('*')->from($table)->where(
+                $query->expr()->gt($language, $query->createNamedParameter(0, Connection::PARAM_INT)),
+                $query->expr()->gt($pointer, $query->createNamedParameter(0, Connection::PARAM_INT)),
+                $query->expr()->or(...$ancestors),
+            )->orderBy('uid');
+            if (!empty($ctrl['versioningWS'])) {
+                $query->andWhere($query->expr()->eq('t3ver_wsid', $query->createNamedParameter(0, Connection::PARAM_INT)));
+            }
+            $targets = [];
+            foreach ($query->executeQuery()->fetchAllAssociative() as $row) {
+                $uid = (int)$row['uid'];
+                if (!isset($seen[$uid])) {
+                    $seen[$uid] = true;
+                    $found[$uid] = $row;
+                    $targets[] = $uid;
+                }
+            }
+        }
+        ksort($found);
+        return $found;
+    }
+
+    /**
+     * Whether Core's DataMapProcessor pushes changes of a record of this table into
+     * its translations at all. Mirrors DataMapProcessor::isApplicable(), which is
+     * protected: a language-aware table with an allowLanguageSynchronization column
+     * (State::isApplicable()) or with an l10n_mode = exclude column that is not of
+     * type none.
+     */
+    public function synchronizesTranslations(string $table): bool
+    {
+        if (State::isApplicable($table)) {
+            return true;
+        }
+        if (!$this->schemas->has($table) || !$this->schemas->get($table)->isLanguageAware()) {
+            return false;
+        }
+        foreach ($this->schemas->get($table)->getFields() as $field) {
+            if (($field->getConfiguration()['l10n_mode'] ?? null) === 'exclude' && $field->getType() !== 'none') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

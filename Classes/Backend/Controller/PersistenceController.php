@@ -12,6 +12,7 @@ use Webconsulting\VisualEditorEnhancements\Service\DataHandlerService;
 use Webconsulting\VisualEditorEnhancements\Service\InlineGenericSaveGuard;
 use Webconsulting\VisualEditorEnhancements\Service\InlineIntent;
 use Webconsulting\VisualEditorEnhancements\Service\InlineRecordService;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\IntentRefused;
 
 #[AsController]
 final readonly class PersistenceController
@@ -67,6 +68,9 @@ final readonly class PersistenceController
             $this->inlineGuard->check($data, $cmdArray, $request);
         } catch (\InvalidArgumentException $error) {
             return new JsonResponse(['success' => false, 'error' => $error->getMessage()], 400);
+        } catch (IntentRefused $refusal) {
+            // Same shape and status as a refused collection intent (reason -> sentence).
+            return new JsonResponse(['success' => false, 'reason' => $refusal->reason, 'error' => $refusal->getMessage()], $refusal->status);
         } catch (\TYPO3\CMS\Backend\Form\Exception\AccessDeniedException|\TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException) {
             return new JsonResponse(['success' => false, 'reason' => 'rights'], 403);
         }

@@ -258,6 +258,26 @@ final class FieldOptionsMiddlewareTest extends FunctionalTestCase
     }
 
     /**
+     * allowLanguageSynchronization: while the translation's l10n_state says the
+     * field follows the default (or source) language, the backend form shows it
+     * read-only behind the localization-state selector and DataMapProcessor drops
+     * a submitted value. Only 'custom' makes it the translation's own field.
+     */
+    #[Test]
+    public function translatedRecordsOfferSynchronizedFieldsOnlyWithACustomState(): void
+    {
+        $this->loginEditor();
+        $GLOBALS['TCA']['pages']['columns']['layout']['l10n_mode'] = '';
+        $GLOBALS['TCA']['pages']['columns']['layout']['config']['behaviour']['allowLanguageSynchronization'] = true;
+        $this->get(\TYPO3\CMS\Core\Schema\TcaSchemaFactory::class)->rebuild($GLOBALS['TCA']);
+
+        self::assertContains('layout', array_column($this->fieldOptions('pages', 666)['fields'], 'name'), 'Default language unaffected');
+        self::assertNotContains('layout', array_column($this->fieldOptions('pages', 667)['fields'], 'name'), 'No state yet: follows the default language');
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['l10n_state' => '{"layout":"custom"}'], ['uid' => 667]);
+        self::assertContains('layout', array_column($this->fieldOptions('pages', 667)['fields'], 'name'));
+    }
+
+    /**
      * A backend user without tables_modify on the table is authenticated and
      * holds a valid token, and still must not see the record's fields.
      */

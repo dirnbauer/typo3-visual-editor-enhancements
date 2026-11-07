@@ -236,8 +236,12 @@ final readonly class FieldOptionsService
         if ($isTranslation) {
             // defaultAsReadonly shows the default language value read-only;
             // l10n_mode=exclude hides the field on translations altogether.
+            // allowLanguageSynchronization: while l10n_state says the field follows
+            // the parent/source language, the form shows it read-only behind the
+            // localization-state selector and DataMapProcessor drops a submitted value.
             if (GeneralUtility::inList((string)($column['l10n_display'] ?? ''), 'defaultAsReadonly')
                 || ($column['l10n_mode'] ?? '') === 'exclude'
+                || InlineTranslations::followsOtherLanguage($table, $fieldName, $formData['resolvedRow'])
             ) {
                 return false;
             }
