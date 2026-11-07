@@ -2,7 +2,8 @@ import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messagi
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
 import {editorColorScheme, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
-import {injectFieldChooserAction, injectInlineRecordsAction} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
+import {injectFieldChooserAction, injectInlineRecordsAction, makeButton} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
+import {installActionBarLabels} from '@webconsulting/visual-editor-enhancements/Frontend/action-bar-labels.js';
 import {applyTheme} from '@webconsulting/visual-editor-enhancements/Shared/theme-bridge.js';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance.js';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
@@ -40,22 +41,25 @@ async function initializeElementLibrary() {
 /**
  * One shared injection pass (initial sweep + MutationObserver + wrapped
  * VeContentElement.updated) feeds every per-element enhancement: the
- * action-bar buttons and the per-output context buttons on the editable
+ * action-bar buttons, the action-bar labels (vendor buttons included, so
+ * this pass always runs) and the per-output context buttons on the editable
  * outputs inside an element. The repeated sweeps pick up late-rendered
  * outputs; each injector is idempotent.
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
-  if (libraryModule === null && !isFieldChooserEnabled() && !isInlineRecordsEnabled()) {
-    return;
-  }
   const injectActions = (contentElement) => {
     if (libraryModule !== null) {
       injectLibraryAction(contentElement, libraryModule);
     }
-    injectFieldChooserAction(contentElement);
-    injectInlineRecordsAction(contentElement);
+    if (isFieldChooserEnabled()) {
+      injectFieldChooserAction(contentElement);
+    }
+    if (isInlineRecordsEnabled()) {
+      injectInlineRecordsAction(contentElement);
+    }
     attachElementContextAffordance(contentElement);
+    installActionBarLabels(contentElement);
   };
   const injectAll = () => document.querySelectorAll('ve-content-element').forEach(injectActions);
   injectAll();
@@ -84,14 +88,8 @@ function injectLibraryAction(contentElement, libraryModule) {
   if (!actionBar || actionBar.querySelector('[data-ve-enhancement="element-library"]')) {
     return;
   }
-  const button = document.createElement('button');
-  button.className = 'button';
-  button.type = 'button';
-  button.dataset.veEnhancement = 'element-library';
-  const label = translate('frontend.library.fromLibrary', 'Add from library');
-  button.title = label;
-  button.setAttribute('aria-label', label);
-  button.innerHTML = '<ve-icon name="actions-menu-alternative"></ve-icon>';
+  const button = makeButton('element-library', {label: translate('frontend.actionBar.library', 'Library'),
+    description: translate('frontend.library.fromLibrary', 'Add from library'), icon: '<ve-icon name="actions-menu-alternative"></ve-icon>'});
   button.addEventListener('click', () => libraryModule.getElementLibrary().openPanel());
   actionBar.appendChild(button);
 }

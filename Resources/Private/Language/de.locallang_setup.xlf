@@ -97,5 +97,41 @@
         <target>Einträge sofort hinzufügen oder löschen. Zurücksetzen macht dies nicht rückgängig.</target>
       </segment>
     </unit>
+    <unit id="actionLabels">
+      <segment state="final">
+        <source>Action bar labels</source>
+        <target>Beschriftung der Aktionsleiste</target>
+      </segment>
+    </unit>
+    <unit id="actionLabels.description">
+      <segment state="final">
+        <source>How the buttons above a content element show their names. The text is very small and never moves the buttons.</source>
+        <target>Wie die Buttons über einem Inhaltselement ihre Namen zeigen. Der Text ist sehr klein und verschiebt die Buttons nie.</target>
+      </segment>
+    </unit>
+    <unit id="actionLabels.caption">
+      <segment state="final">
+        <source>Name of the pointed, focused or clicked button below the bar</source>
+        <target>Name des berührten, fokussierten oder geklickten Buttons unter der Leiste</target>
+      </segment>
+    </unit>
+    <unit id="actionLabels.inline">
+      <segment state="final">
+        <source>Name beside every icon while the bar is shown</source>
+        <target>Name neben jedem Symbol, solange die Leiste sichtbar ist</target>
+      </segment>
+    </unit>
+    <unit id="actionLabels.stacked">
+      <segment state="final">
+        <source>Name under every icon while the bar is shown</source>
+        <target>Name unter jedem Symbol, solange die Leiste sichtbar ist</target>
+      </segment>
+    </unit>
+    <unit id="actionLabels.icons">
+      <segment state="final">
+        <source>Icons only (tooltips)</source>
+        <target>Nur Symbole (Tooltips)</target>
+      </segment>
+    </unit>
 </file>
 </xliff>

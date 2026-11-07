@@ -195,6 +195,38 @@ Feature audit against 1.10.3
             was introduced). Should upstream grow a setting of its own, this
             listener becomes redundant and can go.
 
+..  _compatibility-action-bar-labels:
+
+Action-bar labels and selectors (1.6)
+=====================================
+
+The labels (:ref:`usage-action-bar-labels`) patch nothing. Audited against
+**friendsoftypo3/visual-editor 1.10.4**:
+
+*   The bar is ``<ve-drag-handle class="action-bar">``, rendered in light DOM
+    inside the ``ve-content-element`` shadow root; its buttons carry
+    ``class="button"`` plus ``title`` and ``aria-label``. The label rules
+    rely on exactly these two class names and on the vendor's
+    ``--auto-no-overlap-padding`` variable, nothing else.
+*   One constructable stylesheet is appended to each element's
+    ``shadowRoot.adoptedStyleSheets`` - the API Lit itself uses for the
+    vendor's ``static styles`` - so a Lit re-render never drops it. The
+    sheet is shared by all elements of the page.
+*   The labels are ``::after`` generated content of the existing buttons
+    (``content: attr(aria-label)`` or ``attr(data-ve-label)``). That
+    includes Core's ``typo3-backend-contextual-record-edit-trigger``, a
+    shadow host whose own shadow root is a single ``<slot>``: the host's
+    ``::after`` renders in Chromium (proven by a pixel comparison in
+    :file:`Tests/E2E/action-bar-labels-component.spec.js`), so no node is
+    added to that button.
+*   Only attributes are written: ``data-ve-labels`` on the bar,
+    ``data-ve-label``, ``data-ve-label-current`` on buttons,
+    ``data-ve-labels-pinned`` on the bar. No vendor click handler is
+    intercepted, and the labels have ``pointer-events: none``, so the whole
+    bar stays the vendor's drag handle.
+*   Should a later Visual Editor render labels of its own (a ``.label``
+    element in the bar, or ``veInfo.actionBarLabels``), nothing is adopted.
+
 ..  _compatibility-not-here:
 
 What lives elsewhere

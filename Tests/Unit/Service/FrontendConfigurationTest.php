@@ -68,6 +68,7 @@ final class FrontendConfigurationTest extends TestCase
             'workspaceId' => 0,
             'elementRefreshEnabled' => true,
             'colorScheme' => 'auto',
+            'actionLabelMode' => 'caption',
         ], $this->build([], 666));
     }
 
@@ -98,6 +99,31 @@ final class FrontendConfigurationTest extends TestCase
     public function theEditorChromeStartsInTheUsersBackendColorScheme(mixed $setting, string $expected): void
     {
         self::assertSame($expected, $this->build(['colorScheme' => $setting], 666)['colorScheme']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function actionLabelModeProvider(): iterable
+    {
+        yield 'caption' => ['caption', 'caption'];
+        yield 'inline' => ['inline', 'inline'];
+        yield 'stacked' => ['stacked', 'stacked'];
+        yield 'icons' => ['icons', 'icons'];
+        yield 'not set' => [null, 'caption'];
+        yield 'unknown value' => ['all', 'caption'];
+        yield 'not a string' => [1, 'caption'];
+    }
+
+    #[Test]
+    #[DataProvider('actionLabelModeProvider')]
+    public function theActionBarLabelModeIsTheUsersSettingWithCaptionAsDefault(mixed $setting, string $expected): void
+    {
+        $settings = $setting === null ? [] : ['tx_visualeditor_actionLabels' => $setting];
+
+        self::assertSame($expected, $this->build($settings, 666)['actionLabelMode']);
+        // Page-independent: also without a resolved page.
+        self::assertSame($expected, $this->build($settings, null)['actionLabelMode']);
     }
 
     /**

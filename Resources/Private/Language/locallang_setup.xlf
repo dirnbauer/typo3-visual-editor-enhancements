@@ -81,5 +81,35 @@
         <source>Add or remove entries immediately. Reset does not undo these changes.</source>
       </segment>
     </unit>
+    <unit id="actionLabels">
+      <segment>
+        <source>Action bar labels</source>
+      </segment>
+    </unit>
+    <unit id="actionLabels.description">
+      <segment>
+        <source>How the buttons above a content element show their names. The text is very small and never moves the buttons.</source>
+      </segment>
+    </unit>
+    <unit id="actionLabels.caption">
+      <segment>
+        <source>Name of the pointed, focused or clicked button below the bar</source>
+      </segment>
+    </unit>
+    <unit id="actionLabels.inline">
+      <segment>
+        <source>Name beside every icon while the bar is shown</source>
+      </segment>
+    </unit>
+    <unit id="actionLabels.stacked">
+      <segment>
+        <source>Name under every icon while the bar is shown</source>
+      </segment>
+    </unit>
+    <unit id="actionLabels.icons">
+      <segment>
+        <source>Icons only (tooltips)</source>
+      </segment>
+    </unit>
 </file>
 </xliff>

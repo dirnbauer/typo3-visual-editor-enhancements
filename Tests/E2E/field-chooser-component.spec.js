@@ -199,8 +199,8 @@ test('toolbar settings and entries share one component with Core versioned impor
     const actions = await import('@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js');
     actions.injectFieldChooserAction(element); actions.injectInlineRecordsAction(element);
   });
-  const settings = page.getByRole('button', {name: 'Edit field settings', exact: true});
-  const entries = page.getByRole('button', {name: 'Edit collection entries', exact: true});
+  const settings = page.getByRole('button', {name: 'Settings', exact: true}).and(page.locator('[data-ve-enhancement="field-chooser"]'));
+  const entries = page.getByRole('button', {name: 'Entries', exact: true}).and(page.locator('[data-ve-enhancement="inline-records"]'));
   await settings.click();
   await expect(page.getByRole('dialog', {name: 'Field settings', exact: true})).toBeVisible();
   await page.getByRole('combobox', {name: 'First'}).selectOption('a');

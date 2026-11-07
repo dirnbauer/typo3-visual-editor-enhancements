@@ -97,8 +97,10 @@ site-specific and deliberately not shipped here — the contract is in the
 ## Use
 
 In *Web > Edit*: the round button top right opens the library, drag a card onto
-a drop zone. Every element's action bar gets an "Edit field settings" button,
-and hovering an editable text shows a small button that opens the same popover
+a drop zone. Every element's action bar gets a "Settings" button (and, with
+collection editing on, "Entries" and "Add entry"); every bar button shows a very
+small label on hover, focus or click (User settings > Visual editor > Action bar
+labels). Hovering an editable text shows a small button that opens the same popover
 scoped to that field. Link fields show a chain icon that opens the TYPO3 link
 browser. Everything is staged and written by the editor's normal save.
 

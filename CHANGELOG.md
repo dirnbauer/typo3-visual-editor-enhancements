@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Give every action-bar button - the Visual Editor's own and ours - a very
+  small text label that appears only on hover, keyboard focus or click. One
+  shared constructable stylesheet is adopted into each element's shadow root;
+  the labels are generated content of the existing buttons, so the vendor
+  template is not patched. The visible text is the accessible name or a word
+  contained in it ("Edit", "Delete"; German "Bearbeiten", "Löschen").
+- Add the user setting *Action bar labels*
+  (`tx_visualeditor_actionLabels`): `caption` (default; a reserved 14 px row,
+  11 px text, the bar never changes size), `inline`, `stacked` (10 px) or
+  `icons` (the previous look). Touch screens show the inline labels.
+- Add an **Add entry** button to the action bar: one click adds an entry at
+  the end of the element's collection, refreshes the element, opens the
+  entries panel and puts the cursor into the new entry on the page; with
+  several collections it opens the panel at the first collection's add
+  button. Entries and Add entry render from the first paint when the server
+  sends the collection index (`collectionTypes`) instead of after a hover
+  request; rights are still decided on click, after which a refused button
+  stays focusable with `aria-disabled` and its reason.
+- Shorten our own button names to "Library", "Settings", "Entries" and
+  "Add entry" (the long sentences remain tooltips in `icons` mode); the
+  Entries button uses Core's `actions-list-alternative` icon and loses its
+  permanent text. Only the two panel openers keep `aria-haspopup`.
+
 ## [1.5.1] — 2026-11-06
 
 - Fix field settings breaking after opening collection entries. Both toolbar

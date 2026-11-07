@@ -89,3 +89,14 @@ tab labels, refresh selection, sections, nested Back, stale responses,
 pending/invalid/saving states, cancellation, HTTP failure and visibility state.
 It does not replace the joint showcase-page journey with real Core modals,
 admin/restricted editors and translated workspace records.
+
+`action-bar-labels-component.spec.js` (also login-free) renders the real
+Visual Editor `ve-content-element`, the real Core contextual edit trigger and
+this extension's real injection pass (`Frontend/index.js`,
+`support/action-bar-harness.js`). It covers the four label modes, the shared
+adopted stylesheet, label-in-name in English and German, the caption row
+never resizing the bar, hover/focus/click reveal, `(hover: none)`, reduced
+motion, the trigger host's `::after` (pixel proof) and the Add entry button
+(first-render visibility from `collectionTypes`, the hover fallback without
+it, create → refresh → focus, `aria-disabled` with reason). It writes a
+screenshot set to `var/screenshots/` (git-ignored).
