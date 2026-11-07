@@ -75,6 +75,16 @@ On the *Visual editor* tab of :guilabel:`User settings`:
         with tooltips only). Unknown values mean ``caption``. See
         :ref:`usage-action-bar-labels`.
 
+    ..  confval:: tx_visualeditor_entriesLayout
+        :type: string
+        :default: inspector
+
+        Where the entries inspector opens: ``inspector`` (docked at the
+        right edge), ``tray`` (at the bottom, full width, rows as a compact
+        table - for language frames side by side) or ``anchored`` (under
+        the element's action bar, scrolling with it). Unknown values mean
+        ``inspector``. See :ref:`usage-entries-layout`.
+
 Install-wide defaults for these settings are Core User TSconfig, for
 example for an editor group:
 
@@ -83,6 +93,7 @@ example for an editor group:
 
     setup.default.tx_visualeditor_actionLabels = inline
     setup.default.tx_visualeditor_inlineRecords = 1
+    setup.default.tx_visualeditor_entriesLayout = tray
 
 A user's own choice in :guilabel:`User settings` still wins.
 

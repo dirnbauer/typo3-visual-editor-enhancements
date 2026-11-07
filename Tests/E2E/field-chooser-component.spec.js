@@ -1,7 +1,7 @@
 import {readFile, readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {expect, test} from '@playwright/test';
-import {actionBarHarness} from './support/action-bar-harness.js';
+import {actionBarHarness, screenshotDir} from './support/action-bar-harness.js';
 
 const resources = new URL('../../Resources/Public/JavaScript/', import.meta.url);
 const core = new URL('../../vendor/typo3/cms-core/Resources/Public/JavaScript/Contrib/', import.meta.url);
@@ -493,4 +493,58 @@ test('row actions are quiet at rest and full on hover; refused controls stay foc
   await expect(row(page, 3).getByRole('button', {name: 'Move down'})).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(row(page, 4).getByRole('textbox')).toBeFocused();
+});
+
+/* ------------------------------------------------------------------------
+ * Panel layouts (WP-H): User settings > Entries panel.
+ * --------------------------------------------------------------------- */
+
+const layoutShots = [];
+
+test('inspector, tray and anchored render the same actions at 1280 and 390 px, light and dark', async ({page}) => {
+  test.setTimeout(120000);
+  for (const width of [1280, 390]) {
+    for (const scheme of ['light', 'dark']) {
+      for (const layout of ['inspector', 'tray', 'anchored']) {
+        await page.setViewportSize({width, height: width > 400 ? 800 : 844});
+        await page.emulateMedia({colorScheme: scheme});
+        await actionBarHarness(page, {scheme, layout});
+        await openEntries(page);
+        const panel = page.locator('ve-field-chooser .popover');
+        await expect(panel).toHaveAttribute('data-layout', layout);
+        // The same controls in every layout.
+        for (const uid of [2, 3]) {
+          for (const name of ['Move up', 'Move down', 'Add after', 'Remove']) {
+            await expect(row(page, uid).getByRole('button', {name, exact: true})).toHaveCount(1);
+          }
+          await expect(row(page, uid).getByRole('switch')).toHaveCount(1);
+          await expect(row(page, uid).getByRole('textbox')).toHaveCount(1);
+        }
+        const box = await panel.boundingBox();
+        const viewport = page.viewportSize();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 0.5);
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 0.5);
+        if (layout === 'inspector') { expect(viewport.width - (box.x + box.width)).toBeCloseTo(12, 0); }
+        if (layout === 'tray') {
+          expect(viewport.height - (box.y + box.height)).toBeCloseTo(12, 0);
+          expect(box.width).toBeCloseTo(viewport.width - 24, 0);
+        }
+        if (layout === 'anchored') {
+          const trigger = await page.locator('ve-content-element[uid="1"] .action-bar [data-ve-enhancement="inline-records"]').boundingBox();
+          expect(box.y).toBeGreaterThan(trigger.y);
+          // Scrolls with the element.
+          await page.evaluate(() => { document.body.style.minHeight = '200vh'; window.scrollBy(0, 60); });
+          await expect.poll(async () => Math.round((await panel.boundingBox()).y)).toBeLessThan(Math.round(box.y));
+          await page.evaluate(() => window.scrollTo(0, 0));
+        }
+        await row(page, 3).hover();
+        await page.waitForTimeout(200);
+        const path = `${screenshotDir}/entries-${layout}-${width}-${scheme}.png`;
+        await page.screenshot({path});
+        layoutShots.push(path);
+        await page.unrouteAll({behavior: 'wait'});
+      }
+    }
+  }
 });

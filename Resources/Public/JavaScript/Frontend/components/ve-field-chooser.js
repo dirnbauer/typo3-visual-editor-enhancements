@@ -2,7 +2,7 @@ import {html, LitElement, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
-import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {entriesLayout, fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 import {linkIconSvg, listIconSvg, workspaceIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
@@ -56,6 +56,8 @@ export class VeFieldChooser extends LitElement {
     super();
     this.view = 'settings';
     this.docked = false;
+    /** 'popover' (field settings) or the user's entries layout: 'inspector' | 'tray' | 'anchored'. */
+    this.layout = 'popover';
     this.anchorRect = null;
     this.trigger = null;
     this.viewportTracker = new ViewportTracker(() => this.#position());
@@ -168,7 +170,8 @@ export class VeFieldChooser extends LitElement {
       this.trigger = trigger;
       this.trigger?.setAttribute('aria-expanded', 'true');
       this.anchorRect = anchorRect;
-      this.docked = view === 'entries';
+      this.layout = view === 'entries' ? entriesLayout() : 'popover';
+      this.docked = this.layout === 'inspector' || this.layout === 'tray';
       this.rootView = view;
       this.message = message;
       this.createdUid = null;
@@ -252,14 +255,25 @@ export class VeFieldChooser extends LitElement {
   }
 
   /**
-   * Anchors the fixed popover to the action-bar button: preferred below the
-   * button, left-aligned and clamped to the viewport; when the space below is
-   * short it flips above (bottom-anchored, so it grows upwards).
+   * Places the panel for its layout. Docked layouts (inspector: right edge,
+   * tray: bottom edge) are pure CSS. Field settings and the anchored entries
+   * layout follow the action-bar button: preferred below it, left-aligned and
+   * clamped to the viewport; when the space below is short it flips above
+   * (bottom-anchored, so it grows upwards). The viewport tracker calls this on
+   * scroll, so the anchored panel scrolls with its element.
    */
   #position() {
     if (this.docked) {
       this.popoverStyle = '';
       return;
+    }
+    // An element refresh replaced the wrapper and with it the trigger.
+    if (this.trigger && !this.trigger.isConnected && this.rootView === 'entries') {
+      const replacement = this.#wrapper()?.shadowRoot?.querySelector('[data-ve-enhancement="inline-records"]');
+      if (replacement) {
+        this.trigger = replacement;
+        this.trigger.setAttribute('aria-expanded', 'true');
+      }
     }
     const edge = 12;
     const gap = 8;
@@ -425,7 +439,7 @@ export class VeFieldChooser extends LitElement {
     const useTabs = tabs.length > 1;
     const activeTab = useTabs ? Math.min(this.activeTab, tabs.length - 1) : 0;
     return html`
-      <div class="popover ${this.docked ? 'isDrawer' : ''}" style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
+      <div class="popover ${this.layout === 'inspector' ? 'isDrawer' : ''} ${this.layout === 'tray' ? 'isTray' : ''} ${this.layout === 'anchored' ? 'isAnchored' : ''}" data-layout=${this.layout} style="${this.popoverStyle}" role="dialog" aria-label="${title}" tabindex="-1">
         <header class="header">
           ${this.history.length ? html`<button type="button" class="closeButton" aria-label=${inlineLabel('back')} title=${inlineLabel('back')} @click=${() => this.#back()}>←</button>` : ''}
           <div class="heading">

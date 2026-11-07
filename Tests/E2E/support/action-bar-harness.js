@@ -104,19 +104,19 @@ function element(uid, cType, name, inner) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean}} options
+ * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean, layout?: 'inspector'|'tray'|'anchored', htmlLang?: string|null}} options
  * @return {Promise<{posts: object[], state: {created: boolean}}>}
  */
 export async function actionBarHarness(page, {mode = 'caption', collectionTypes = {tt_content: {feature_cards: ['cards']}}, lang = 'en',
-  scheme = 'light', field = {}, inlineRecords = true, markers = false} = {}) {
+  scheme = 'light', field = {}, inlineRecords = true, markers = false, layout = 'inspector', htmlLang = null} = {}) {
   const imports = await importMap();
   const lang_ = await labels(lang);
   const posts = [];
   const state = {created: false};
   const config = {actionLabelMode: mode, inlineRecordsEnabled: inlineRecords, fieldChooserMode: 'tabs', fieldChooserTables: ['tt_content'],
-    elementLibraryEnabled: false, contextButtonsEnabled: false, editableLinksEnabled: false, elementRefreshEnabled: true, workspaceId: 0, colorScheme: scheme};
+    elementLibraryEnabled: false, contextButtonsEnabled: false, editableLinksEnabled: false, elementRefreshEnabled: true, workspaceId: 0, colorScheme: scheme, entriesLayout: layout};
   if (collectionTypes !== null) { config.collectionTypes = collectionTypes; }
-  const html = () => `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>Action bar harness</title>
+  const html = () => `<!doctype html><html lang="${htmlLang ?? lang}"><head><meta charset="utf-8"><title>Action bar harness</title>
     <script type="importmap">${JSON.stringify({imports})}</script>
     <script>window.visualEditorEnhancements = ${JSON.stringify(config)};
       window.veInfo = {token: 'token', allowNewContent: true, languageId: 0, editContentUrl: '/edit/__TABLE__/__UID__', editContentContextualUrl: '/contextual/__TABLE__/__UID__'};

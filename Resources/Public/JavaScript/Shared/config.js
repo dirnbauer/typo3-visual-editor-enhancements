@@ -74,6 +74,17 @@ export function actionLabelMode() {
 }
 
 /**
+ * Where the entries inspector opens (User settings > Visual editor > Entries
+ * panel, be_users.uc tx_visualeditor_entriesLayout): docked right, a tray at
+ * the bottom or a popover under the element's action bar.
+ * @return {'inspector'|'tray'|'anchored'}
+ */
+export function entriesLayout() {
+  const layout = enhancementConfig().entriesLayout;
+  return ['inspector', 'tray', 'anchored'].includes(layout) ? layout : 'inspector';
+}
+
+/**
  * The record-free index of collection (inline) fields per table and record
  * type, `{<table>: {<recordType>: [inlineFieldNames]}}`, built server-side
  * from the TCA schema. It lists field names only - whether the user may

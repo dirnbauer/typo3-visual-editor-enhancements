@@ -30,12 +30,27 @@ export const styles = [themeTokens, css`
       line-height: 1.4;
     }
 
+    /* Entries layouts (User settings > Entries panel). */
     .popover.isDrawer {
       top: 12px;
       right: 12px;
-      width: min(380px, calc(100vw - 24px));
+      width: min(400px, calc(100vw - 24px));
       max-height: calc(100dvh - 24px);
     }
+
+    .popover.isTray {
+      right: 12px;
+      bottom: 12px;
+      left: 12px;
+      width: auto;
+      max-height: min(42dvh, 420px);
+    }
+
+    .popover.isAnchored {
+      width: min(480px, calc(100vw - 24px));
+    }
+
+    .body { container-type: inline-size; container-name: entries; }
 
     .header, .footer { flex-shrink: 0; }
     .body { min-height: 0; overscroll-behavior: contain; }
@@ -609,6 +624,29 @@ export const styles = [themeTokens, css`
       clip-path: inset(50%);
       white-space: nowrap;
       border: 0;
+    }
+
+
+    /* Tray: the rows become a compact table (# · title · state · actions),
+       the same DOM in a wider grid; narrow trays keep the stacked rows. */
+    @container entries (min-width: 640px) {
+      .isTray .entryHead, .isTray .entryItem {
+        grid-template-columns: 24px minmax(12em, 28em) minmax(8em, 1fr) auto;
+        grid-template-areas: "number title state actions" ". note note note";
+      }
+      .isTray .entryHead {
+        display: grid; gap: 0 10px; padding: 0 4px 4px 6px;
+        border-bottom: 1px solid var(--ve-border);
+        color: var(--ve-text-muted); font-size: 11px; font-weight: 600;
+      }
+      .isTray .entryHead > span:first-child { text-align: end; }
+      .isTray .entryItem { gap: 0 10px; align-items: center; }
+      .isTray .entryNumber { padding-top: 0; }
+      .isTray .entryMain { display: contents; }
+      .isTray .entryTitle, .isTray .entryTitleLink, .isTray .entryTitleText { grid-area: title; }
+      .isTray .entryMeta { grid-area: state; padding: 0; }
+      .isTray .entryMeta:empty { display: block; }
+      .isTray .collection { gap: 6px; }
     }
 
     @media (prefers-reduced-motion: reduce) {

@@ -16,6 +16,11 @@ All notable changes to this project are documented here. The format follows
   context line names live or the workspace draft and the language, and
   refused actions stay focusable with `aria-disabled` and their reason.
   Alt+Arrow moves an entry, Delete removes it after the counted Core modal.
+- Add the user setting *Entries panel* (`tx_visualeditor_entriesLayout`):
+  `inspector` (default, docked right), `tray` (bottom, full width, rows as a
+  compact table for side-by-side language frames) or `anchored` (under the
+  element's action bar, scrolls with it). Same rows and actions everywhere,
+  light and dark, down to 390 px.
 - The inspector stays open while the editor works on the page; it closes on
   Escape, its close button or its trigger.
 - Staged changes no longer block entry actions everywhere: only the row
