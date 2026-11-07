@@ -84,6 +84,14 @@ export const styles = [themeTokens, css`
     }
     .contextChip.isWorkspace { background: var(--ve-primary-subtle); color: var(--ve-primary-text); font-weight: 600; }
     .contextMode { flex-basis: 100%; }
+    .contextHint { font-size: 11px; }
+    .entryBadge.isMuted { border-style: dashed; }
+    .syncButton {
+      display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 6px;
+      border: 1px solid transparent; border-radius: var(--ve-radius-small); background: transparent;
+      color: var(--ve-text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: not-allowed;
+    }
+    ve-row-menu.syncMenu { font-size: 12px; }
 
     .pendingNotice {
       display: flex; align-items: center; gap: 8px; padding: 8px 12px;
@@ -177,7 +185,6 @@ export const styles = [themeTokens, css`
     .rowAction ve-icon { display: inline-flex; }
     ve-row-menu.rowAction { color: var(--ve-text); }
     .entryHint, .actionReason, .entryReadOnly { grid-area: note; padding: 0 6px 4px; font-size: 11px; }
-    .entryReadOnly { grid-area: actions; align-self: center; max-width: 16em; padding: 0; text-align: end; }
     /* A refused control explains itself while it has keyboard focus. */
     .actionReason { display: none; }
     .entryItem:has([aria-disabled="true"][aria-describedby]:focus-visible) .actionReason { display: flex; flex-direction: column; }

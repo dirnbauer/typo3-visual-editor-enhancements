@@ -5,9 +5,10 @@ import {sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {entriesLayout, fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
-import {linkIconSvg, listIconSvg, workspaceIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {documentSynchronizeIconSvg, linkIconSvg, listIconSvg, workspaceIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
-import {inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
 import {changeCollection, collectionBlockReason, elementHasStagedData, rowBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {effectiveHidden, markEntries, setActiveEntry, trackEntryMarks} from '@webconsulting/visual-editor-enhancements/Frontend/entry-page-marks.js';
@@ -103,7 +104,7 @@ export class VeFieldChooser extends LitElement {
     this.onStoreChange = (event) => {
       if (event.detail?.kind === 'saved' && this.open) {
         clearFieldOptionsCache();
-        this.#load();
+        this.#load({keep: true});
         return;
       }
       this.requestUpdate();
@@ -327,12 +328,18 @@ export class VeFieldChooser extends LitElement {
     }
   }
 
-  async #load() {
+  /**
+   * @param {{keep?: boolean}} options keep: a refresh of the same record keeps
+   *   the current fields on screen until the new payload arrives (no "Loading…"
+   *   flash, focus and scroll position stay in the entries list)
+   */
+  async #load({keep = false} = {}) {
     const selectedTabId = this.#tabs()[this.activeTab]?.id;
     const seq = ++this.loadSeq;
-    this.loading = true;
+    keep = keep && this.fields.length > 0 && !this.error;
+    this.loading = !keep;
     this.error = false;
-    this.fields = [];
+    if (!keep) { this.fields = []; }
     this.collapsedCategories = new Set();
     this.bodyMinHeight = 0;
     try {
@@ -493,9 +500,102 @@ export class VeFieldChooser extends LitElement {
     return html`<p class="contextStrip">${place}${language ? html`<span class="contextChip">${language}</span>` : ''}${this.#renderMode(field)}</p>`;
   }
 
-  /** Translation mode of the frame (WP-I fills it in). */
-  #renderMode() {
-    return '';
+  /**
+   * The frame's translation mode: the default language (and the languages it
+   * is translated into), a connected translation or a free one - plus the
+   * per-language and workspace hints that change what an action means.
+   */
+  #renderMode(field) {
+    const titles = (field.translationLanguages ?? []).map((language) => language.title).filter(Boolean);
+    let mode = '';
+    if (field.translationMode === 'connected') {
+      mode = inlineLabel('modeConnected');
+    } else if (field.translationMode === 'free') {
+      mode = inlineLabel('modeFree');
+    } else if (titles.length) {
+      mode = `${inlineLabel('modeDefault')} · ${inlineLabel('modeTranslatedInto').replace('{languages}', titles.join(', '))}`;
+    }
+    const hints = [];
+    if (field.hiddenPerLanguage) { hints.push(inlineLabel('hiddenPerLanguage')); }
+    if (field.translationMode === 'connected') { hints.push(inlineLabel('orderFollowsDefault')); }
+    if (field.workspace?.id && field.workspace.firstVersion) { hints.push(inlineLabel('firstVersionNext')); }
+    return html`${mode ? html`<span class="contextMode">${mode}</span>` : ''}
+      ${hints.length ? html`<span class="contextMode contextHint">${hints.join(' ')}</span>` : ''}`;
+  }
+
+  /** @return {Map<number, string>} language id -> title */
+  #languageTitles(field) {
+    return new Map((field.translationLanguages ?? []).map((language) => [Number(language.id), language.title]));
+  }
+
+  /** Parity badges: an entry only in this language, or missing in some translations. */
+  #translationBadges(field, child) {
+    const badges = [];
+    if (child.state === 'deleted') { return badges; }
+    if (child.translationOnly) {
+      badges.push(html`<span class="entryBadge">${inlineLabel('badgeTranslationOnly')}</span>`);
+    }
+    if (field.translationMode === 'default' && child.untranslated?.length) {
+      const titles = this.#languageTitles(field);
+      const names = child.untranslated.map((id) => titles.get(Number(id)) ?? String(id)).join(', ');
+      badges.push(html`<span class="entryBadge isMuted">${inlineLabel('badgeUntranslated').replace('{languages}', names)}</span>`);
+    }
+    return badges;
+  }
+
+  /** Row menu: "Localize to <language>" for each language this entry is missing in. */
+  #localizeItems(field, child) {
+    if (field.translationMode !== 'default' || !child.untranslated?.length || child.state === 'deleted') {
+      return [];
+    }
+    const blocked = this.busy ? inlineLabel('busy') : collectionBlockReason();
+    return (field.translationLanguages ?? [])
+      .filter((language) => child.untranslated.map(Number).includes(Number(language.id)))
+      .map((language) => ({
+        label: inlineLabel('localizeTo').replace('{language}', language.title),
+        reason: blocked || (field.canSync === false && field.syncReason !== 'syncNone' ? collectionReason(field.syncReason) : '')
+          || (language.canSync === false ? collectionReason(language.syncReason) : ''),
+        run: () => this.#collectionAction(field, 'sync', null, {language: Number(language.id), mode: 'localize', ids: [child.uid]}),
+      }));
+  }
+
+  /**
+   * Footer "Sync translations ▾" on default-language elements: one item per
+   * language with missing entries (the default, add-only mode), then the
+   * destructive synchronize per language behind its own confirmation.
+   * Nothing to sync: no button at all; refused: a focusable, explained one.
+   */
+  #renderSync(field) {
+    const languages = field.translationLanguages ?? [];
+    if (field.translationMode !== 'default' || languages.length === 0) {
+      return '';
+    }
+    const reason = this.busy ? inlineLabel('busy') : collectionBlockReason()
+      || (field.canSync === false && field.syncReason !== 'syncNone' ? collectionReason(field.syncReason) : '');
+    const open = languages.filter((language) => Number(language.missing ?? 0) > 0 || Number(language.orphaned ?? 0) > 0);
+    if (open.length === 0) {
+      return '';
+    }
+    if (reason) {
+      return html`<button type="button" class="syncButton" aria-disabled="true" title=${reason}
+        aria-describedby="sync-reason-${field.name}">${unsafeHTML(documentSynchronizeIconSvg(14))}<span>${inlineLabel('sync')}</span>
+        <span class="visually-hidden" id="sync-reason-${field.name}">${reason}</span></button>`;
+    }
+    const languageReason = (language) => (language.canSync === false ? collectionReason(language.syncReason) : '');
+    const run = (language, mode) => () => this.#collectionAction(field, 'sync', null, {language: Number(language.id), mode});
+    const localize = open.filter((language) => Number(language.missing ?? 0) > 0).map((language) => ({
+      label: language.title, hint: inlineLabel('syncMissing').replace('{count}', String(language.missing)),
+      reason: languageReason(language), run: run(language, 'localize'),
+    }));
+    const synchronize = open.map((language) => ({
+      label: inlineLabel('syncSynchronizeItem').replace('{language}', language.title),
+      hint: Number(language.orphaned ?? 0) > 0 ? inlineLabel('syncSynchronizeHint').replace('{count}', String(language.orphaned)) : '',
+      reason: languageReason(language), run: run(language, 'synchronize'),
+    }));
+    const groups = field.syncDefaultMode === 'synchronize' ? [synchronize, localize] : [localize, synchronize];
+    const items = groups.filter((group) => group.length).flatMap((group, index) => index ? [{separator: true}, ...group] : group);
+    return html`<ve-row-menu class="syncMenu" .text=${inlineLabel('sync')} .label=${inlineLabel('sync')}
+      .icon=${documentSynchronizeIconSvg(14)} .items=${items}></ve-row-menu>`;
   }
 
   /**
@@ -694,7 +794,7 @@ export class VeFieldChooser extends LitElement {
 
   async refresh() {
     clearFieldOptionsCache();
-    await this.#load();
+    await this.#load({keep: true});
   }
 
   #childSettings(field, child) {
@@ -798,7 +898,11 @@ export class VeFieldChooser extends LitElement {
       if (!result) { return; }
       completed = true;
       const messages = [];
-      if (action === 'move') {
+      if (action === 'sync') {
+        const language = this.#languageTitles(field).get(Number(result.synced?.language ?? intentOptions.language)) ?? String(intentOptions.language);
+        messages.push(inlineLabel('synced').replace('{language}', language)
+          .replace('{localized}', String(result.synced?.localized ?? 0)).replace('{removed}', String(result.synced?.removed ?? 0)));
+      } else if (action === 'move') {
         const uids = activeChildren(field).map((entry) => entry.uid);
         const from = uids.indexOf(child.uid);
         const position = Number(result.moved?.position ?? (from + (direction === 'up' ? -1 : 1) + 1));
@@ -884,6 +988,9 @@ export class VeFieldChooser extends LitElement {
       action: (action, child = null, options = {}) => this.#collectionAction(field, action, child, options),
       activeRow: (child) => setActiveEntry(this.#wrapper(), child),
       highlight: (child, on) => this.#highlight(field, child, on),
+      menuItems: (field, child) => this.#localizeItems(field, child),
+      footerExtras: (field) => this.#renderSync(field),
+      extraBadges: (child, field) => this.#translationBadges(field, child),
       mirrored: (child) => {
         const [item, liveUid] = this.pageRow.split('|');
         return item === `${child.table}:${child.uid}` || (!!item && item.startsWith(`${child.table}:`) && liveUid === String(child.liveUid));

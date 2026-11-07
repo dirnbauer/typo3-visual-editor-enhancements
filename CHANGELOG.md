@@ -21,6 +21,14 @@ All notable changes to this project are documented here. The format follows
   compact table for side-by-side language frames) or `anchored` (under the
   element's action bar, scrolls with it). Same rows and actions everywhere,
   light and dark, down to 390 px.
+- Translations and workspaces in the inspector: the context line names the
+  translation mode (default language and its translations, connected, free)
+  and the workspace; **Sync translations ▾** localizes missing entries per
+  language and offers the destructive synchronize behind its own counted
+  confirmation; rows offer *Localize to <language>*, carry *Only in this
+  language* / *Not translated here* badges, and the remove confirmation
+  counts the translations Core removes with an entry. A first workspace
+  draft is announced before and confirmed after the action.
 - The inspector stays open while the editor works on the page; it closes on
   Escape, its close button or its trigger.
 - Staged changes no longer block entry actions everywhere: only the row

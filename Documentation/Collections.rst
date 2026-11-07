@@ -265,6 +265,51 @@ Synchronizing (``syncTranslations = 1``, ``syncDefaultMode = localize``)
 Visibility stays per record: the eye on one language leaves the others as
 they are (``hiddenPerLanguage``). Titles are per language by construction.
 
+.. _collections-translations-inspector:
+
+Translations in the inspector
+-----------------------------
+
+The context line names the frame's mode: *Default language · translated into
+Deutsch, 中文, Magyar*, *Connected translation* or *Free translation*, with
+*Visibility is per language* when translations exist - the switch on one
+language leaves the others as they are.
+
+*   On the default language a row missing in some translations says so
+    (*Not translated here: Deutsch, Magyar*); its **More actions** menu offers
+    *Localize to Deutsch* for exactly that entry.
+*   **Sync translations ▾** in the collection's footer appears only when a
+    language misses entries or has orphans. Its first items add the missing
+    entries per language (``localize``, nothing is removed); below the
+    separator **Synchronize** also removes entries that exist only in the
+    translation and asks first, counted ("Adds 1 missing entries and removes 2
+    entries that exist only in Magyar"). Both save immediately. In a workspace
+    the button stays visible but unavailable, with its reason.
+*   On a connected translation, entries added there carry *Only in this
+    language*; after a sync the order follows the default language.
+*   Removing a default-language entry names the translations that go with it
+    ("Also removes 3 translations (Deutsch, 中文, Magyar)"); removing an entry
+    of a connected translation says that only this language's entry goes.
+
+.. _collections-workspaces-inspector:
+
+Workspaces in the inspector
+---------------------------
+
+In a workspace the context line reads *Workspace draft «name»*, so a parked
+workspace is never a surprise. Rows show *New in draft* and *Changed in
+draft*; entries marked for deletion stay listed read-only with *Marked for
+deletion* (undoing it is the Workspaces module's job for now). Removal says
+that the deletion is staged until publication.
+
+When the element has no draft yet, the context line says that the next add,
+move or remove creates its first draft. With ``firstVersion = 0`` such an
+action is refused and the inspector explains it ("Your first change to this
+element would create a workspace draft; ..."); with ``firstVersion = 1`` it
+succeeds and the status adds *Draft created. Core renumbered the stored order
+values; the visible order is unchanged.* Titles and visibility are always
+possible: Core drafts the entry alone.
+
 .. _collections-row-markers:
 
 Row markers in templates

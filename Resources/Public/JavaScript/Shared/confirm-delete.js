@@ -58,13 +58,50 @@ export async function confirmCollectionDelete(child, field = {}) {
 }
 
 /** Small Core adapter, exported for isolated modal cancellation tests. */
-export function confirmWithCoreModal(Modal, severity, escapedContent) {
+export function confirmWithCoreModal(Modal, severity, escapedContent, {title = inlineLabel('confirmTitle'), confirm = translate('frontend.inlineRecords.remove', 'Remove')} = {}) {
   return new Promise((resolve) => {
     let confirmed = false;
-    const modal = Modal.confirm(inlineLabel('confirmTitle'), escapedContent, severity, [
+    const modal = Modal.confirm(title, escapedContent, severity, [
       {text: inlineLabel('cancel'), active: true, btnClass: 'btn-default', trigger: (_event, dialog) => { confirmed = false; dialog.hideModal(); }},
-      {text: translate('frontend.inlineRecords.remove', 'Remove'), btnClass: 'btn-danger', trigger: (_event, dialog) => { confirmed = true; dialog.hideModal(); }},
+      {text: confirm, btnClass: 'btn-danger', trigger: (_event, dialog) => { confirmed = true; dialog.hideModal(); }},
     ]);
     modal.addEventListener('typo3-modal-hidden', () => resolve(confirmed), {once: true});
   });
+}
+
+/**
+ * Synchronize is the destructive sync mode: Core also removes translations
+ * whose original no longer exists. Counted, Cancel by default.
+ * @param {{translationLanguages?: Array<{id: number, title: string, missing?: number, orphaned?: number}>}} field
+ * @param {number} language
+ * @return {Promise<boolean>}
+ */
+export async function confirmSynchronize(field, language) {
+  let focus = document.activeElement;
+  while (focus?.shadowRoot?.activeElement) { focus = focus.shadowRoot.activeElement; }
+  const entry = (field.translationLanguages ?? []).find((candidate) => Number(candidate.id) === Number(language)) ?? {};
+  const content = inlineLabel('confirmSynchronize')
+    .replaceAll('{language}', entry.title ?? String(language))
+    .replace('{missing}', String(entry.missing ?? 0))
+    .replace('{orphaned}', String(entry.orphaned ?? 0));
+  try {
+    if (window.top === window || window.top.location.origin !== window.location.origin) {
+      return window.confirm(content);
+    }
+    let Modal = window.top.TYPO3?.Modal;
+    let Severity = window.top.TYPO3?.Severity;
+    if (!Modal || !Severity) {
+      [{default: Modal}, {default: Severity}] = await Promise.all([
+        import('@typo3/backend/modal.js'), import('@typo3/backend/severity.js'),
+      ]);
+    }
+    const safe = document.createElement('span');
+    safe.textContent = content;
+    return await confirmWithCoreModal(Modal, Severity.warning, safe.innerHTML,
+      {title: inlineLabel('confirmSyncTitle'), confirm: inlineLabel('syncConfirmButton')});
+  } catch {
+    return window.confirm(content);
+  } finally {
+    focus?.focus?.({preventScroll: true});
+  }
 }

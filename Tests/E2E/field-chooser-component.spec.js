@@ -244,7 +244,7 @@ const row = (page, uid) => page.locator(`ve-field-chooser [data-ve-row="${uid}"]
 async function openEntries(page) {
   await page.locator('ve-content-element[uid="1"]').hover({position: {x: 40, y: 40}});
   await page.locator('ve-content-element[uid="1"] .action-bar [data-ve-enhancement="inline-records"]').click();
-  await expect(page.getByRole('dialog', {name: 'Entries'})).toBeVisible();
+  await expect(page.getByRole('dialog', {name: /^(Entries|Einträge)$/})).toBeVisible();
   await row(page, 2).waitFor();
 }
 
@@ -325,7 +325,7 @@ test('move up/down are disabled at the ends and post one move intent; Alt+Arrow 
   await down(4).click({force: true});
   expect(posts).toHaveLength(0);
   await down(2).click();
-  await expect(page.getByRole('status').getByText('Moved to position 2.')).toBeVisible();
+  await expect(page.locator('ve-field-chooser .notice').getByText('Moved to position 2.')).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').busy)).toBe(false);
   const common = {parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1'};
   expect(posts).toEqual([{inlineRecord: {action: 'move', ...common, childUid: 2, afterUid: 3}}]);
@@ -388,7 +388,7 @@ test('a second add while text is pending lists the row and says the page updates
   await page.getByRole('button', {name: 'Add feature card'}).click();
   await expect(row(page, 8)).toBeVisible();
   expect(posts.map((post) => post.inlineRecord.action)).toEqual(['create']);
-  await expect(page.getByRole('status')).toHaveText(/The page shows it after you save your text\./);
+  await expect(page.locator('ve-field-chooser .notice')).toHaveText(/The page shows it after you save your text\./);
   await expect(page.getByRole('button', {name: 'Save now'})).toBeVisible();
   // The element was not replaced: its staged text survives, the new entry is not on the page yet.
   await expect(page.locator('ve-editable-text[uid="8"]')).toHaveCount(0);
@@ -546,5 +546,133 @@ test('inspector, tray and anchored render the same actions at 1280 and 390 px, l
         await page.unrouteAll({behavior: 'wait'});
       }
     }
+  }
+});
+
+/* ------------------------------------------------------------------------
+ * Translations and workspaces (WP-I).
+ * --------------------------------------------------------------------- */
+
+const languages = [
+  {id: 1, title: 'Deutsch', parentUid: 11, missing: 1, orphaned: 0, canSync: true, syncReason: ''},
+  {id: 2, title: '中文', parentUid: 12, missing: 0, orphaned: 0, canSync: false, syncReason: 'syncNone'},
+  {id: 3, title: 'Magyar', parentUid: 13, missing: 1, orphaned: 2, canSync: true, syncReason: ''},
+];
+const defaultLanguage = {translationLanguages: languages, canSync: true, syncReason: '', syncDefaultMode: 'localize', hiddenPerLanguage: true,
+  children: [entry(2, 'Add a card', {canMoveUp: false, cascade: {translations: 3, languages: [1, 2, 3]}}), entry(3, 'Second', {untranslated: [1, 3], cascade: {translations: 1, languages: [2]}}),
+    entry(4, 'Third', {canMoveDown: false, cascade: {translations: 3, languages: [1, 2, 3]}})]};
+
+test('the sync menu lists only languages with missing entries; localize posts the add-only sync', async ({page}) => {
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: defaultLanguage,
+    response: {synced: {language: 1, mode: 'localize', localized: 1, removed: 0}}});
+  await expect(page.locator('.contextStrip')).toContainText('Default language · translated into Deutsch, 中文, Magyar');
+  await expect(page.locator('.contextStrip')).toContainText('Visibility is per language.');
+  await page.getByRole('button', {name: 'Sync translations'}).click();
+  const menu = page.getByRole('menu', {name: 'Sync translations'});
+  const items = menu.getByRole('menuitem');
+  await expect(items).toHaveText([/^\s*Deutsch\s*1 missing/, /^\s*Magyar\s*1 missing/, /^\s*Synchronize Deutsch/, /^\s*Synchronize Magyar\s*also removes 2/]);
+  await items.first().click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toEqual({inlineRecord: {action: 'sync', parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1', language: 1, mode: 'localize'}});
+  await expect(page.locator('ve-field-chooser .notice')).toHaveText(/Deutsch: 1 added, 0 removed\./);
+});
+
+test('synchronize asks its own counted confirmation; Cancel writes nothing', async ({page}) => {
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: defaultLanguage});
+  const messages = [];
+  page.on('dialog', (dialog) => { messages.push(dialog.message()); messages.length === 1 ? dialog.dismiss() : dialog.accept(); });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByRole('button', {name: 'Sync translations'}).click();
+    await page.getByRole('menuitem', {name: /^Synchronize Magyar/}).click();
+    await expect.poll(() => messages.length).toBe(attempt + 1);
+    await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').busy)).toBe(false);
+  }
+  expect(messages[0]).toBe('Synchronize Magyar with the default language? Adds 1 missing entries and removes 2 entries that exist only in Magyar. This saves immediately; Reset does not undo it.');
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].inlineRecord).toMatchObject({action: 'sync', language: 3, mode: 'synchronize'});
+  expect('ids' in posts[0].inlineRecord).toBe(false);
+});
+
+test('row menu localizes one entry into a language it is missing in', async ({page}) => {
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: defaultLanguage});
+  await expect(row(page, 3).getByText('Not translated here: Deutsch, Magyar')).toBeVisible();
+  await row(page, 3).getByRole('button', {name: /^More actions/}).click();
+  await expect(page.getByRole('menuitem', {name: /^Localize to/})).toHaveText(['Localize to Deutsch', 'Localize to Magyar']);
+  await page.getByRole('menuitem', {name: 'Localize to Magyar'}).click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].inlineRecord).toMatchObject({action: 'sync', language: 3, mode: 'localize', ids: [3]});
+});
+
+test('the counted cascade text: live, workspace and a connected translation', async ({page}) => {
+  await fixture(page, {view: 'entries', mode: 'sections'});
+  const texts = await page.evaluate(async () => {
+    const {deleteConfirmText} = await import('/extension/Shared/confirm-delete.js');
+    const field = {translationLanguages: [{id: 1, title: 'Deutsch'}, {id: 2, title: '中文'}]};
+    return [
+      deleteConfirmText({label: 'Card', verb: 'delete', cascade: {translations: 2, languages: [1, 2]}}, field),
+      deleteConfirmText({label: 'Card', verb: 'markForDeletion', cascade: {translations: 2, languages: [1, 2]}}, field),
+      deleteConfirmText({label: 'Karte', verb: 'delete', cascade: {translations: 0, languages: []}}, {translationMode: 'connected'}),
+      deleteConfirmText({label: 'Nur hier', verb: 'delete', translationOnly: true}, {translationMode: 'connected'}),
+    ];
+  });
+  expect(texts).toEqual([
+    'Remove “Card”? Also removes 2 translations (Deutsch, 中文). It disappears from the live site immediately. Reset does not undo this operation.',
+    'Remove “Card”? Also marks 2 translations (Deutsch, 中文) for deletion. Deletion is staged in this workspace; the live entry remains until publication. Reset does not undo this operation.',
+    'Remove “Karte”? Only the entry in this language is removed; the default-language entry stays. It disappears from the live site immediately. Reset does not undo this operation.',
+    'Remove “Nur hier”? It disappears from the live site immediately. Reset does not undo this operation.',
+  ]);
+});
+
+test('a connected translation shows parity badges and no sync; a workspace refuses sync with its reason', async ({page}) => {
+  await fixture(page, {view: 'entries', mode: 'sections', field: {translationMode: 'connected', languageId: 1, hiddenPerLanguage: true,
+    children: [entry(2, 'Nur auf Deutsch', {canMoveUp: false, translationOnly: true}), entry(3, 'Zweite'), entry(4, 'Dritte', {canMoveDown: false})]}});
+  await expect(row(page, 2).getByText('Only in this language')).toBeVisible();
+  await expect(page.locator('.contextStrip')).toContainText('Connected translation — structure also lives in the source language');
+  await expect(page.locator('.contextStrip')).toContainText('Order follows the default language after a sync.');
+  await expect(page.getByRole('button', {name: 'Sync translations'})).toHaveCount(0);
+  await page.unrouteAll({behavior: 'wait'});
+  await fixture(page, {view: 'entries', mode: 'sections', field: {...defaultLanguage, canSync: false, syncReason: 'syncWorkspace',
+    workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: true}}});
+  const sync = page.getByRole('button', {name: 'Sync translations'});
+  await expect(sync).toHaveAttribute('aria-disabled', 'true');
+  await expect(sync).toHaveAccessibleDescription('Synchronize translations in the live site; it is not available in a workspace.');
+  await expect(page.locator('.contextStrip')).toContainText('Workspace draft «Staging»');
+  await expect(page.locator('.contextStrip')).toContainText("Your next add, move or remove creates this element's first draft in this workspace.");
+});
+
+test('first-version refusal and Draft created messages', async ({page}) => {
+  await fixture(page, {view: 'entries', mode: 'sections', fail: 409, field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: true}}});
+  await page.route('https://component.test/save', (route) => route.fulfill({status: 409, json: {success: false, reason: 'firstVersion'}}));
+  await page.getByRole('button', {name: 'Add card', exact: true}).click();
+  await expect(page.locator('ve-field-chooser .notice')).toHaveText('Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.');
+  await page.unrouteAll({behavior: 'wait'});
+  await fixture(page, {view: 'entries', mode: 'sections', field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: true}},
+    response: {moved: {uid: 2, position: 2}, workspace: {id: 4, firstVersion: true}}});
+  await row(page, 2).getByRole('button', {name: 'Move down'}).click();
+  // (The fixture has no element on the page to refresh, hence the trailing refresh hint.)
+  await expect(page.locator('ve-field-chooser .notice')).toHaveText(/^Moved to position 2\. Draft created\. Core renumbered the stored order values; the visible order is unchanged\./);
+});
+
+test('screenshots: workspace strip and a translated parent', async ({page}) => {
+  for (const scheme of ['light', 'dark']) {
+    await page.setViewportSize({width: 1280, height: 800});
+    await page.emulateMedia({colorScheme: scheme});
+    await actionBarHarness(page, {scheme, field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: false},
+      children: [entry(2, 'Add a card', {canMoveUp: false, state: 'new'}), entry(3, 'Export anywhere', {state: 'deleted', canDelete: false, deleteReason: 'deleted', canHide: false, canEditLabel: false}),
+        entry(4, 'Translate once', {canMoveDown: false, state: 'modified', hidden: true})], uids: [2, 4]}});
+    await openEntries(page);
+    await page.screenshot({path: `${screenshotDir}/entries-workspace-1280-${scheme}.png`});
+    await page.unrouteAll({behavior: 'wait'});
+    await actionBarHarness(page, {scheme, lang: 'de', htmlLang: 'de', field: {translationMode: 'connected', languageId: 1, hiddenPerLanguage: true, label: 'Feature-Karten', childTitle: 'Feature-Karte',
+      children: [entry(2, 'Karte hinzufügen', {canMoveUp: false, translationOnly: true}), entry(3, 'Überall exportieren', {canMoveDown: false, hidden: true})]}});
+    await openEntries(page);
+    await page.screenshot({path: `${screenshotDir}/entries-translated-de-1280-${scheme}.png`});
+    await page.unrouteAll({behavior: 'wait'});
+    await actionBarHarness(page, {scheme, layout: 'tray', field: {...defaultLanguage, children: [entry(2, 'Add a card', {canMoveUp: false}),
+      entry(3, 'Export anywhere', {untranslated: [1, 3], hidden: true}), entry(8, 'Translate once', {canMoveDown: false, untranslated: [1, 3]})]}});
+    await openEntries(page);
+    await page.getByRole('button', {name: 'Sync translations'}).click();
+    await page.screenshot({path: `${screenshotDir}/entries-sync-menu-tray-1280-${scheme}.png`});
+    await page.unrouteAll({behavior: 'wait'});
   }
 });

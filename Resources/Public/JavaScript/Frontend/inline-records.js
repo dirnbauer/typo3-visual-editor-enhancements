@@ -1,6 +1,6 @@
 import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handler-store';
 import {collectionIntent, postCollectionIntent, recordTree, rowPendingReason, structuralBlockReason, treeHasStagedData, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
-import {confirmCollectionDelete} from '@webconsulting/visual-editor-enhancements/Shared/confirm-delete.js';
+import {confirmCollectionDelete, confirmSynchronize} from '@webconsulting/visual-editor-enhancements/Shared/confirm-delete.js';
 import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 
 let inFlight = false;
@@ -57,6 +57,9 @@ export async function changeCollection(field, action, child = null, options = {}
     throw Object.assign(new Error(rowBlockReason(child)), {definitive: true});
   }
   if (action === 'delete' && !await confirmCollectionDelete(child, field)) {
+    return null;
+  }
+  if (action === 'sync' && options.mode === 'synchronize' && !await confirmSynchronize(field, options.language)) {
     return null;
   }
   // Modal waits can overlap another frame's save or a second click.

@@ -907,5 +907,65 @@
         <target>Nur der Eintrag in dieser Sprache wird entfernt; der Eintrag der Standardsprache bleibt.</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.sync">
+      <segment state="final">
+        <source>Sync translations</source>
+        <target>Übersetzungen synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncMissing">
+      <segment state="final">
+        <source>{count} missing</source>
+        <target>{count} fehlen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeItem">
+      <segment state="final">
+        <source>Synchronize {language}</source>
+        <target>{language} synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeHint">
+      <segment state="final">
+        <source>also removes {count}</source>
+        <target>entfernt auch {count}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.localizeTo">
+      <segment state="final">
+        <source>Localize to {language}</source>
+        <target>Nach {language} übersetzen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.synced">
+      <segment state="final">
+        <source>{language}: {localized} added, {removed} removed.</source>
+        <target>{language}: {localized} hinzugefügt, {removed} entfernt.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSyncTitle">
+      <segment state="final">
+        <source>Synchronize translations</source>
+        <target>Übersetzungen synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSynchronize">
+      <segment state="final">
+        <source>Synchronize {language} with the default language? Adds {missing} missing entries and removes {orphaned} entries that exist only in {language}. This saves immediately; Reset does not undo it.</source>
+        <target>{language} mit der Standardsprache synchronisieren? Fügt {missing} fehlende Einträge hinzu und entfernt {orphaned} Einträge, die es nur in {language} gibt. Das wird sofort gespeichert; Zurücksetzen macht es nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncConfirmButton">
+      <segment state="final">
+        <source>Synchronize</source>
+        <target>Synchronisieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstVersionNext">
+      <segment state="final">
+        <source>Your next add, move or remove creates this element's first draft in this workspace.</source>
+        <target>Ihr nächstes Hinzufügen, Verschieben oder Entfernen legt den ersten Entwurf dieses Elements in diesem Workspace an.</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

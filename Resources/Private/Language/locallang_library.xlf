@@ -756,5 +756,55 @@
         <source>Only the entry in this language is removed; the default-language entry stays.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.sync">
+      <segment state="final">
+        <source>Sync translations</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncMissing">
+      <segment state="final">
+        <source>{count} missing</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeItem">
+      <segment state="final">
+        <source>Synchronize {language}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncSynchronizeHint">
+      <segment state="final">
+        <source>also removes {count}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.localizeTo">
+      <segment state="final">
+        <source>Localize to {language}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.synced">
+      <segment state="final">
+        <source>{language}: {localized} added, {removed} removed.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSyncTitle">
+      <segment state="final">
+        <source>Synchronize translations</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmSynchronize">
+      <segment state="final">
+        <source>Synchronize {language} with the default language? Adds {missing} missing entries and removes {orphaned} entries that exist only in {language}. This saves immediately; Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncConfirmButton">
+      <segment state="final">
+        <source>Synchronize</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstVersionNext">
+      <segment state="final">
+        <source>Your next add, move or remove creates this element's first draft in this workspace.</source>
+      </segment>
+    </unit>
   </file>
 </xliff>
