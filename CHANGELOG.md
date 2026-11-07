@@ -24,6 +24,20 @@ All notable changes to this project are documented here. The format follows
   `canMoveUp`/`canMoveDown` are published. Intents are validated with a
   per-action key table; `collectionIntent(field, action, options)` builds
   only the documented keys.
+- **Behaviour change:** connected translated parents follow FormEngine
+  (`translatedParents = parity`): translation-only entries, and removal, hiding
+  and reordering of translated entries. Restore 1.5 with
+  `translatedParents = default-only`.
+- **Behaviour change:** removing a default-language entry cascades to its
+  translations (Core `deleteL10nOverlayRecords`, placeholders in a workspace)
+  when every active translation compiles for the editor and passes the delete
+  access check; the payload carries `cascade {translations, languages}` for the
+  confirmation. Restore 1.5 with `deleteTranslations = refuse`.
+- Add the `sync` intent (`language`, `mode` localize|synchronize, `ids` for
+  single entries): Core `inlineLocalizeSynchronize`, with a per-language
+  preflight (`translationLanguages` with missing/orphaned counts, rights,
+  language access, `maxitems`), refused in workspaces (`syncWorkspace`).
+  TSconfig `syncTranslations`, `syncDefaultMode`.
 
 ## [1.5.1] — 2026-11-06
 

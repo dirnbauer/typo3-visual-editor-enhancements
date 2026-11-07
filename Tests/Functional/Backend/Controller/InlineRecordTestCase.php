@@ -123,6 +123,33 @@ abstract class InlineRecordTestCase extends FunctionalTestCase
         return $this->getConnectionPool()->getConnectionForTable($table)->executeQuery('SELECT * FROM ' . $table . ' ORDER BY uid')->fetchAllAssociative();
     }
 
+    /** Site with English (0), German (1) and Hungarian (2): Core's localize() needs real site languages. */
+    protected function writeSite(): void
+    {
+        $language = static fn(int $id, string $title, string $locale, string $base): array => [
+            'languageId' => $id, 'title' => $title, 'locale' => $locale, 'base' => $base,
+            'navigationTitle' => $title, 'flag' => 'global', 'fallbackType' => 'strict',
+        ];
+        $this->get(\TYPO3\CMS\Core\Configuration\SiteWriter::class)->write('test', [
+            'rootPageId' => 1, 'base' => 'https://vee.test/',
+            'languages' => [$language(0, 'English', 'en_US.UTF-8', '/'), $language(1, 'German', 'de_DE.UTF-8', '/de/'), $language(2, 'Hungarian', 'hu_HU.UTF-8', '/hu/')],
+        ]);
+    }
+
+    /** @param array<string, mixed> $values */
+    protected function addItem(int $uid, array $values): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', [
+            'uid' => $uid, 'pid' => 666, 'title' => 'Entry ' . $uid, 'owner' => 1, 'owner_table' => 'tt_content', 'slot' => 'items', ...$values,
+        ]);
+    }
+
+    protected function setPageTsConfig(string $tsConfig, int $pageId = 666): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['TSconfig' => $tsConfig], ['uid' => $pageId]);
+        $this->get(\TYPO3\CMS\Core\Cache\CacheManager::class)->getCache('runtime')->flush();
+    }
+
     protected function useWorkspace(int $id = 1): void
     {
         $connection = $this->getConnectionPool()->getConnectionForTable('sys_workspace');

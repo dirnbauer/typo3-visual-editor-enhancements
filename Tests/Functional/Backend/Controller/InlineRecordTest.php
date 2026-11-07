@@ -136,15 +136,6 @@ final class InlineRecordTest extends InlineRecordTestCase
     }
 
     #[Test]
-    public function connectedTranslationsAndCascadeChildrenUseBackendFallback(): void
-    {
-        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->insert('tx_vee_item', ['uid' => 2, 'pid' => 666, 'origin' => 1, 'lang' => 1]);
-        self::assertSame('translations', $this->field()['children'][0]['deleteReason']);
-        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['l18n_parent' => 2, 'sys_language_uid' => 1], ['uid' => 1]);
-        self::assertSame('translation', $this->field()['createReason']);
-    }
-
-    #[Test]
     public function typelessTabsAndDisplayConditionsUseResolvedFormData(): void
     {
         $GLOBALS['BE_USER']->uc['tx_visualeditor_fieldChooserMode'] = 'disabled';

@@ -18,12 +18,14 @@ final class InlineIntent
 
     /**
      * Per action: key => [required, kind]. Kinds: uid (int > 0), uidOrNull
-     * (int > 0 or null, key must be present), language (1..65535), mode, ids.
+     * (int > 0 or null, key must be present), language (1..65535), mode
+     * (localize|synchronize), ids (non-empty list of distinct uids, at most 1000).
      */
     private const KEYS = [
         'create' => ['afterUid' => [false, 'uid']],
         'delete' => ['childUid' => [true, 'uid']],
         'move' => ['childUid' => [true, 'uid'], 'afterUid' => [true, 'uidOrNull']],
+        'sync' => ['language' => [true, 'language'], 'mode' => [true, 'mode'], 'ids' => [false, 'ids']],
     ];
 
     /** @return array<string, mixed> */
@@ -54,6 +56,10 @@ final class InlineIntent
         if ($value['action'] === 'move' && $value['afterUid'] === $value['childUid']) {
             throw new \InvalidArgumentException('An entry cannot move after itself');
         }
+        // Core ignores ids once an action is given: single entries are localized only.
+        if ($value['action'] === 'sync' && isset($value['ids']) && $value['mode'] !== 'localize') {
+            throw new \InvalidArgumentException('Only localize accepts selected entries');
+        }
         return $value;
     }
 
@@ -64,6 +70,11 @@ final class InlineIntent
         $valid = match ($kind) {
             'uid' => is_int($item) && $item > 0,
             'uidOrNull' => $item === null || (is_int($item) && $item > 0),
+            'language' => is_int($item) && $item >= 1 && $item <= 65535,
+            'mode' => in_array($item, ['localize', 'synchronize'], true),
+            'ids' => is_array($item) && array_is_list($item) && $item !== [] && count($item) <= 1000
+                && array_filter($item, static fn(mixed $uid): bool => !is_int($uid) || $uid <= 0) === []
+                && count(array_unique($item)) === count($item),
             default => false,
         };
         if (!$valid) {
