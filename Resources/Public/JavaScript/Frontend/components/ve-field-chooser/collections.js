@@ -94,7 +94,10 @@ function titleControl(field, child, ctx, position, reason) {
     return html`<span class="entryTitleText">${label}</span>`;
   }
   if (child.canEditLabel && field.labelField) {
-    const multiline = !!field.labelMultiline;
+    // A plain input label stored with a literal <br> arrives as a line break
+    // (seeded like the page editable): an <input> would drop it, so it gets the
+    // multi-line control too.
+    const multiline = !!field.labelMultiline || String(child.labelValue ?? '').includes('\n');
     const keydown = (event) => {
       const action = titleKeyAction(event, multiline);
       if (action === 'commit') { event.preventDefault(); event.target.blur(); }

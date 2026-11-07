@@ -328,6 +328,18 @@ test('R5: a multi-line label is edited in a textarea that keeps its line breaks'
   await page.unrouteAll({behavior: 'wait'});
   await fixture(page, {view: 'entries', mode: 'sections'});
   expect(await row(page, 3).getByRole('textbox').evaluate((node) => node.localName)).toBe('input');
+  // A single-line column whose stored value had a literal <br> arrives with a
+  // line break (seeded like the page editable): it gets the textarea, so the
+  // break survives an edit.
+  await page.unrouteAll({behavior: 'wait'});
+  await fixture(page, {view: 'entries', mode: 'sections', field: {labelMultiline: false,
+    children: [entry(2, 'Summer\nSale', {canMoveUp: false}), entry(3, 'Second', {canMoveDown: false})]}});
+  const broken = row(page, 2).getByRole('textbox', {name: 'Title of entry 1'});
+  expect(await broken.evaluate((node) => node.localName)).toBe('textarea');
+  await broken.focus();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('!');
+  expect(await page.evaluate(() => window.store.data.items[2].title)).toBe('Summer\nSale!');
 });
 
 test('opening Entries keeps the page editable baseline of a label stored with a literal <br>', async ({page}) => {

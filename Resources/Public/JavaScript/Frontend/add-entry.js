@@ -1,6 +1,6 @@
 import {inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {changeCollection, collectionBlockReason, elementHasStagedData} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
-import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
+import {deferElementRefresh, refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {refreshCollectionCapability} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
 
 /**
@@ -136,7 +136,10 @@ export async function addEntryFromBar(element, button) {
     // Never replace a wrapper whose own entries have staged text (refreshElement
     // checks again after fetching); the inspector then offers Save now.
     const records = field.children ?? [];
-    const refreshed = collectionBlockReason() ? false : await refreshElement(table, uid, {records});
+    // While a save runs (or fields are invalid) the swap waits for the next Save too.
+    const deferred = Boolean(collectionBlockReason());
+    if (deferred) { deferElementRefresh(table, uid, records); }
+    const refreshed = deferred ? false : await refreshElement(table, uid, {records});
     if (!refreshed) { message += ` ${inlineLabel(elementHasStagedData({table, uid}, records) ? 'savedPageLater' : 'refreshPending')}`; }
     const chooser = await open({message});
     const createdUid = Number(result.created?.uid ?? result.uid ?? 0);
