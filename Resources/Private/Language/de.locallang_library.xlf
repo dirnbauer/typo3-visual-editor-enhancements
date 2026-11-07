@@ -529,6 +529,96 @@
         <target>Nicht verfügbar: {value}</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.deleted">
+      <segment state="final">
+        <source>Marked for deletion in this workspace. Publish or discard it in the Workspaces module.</source>
+        <target>In diesem Arbeitsbereich zum Löschen markiert. Im Modul Arbeitsbereiche veröffentlichen oder verwerfen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.label">
+      <segment state="final">
+        <source>This entry's title is not a plain text field. Edit it in the form.</source>
+        <target>Der Titel dieses Eintrags ist kein einfaches Textfeld. Bitte im Formular bearbeiten.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.moveUp">
+      <segment state="final">
+        <source>Move up</source>
+        <target>Nach oben verschieben</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.moveDown">
+      <segment state="final">
+        <source>Move down</source>
+        <target>Nach unten verschieben</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.unsorted">
+      <segment state="final">
+        <source>This collection has no stored order. Use the backend form.</source>
+        <target>Diese Sammlung hat keine gespeicherte Reihenfolge. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncNone">
+      <segment state="final">
+        <source>All translations are complete.</source>
+        <target>Alle Übersetzungen sind vollständig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncWorkspace">
+      <segment state="final">
+        <source>Synchronize translations in the live site; it is not available in a workspace.</source>
+        <target>Übersetzungen auf der Live-Website synchronisieren; im Arbeitsbereich ist das nicht möglich.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.syncDisabled">
+      <segment state="final">
+        <source>Synchronizing translations is switched off for this site.</source>
+        <target>Das Synchronisieren von Übersetzungen ist für diese Website ausgeschaltet.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.orderFollowsDefault">
+      <segment state="final">
+        <source>Order follows the default language after a sync.</source>
+        <target>Nach einer Synchronisierung folgt die Reihenfolge der Standardsprache.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTranslations">
+      <segment state="final">
+        <source>Also removes {count} translations ({languages}).</source>
+        <target>Entfernt auch {count} Übersetzungen ({languages}).</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTranslationsStage">
+      <segment state="final">
+        <source>Also marks {count} translations ({languages}) for deletion.</source>
+        <target>Markiert auch {count} Übersetzungen ({languages}) zum Löschen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeTranslationOnly">
+      <segment state="final">
+        <source>Only in this language</source>
+        <target>Nur in dieser Sprache</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.badgeUntranslated">
+      <segment state="final">
+        <source>Not translated here: {languages}</source>
+        <target>Hier nicht übersetzt: {languages}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenPerLanguage">
+      <segment state="final">
+        <source>Visibility is per language.</source>
+        <target>Die Sichtbarkeit gilt je Sprache.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstVersion">
+      <segment state="final">
+        <source>Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.</source>
+        <target>Die erste Änderung an diesem Element würde einen Entwurf im Arbeitsbereich anlegen; das ist auf dieser Website hier nicht freigeschaltet. Das Element zuerst im Backend-Arbeitsbereich öffnen.</target>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>
@@ -803,12 +893,6 @@
       <segment state="final">
         <source>Draft created. Core renumbered the stored order values; the visible order is unchanged.</source>
         <target>Entwurf angelegt. Der Core hat die gespeicherten Sortierwerte neu nummeriert; die sichtbare Reihenfolge bleibt gleich.</target>
-      </segment>
-    </unit>
-    <unit id="frontend.inlineRecords.firstVersion">
-      <segment state="final">
-        <source>Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.</source>
-        <target>Ihre erste Änderung an diesem Element würde einen Workspace-Entwurf anlegen; das ist auf dieser Website hier nicht aktiviert. Öffnen Sie das Element zuerst im Backend-Workspace.</target>
       </segment>
     </unit>
     <unit id="frontend.inlineRecords.stage">

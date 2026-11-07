@@ -19,7 +19,7 @@ export function deleteConfirmText(child, field = {}) {
     const titles = new Map((field.translationLanguages ?? []).map((language) => [Number(language.id), language.title]));
     const languages = (child.cascade?.languages ?? []).map((id) => titles.get(Number(id)) ?? String(id)).join(', ');
     const staged = child.verb === 'markForDeletion' || child.verb === 'discard';
-    const key = `confirmTranslation${count === 1 ? '' : 's'}${staged ? 'Stage' : ''}`;
+    const key = staged ? 'confirmTranslationsStage' : 'confirmTranslations';
     parts.push(inlineLabel(key).replace('{count}', String(count)).replace('{languages}', languages || '–'));
   } else if (field.translationMode === 'connected' && !child.translationOnly) {
     parts.push(inlineLabel('confirmLanguageOnly'));

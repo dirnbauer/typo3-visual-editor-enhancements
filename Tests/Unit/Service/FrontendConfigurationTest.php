@@ -11,6 +11,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use Webconsulting\VisualEditorEnhancements\Service\BackendUserProvider;
+use Webconsulting\VisualEditorEnhancements\Service\CollectionFieldIndex;
 use Webconsulting\VisualEditorEnhancements\Service\FeatureFlags;
 use Webconsulting\VisualEditorEnhancements\Service\FieldChooserConfigurationService;
 use Webconsulting\VisualEditorEnhancements\Service\FrontendConfiguration;
@@ -65,7 +66,9 @@ final class FrontendConfigurationTest extends TestCase
             'fieldChooserMode' => 'tabs',
             'fieldChooserTables' => ['tt_content'],
             'inlineRecordsEnabled' => false,
+            'collectionTypes' => [],
             'workspaceId' => 0,
+            'workspaceTitle' => '',
             'elementRefreshEnabled' => true,
             'colorScheme' => 'auto',
             'actionLabelMode' => 'caption',
@@ -80,6 +83,20 @@ final class FrontendConfigurationTest extends TestCase
         self::assertSame('disabled', $this->build($settings, 666)['fieldChooserMode']);
         $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['visual_editor_enhancements']['inlineRecordsEnabled'] = false;
         self::assertFalse($this->build($settings, 666)['inlineRecordsEnabled']);
+    }
+
+    #[Test]
+    public function collectionTypesAndTheWorkspaceTitleFollowTheCollectionSwitches(): void
+    {
+        $index = ['tt_content' => ['cards' => ['items']]];
+        $on = $this->build(['tx_visualeditor_inlineRecords' => 1], 666, $index, 4, 'Staging');
+        self::assertSame($index, $on['collectionTypes']);
+        self::assertSame(4, $on['workspaceId']);
+        self::assertSame('Staging', $on['workspaceTitle']);
+        self::assertSame([], $this->build([], 666, $index)['collectionTypes'], 'The user preference is off by default.');
+        self::assertSame([], $this->build(['tx_visualeditor_inlineRecords' => 1], null, $index)['collectionTypes'], 'No page, no TSconfig scope.');
+        $this->primePageTsConfig(668, 'tx_visualeditorenhancements.inlineRecords.enabled = 0');
+        self::assertSame([], $this->build(['tx_visualeditor_inlineRecords' => 1], 668, $index)['collectionTypes']);
     }
 
     /**
@@ -209,16 +226,23 @@ final class FrontendConfigurationTest extends TestCase
 
     /**
      * @param array<string, mixed> $userSettings
+     * @param array<string, array<string, list<string>>>|null $collectionTypes
      *
      * @return array<string, mixed>
      */
-    private function build(array $userSettings, ?int $pageId): array
+    private function build(array $userSettings, ?int $pageId, ?array $collectionTypes = null, int $workspace = 0, string $workspaceTitle = ''): array
     {
         $backendUser = self::createStub(BackendUserAuthentication::class);
         $backendUser->uc = $userSettings;
-        $backendUser->workspace = 0;
+        $backendUser->workspace = $workspace;
         $backendUserProvider = self::createStub(BackendUserProvider::class);
         $backendUserProvider->method('getOrThrow')->willReturn($backendUser);
+        $backendUserProvider->method('workspaceTitle')->willReturn($workspaceTitle);
+        $index = null;
+        if ($collectionTypes !== null) {
+            $index = self::createStub(CollectionFieldIndex::class);
+            $index->method('build')->willReturn($collectionTypes);
+        }
 
         $tcaSchemaFactory = self::createStub(TcaSchemaFactory::class);
         $tcaSchemaFactory->method('has')->willReturnCallback(static fn(string $table): bool => isset($GLOBALS['TCA'][$table]));
@@ -227,6 +251,7 @@ final class FrontendConfigurationTest extends TestCase
             new FeatureFlags(),
             new FieldChooserConfigurationService($tcaSchemaFactory),
             $backendUserProvider,
+            $index,
         )->build($pageId);
     }
 }

@@ -58,6 +58,58 @@ All notable changes to this project are documented here. The format follows
   (nested collections, entries rendered by several loops), joins them to the
   entries panel by uid, then live uid, and provides the mirror-highlight
   hooks for the panel.
+- Publish a capability payload for collection entries: resolved
+  `enabledControls`, child title, label/visibility/type fields, per-entry state
+  (live, new, modified, deleted), live uid, `canHide` and `canEditLabel` with
+  reasons, translation mode and badges (`translationOnly`, `untranslated`),
+  workspace `{id, title, firstVersion}` and the fields that need the backend
+  form. Delete placeholders are listed read-only instead of being skipped.
+- In a workspace, collections whose entries have no drafts yet are listed (so
+  visibility and title edits work); structural actions still refuse.
+- Add `collectionTypes` and `workspaceTitle` to the edit-frame configuration
+  (`CollectionFieldIndex`), memoize record compiles within one read pass and
+  split collection writes into per-action operations.
+- Add the `move` intent (`childUid`, `afterUid` or `null`): the parent's inline
+  list in the new order, renumbered by Core like a FormEngine sort. Members are
+  checked against the compiled list (409 `stale`), an unchanged order is a
+  no-op, and `canSort`/`sortReason` (`unsorted`, `controls`) plus per-entry
+  `canMoveUp`/`canMoveDown` are published. Intents are validated with a
+  per-action key table; `collectionIntent(field, action, options)` builds
+  only the documented keys.
+- **Behaviour change:** connected translated parents follow FormEngine
+  (`translatedParents = parity`): translation-only entries, and removal, hiding
+  and reordering of translated entries. Restore 1.5 with
+  `translatedParents = default-only`.
+- **Behaviour change:** removing a default-language entry cascades to its
+  translations (Core `deleteL10nOverlayRecords`, placeholders in a workspace)
+  when every active translation compiles for the editor and passes the delete
+  access check; the payload carries `cascade {translations, languages}` for the
+  confirmation. Restore 1.5 with `deleteTranslations = refuse`.
+- Add the `sync` intent (`language`, `mode` localize|synchronize, `ids` for
+  single entries): Core `inlineLocalizeSynchronize`, with a per-language
+  preflight (`translationLanguages` with missing/orphaned counts, rights,
+  language access, `maxitems`), refused in workspaces (`syncWorkspace`).
+  TSconfig `syncTranslations`, `syncDefaultMode`.
+- Add TSconfig `firstVersion` (default `0`): with `1`, the first structural
+  action in a workspace creates the element's first draft through Core's
+  stock auto-versioning, under a narrowed live-row invariant verified in the
+  transaction (only the members' sorting, renumbered in the same order, and
+  their `tstamp` may change for records versioned for the first time). With
+  `0`, such actions are refused up front with the reason `firstVersion`.
+  These live `tstamp` writes are real; caches or integrations watching child
+  tables may react to them.
+- **Behaviour change (stricter):** the workspace live-row check now covers
+  connected translations and nested relations up to three levels. Core's
+  DataMapProcessor creates a translated parent's first draft when the
+  default-language element changes, and its versioning bookkeeping stamps the
+  live translated entries; 1.5 did not detect this. Such actions now report
+  `firstVersion` (refused under `firstVersion = 0`) instead of writing live
+  timestamps.
+- Pin the 2026-11-05 review findings 1–4 for the new intents and staged
+  writes: client-sent `inlineLocalizeSynchronize`/`copy`/`discard` and other
+  child commands, nested paste updates, NEW owned children, inline-to-
+  `tt_content` relations, `overrideChildTca`, unknown intent keys and nested
+  ancestors without root rights stay refused without any write.
 
 ## [1.5.1] — 2026-11-06
 

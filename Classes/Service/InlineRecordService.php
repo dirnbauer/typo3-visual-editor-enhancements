@@ -5,20 +5,36 @@ declare(strict_types=1);
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Backend\Form\Exception\AccessDeniedException;
+use TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException;
 use TYPO3\CMS\Backend\Form\FormDataCompiler;
 use TYPO3\CMS\Backend\Form\FormDataGroup\TcaDatabaseRecord;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Locking\Exception\LockAcquireWouldBlockException;
 use TYPO3\CMS\Core\Locking\LockFactory;
 use TYPO3\CMS\Core\Locking\LockingStrategyInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use Webconsulting\VisualEditorEnhancements\DataHandling\InlineDataHandler;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\CreateOperation;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\DeleteOperation;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\IntentRefused;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\MoveOperation;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\OperationInterface;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\SyncOperation;
 
 /**
-     * Generic foreign_field relations, with FormEngine identities and server-owned commands.
-     */
+ * Generic foreign_field relations, with FormEngine identities and server-owned commands.
+ */
 final readonly class InlineRecordService
 {
+    /** Relation options this endpoint does not reproduce; FormEngine stays the editor for them. */
+    private const UNSUPPORTED_OPTIONS = ['MM', 'foreign_selector', 'foreign_unique', 'foreign_types', 'foreign_default_sortby', 'symmetric_field', 'symmetric_label', 'symmetric_sortby', 'foreign_record_defaults', 'overrideChildTca'];
+
+    /** @var array<string, OperationInterface> */
+    private array $operations;
+
     public function __construct(
         private EditorRecordContext $contexts,
         private InlineRecordConfiguration $configuration,
@@ -27,11 +43,43 @@ final readonly class InlineRecordService
         private LockFactory $locks,
         private UriBuilder $uris,
         private FormDataCompiler $compiler,
-    ) {}
+        private InlineTranslations $translations,
+        private LiveSnapshot $snapshots,
+        CreateOperation $create,
+        DeleteOperation $delete,
+        MoveOperation $move,
+        SyncOperation $sync,
+    ) {
+        $this->operations = ['create' => $create, 'delete' => $delete, 'move' => $move, 'sync' => $sync];
+    }
 
     public function backendUrl(string $table, int $uid, bool $contextual = false): string
     {
         return (string)$this->uris->buildUriFromRoute($contextual ? 'record_edit_contextual' : 'record_edit', ['edit' => [$table => [$uid => 'edit']]], UriBuilder::ABSOLUTE_URL);
+    }
+
+    /**
+     * The record-free part of the relation check, shared with CollectionFieldIndex:
+     * 'unsupported' for relations FormEngine must edit, 'disabled' when page TSconfig
+     * switches the child table off, '' otherwise.
+     *
+     * @param array<string, mixed> $config   resolved inline column config
+     * @param array<string, mixed> $settings tx_visualeditorenhancements.inlineRecords. of the page
+     */
+    public static function relationReason(array $config, array $settings): string
+    {
+        $childTable = (string)($config['foreign_table'] ?? '');
+        if (in_array($childTable, ['tt_content', 'pages', 'sys_file_reference'], true) || str_starts_with($childTable, 'sys_') || str_starts_with($childTable, 'be_') || str_starts_with($childTable, 'fe_')
+            || empty($config['foreign_field']) || !isset($GLOBALS['TCA'][$childTable])
+            || array_intersect(array_keys($config), self::UNSUPPORTED_OPTIONS) !== []
+            || !empty($GLOBALS['TCA'][$childTable]['ctrl']['type'])
+        ) {
+            return 'unsupported';
+        }
+        if (!($settings['tables.'][$childTable . '.']['enabled'] ?? true)) {
+            return 'disabled';
+        }
+        return '';
     }
 
     /**
@@ -43,23 +91,25 @@ final readonly class InlineRecordService
         if (!$this->configuration->enabled((int)$form['scopePageId'])) {
             return [];
         }
-        $fields = [];
-        foreach ($form['processedTca']['columns'] as $name => $column) {
-            if (($column['config']['type'] ?? '') !== 'inline'
-                || !$this->contexts->mayEditField($table, $name, $form)
-                || ($column['config']['readOnly'] ?? false)
-                || ($form['pageTsConfig']['TCEFORM.'][$table . '.'][$name . '.']['disabled'] ?? false)
-            ) {
-                continue;
+        return $this->contexts->scoped(function () use ($table, $form, $request): array {
+            $fields = [];
+            foreach ($form['processedTca']['columns'] as $name => $column) {
+                if (($column['config']['type'] ?? '') !== 'inline'
+                    || !$this->contexts->mayEditField($table, $name, $form)
+                    || ($column['config']['readOnly'] ?? false)
+                    || ($form['pageTsConfig']['TCEFORM.'][$table . '.'][$name . '.']['disabled'] ?? false)
+                ) {
+                    continue;
+                }
+                $childTable = (string)($column['config']['foreign_table'] ?? '');
+                // Do not disclose counts or labels of tables this user cannot edit.
+                if (!$this->users->mayModifyTable($childTable)) {
+                    continue;
+                }
+                $fields[] = $this->collection($table, $name, $column, $form, $request);
             }
-            $childTable = (string)($column['config']['foreign_table'] ?? '');
-            // Do not disclose counts or labels of tables this user cannot edit.
-            if (!$this->users->mayModifyTable($childTable)) {
-                continue;
-            }
-            $fields[] = $this->collection($table, $name, $column, $form, $request);
-        }
-        return $fields;
+            return $fields;
+        });
     }
 
     /**
@@ -71,18 +121,33 @@ final readonly class InlineRecordService
     {
         $config = $column['config'];
         $childTable = (string)($config['foreign_table'] ?? '');
+        $controls = self::controls($config);
+        $context = $this->context($table, $form);
         $pid = (int)$form['scopePageId'];
+        $deleteTranslations = $this->configuration->deleteTranslations($pid);
         $reason = $this->unsupported($table, $field, $config, $form);
-        if ($reason === '' && !$this->relatedParentsEditable($table, $form, $request)) {
+        // 1.5 (deleteTranslations = refuse): any inaccessible translated parent keeps
+        // the whole collection read-only. Otherwise every action that reaches a
+        // translation checks that translation itself (delete cascade, sync).
+        if ($reason === '' && $deleteTranslations === 'refuse' && !$this->relatedParentsEditable($table, $form, $request)) {
             $reason = 'rights';
         }
+        $hiddenField = (string)($GLOBALS['TCA'][$childTable]['ctrl']['enablecolumns']['disabled'] ?? '');
+        $labelField = self::labelField($childTable);
+        $parentLanguages = $context['translationMode'] === 'default' ? array_keys($this->translations->parentsByLanguage($table, $form)) : [];
         $uids = $reason === 'unsupported' ? [] : array_values(array_filter(array_map('intval', GeneralUtility::trimExplode(',', (string)($form['databaseRow'][$field] ?? ''), true))));
         $children = [];
         $formUids = [];
+        $liveChildInWorkspace = false;
         foreach ($uids as $uid) {
             try {
                 $overlaid = BackendUtility::getRecordWSOL($childTable, $uid);
                 if ($overlaid && (int)($overlaid['t3ver_state'] ?? 0) === 2) {
+                    $placeholder = $this->placeholder($table, $form, $config, $overlaid, $hiddenField);
+                    if ($placeholder === null) {
+                        return $this->unavailable($field, $column, $table, $form);
+                    }
+                    $children[] = $placeholder;
                     continue;
                 }
                 $child = $this->contexts->compile($childTable, $uid, $request);
@@ -91,43 +156,86 @@ final readonly class InlineRecordService
                     return $this->unavailable($field, $column, $table, $form);
                 }
                 if ($form['workspaceId'] && (int)($row['t3ver_wsid'] ?? 0) !== (int)$form['workspaceId']) {
-                    return $this->unavailable($field, $column, $table, $form, 'workspace');
+                    if ((int)($row['t3ver_wsid'] ?? 0) !== 0) {
+                        return $this->unavailable($field, $column, $table, $form, 'workspace');
+                    }
+                    // Listed, so staged visibility/title edits work (Core versions the
+                    // child alone). Below an existing parent draft a structural write
+                    // would renumber this live row directly; below a live parent Core
+                    // versions it together with the parent (first version).
+                    $liveChildInWorkspace = $liveChildInWorkspace || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== 0;
                 }
-                $deleteReason = $reason ?: $this->deleteReason($childTable, $row);
+                $translations = $this->translations->of($childTable, $row);
+                // A control disabled in TCA always reports 'controls', whatever else applies.
+                $deleteReason = $controls['delete'] ? ($reason ?: $this->deleteReason($childTable, $row, $translations, $deleteTranslations, $request)) : 'controls';
                 $uid = (int)$child['compileUid'];
                 $formUids[] = $uid;
                 $new = (int)($row['t3ver_state'] ?? 0) === 1;
+                $hideReason = $this->writeReason($childTable, $hiddenField, 'hidden', $row, $controls['hide'], $reason);
+                $labelReason = $this->writeReason($childTable, $labelField, 'label', $row, true, $reason);
                 $children[] = [
                     'uid' => $uid, 'table' => $childTable,
+                    'liveUid' => (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']),
+                    'state' => $new ? 'new' : ((int)($row['t3ver_wsid'] ?? 0) > 0 ? 'modified' : 'live'),
                     'label' => BackendUtility::getRecordTitle($childTable, $row),
                     'backendUrl' => $this->backendUrl($childTable, $uid),
                     'contextualUrl' => $this->backendUrl($childTable, $uid, true),
-                    'hidden' => !empty($row[$GLOBALS['TCA'][$childTable]['ctrl']['enablecolumns']['disabled'] ?? '']),
-                    'canDelete' => $deleteReason === '' && count($uids) > (int)($config['minitems'] ?? 0)
-                        && (bool)($config['appearance']['enabledControls']['delete'] ?? true),
-                    'deleteReason' => $deleteReason ?: (count($uids) <= (int)($config['minitems'] ?? 0) ? 'min' : ''),
+                    'hidden' => $hiddenField !== '' && !empty($row[$hiddenField]),
+                    'hiddenField' => $hiddenField,
+                    'canHide' => $hideReason === '', 'hideReason' => $hideReason,
+                    'canEditLabel' => $labelReason === '', 'labelReason' => $labelReason, 'labelValue' => $labelField !== '' ? (string)($row[$labelField] ?? '') : '',
+                    'translationOnly' => $context['translationMode'] === 'connected' && $this->isTranslationOnly($childTable, $row),
+                    'untranslated' => array_values(array_diff($parentLanguages, $this->translations->languagesOf($childTable, $translations))),
+                    'cascade' => ['translations' => count($translations), 'languages' => $this->translations->languagesOf($childTable, $translations)],
+                    'canDelete' => $deleteReason === '',
+                    'deleteReason' => $deleteReason,
                     'verb' => $new ? 'discard' : ($form['workspaceId'] ? 'markForDeletion' : 'delete'),
                     'deleteUid' => $new ? (int)$row['uid'] : (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']),
                 ];
-            } catch (\TYPO3\CMS\Backend\Form\Exception\AccessDeniedException|\TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException) {
+            } catch (AccessDeniedException|DatabaseRecordException) {
                 // One inaccessible child makes the entire list private, including its count.
                 return $this->unavailable($field, $column, $table, $form);
             }
         }
         $uids = $formUids;
+        $min = (int)($config['minitems'] ?? 0);
+        if ($reason === '' && $liveChildInWorkspace) {
+            $reason = 'workspace';
+        }
         foreach ($children as &$entry) {
-            if (count($uids) <= (int)($config['minitems'] ?? 0)) {
+            if ($entry['state'] !== 'deleted' && $entry['canDelete'] && ($reason !== '' || count($uids) <= $min)) {
                 $entry['canDelete'] = false;
-                $entry['deleteReason'] = $entry['deleteReason'] ?: 'min';
+                $entry['deleteReason'] = $reason ?: 'min';
             }
         }
         unset($entry);
+        $sortReason = $reason ?: self::sortReason($childTable, $config, $controls);
+        foreach ($children as &$entry) {
+            // Members only: a listed delete placeholder is not part of $uids.
+            $index = $entry['state'] === 'deleted' ? false : array_search($entry['uid'], $uids, true);
+            $entry['canMoveUp'] = $sortReason === '' && $index !== false && $index > 0;
+            $entry['canMoveDown'] = $sortReason === '' && $index !== false && $index < count($uids) - 1;
+        }
+        unset($entry);
+        $sync = ['languages' => [], 'internal' => []];
+        if ($context['translationMode'] === 'default' && !in_array($reason, ['unsupported', 'disabled'], true)) {
+            $sync = $this->translations->syncPreflight($table, $field, $form, $config, $children, $controls, $this->configuration->syncTranslations($pid), $request);
+        }
+        $syncReason = '';
+        if (!in_array(true, array_column($sync['languages'], 'canSync'), true)) {
+            $syncReason = match (true) {
+                $context['translationMode'] !== 'default' || $sync['languages'] === [] => 'syncNone',
+                (int)$form['workspaceId'] > 0 => 'syncWorkspace',
+                default => (string)$sync['languages'][0]['syncReason'],
+            };
+        }
         $createReason = $reason;
         $defaults = [];
+        $requiredBackend = [];
         if ($createReason === '') {
             try {
-                [$defaults, $createReason] = $this->defaults($childTable, $form, $request);
-            } catch (\TYPO3\CMS\Backend\Form\Exception\AccessDeniedException) {
+                [$defaults, $createReason, $requiredBackend] = $this->defaults($childTable, $form, $request);
+            } catch (AccessDeniedException) {
                 $createReason = 'rights';
             }
         }
@@ -135,33 +243,197 @@ final readonly class InlineRecordService
         if ($createReason === '' && $max > 0 && count($uids) >= $max) {
             $createReason = 'max';
         }
-        if (!($config['appearance']['enabledControls']['new'] ?? true)) {
+        if (!$controls['new'] || ($config['appearance']['showNewRecordLink'] ?? true) === false) {
             $createReason = 'controls';
         }
         return [
             'name' => $field, 'label' => $column['label'] ?? $field, 'type' => 'inline',
             'parentTable' => $table, 'parentUid' => (int)$form['requestedUid'],
+            'childTitle' => (string)($GLOBALS['TCA'][$childTable]['ctrl']['title'] ?? $childTable),
+            'labelField' => $labelField, 'hiddenField' => $hiddenField,
+            'typeField' => (string)($GLOBALS['TCA'][$childTable]['ctrl']['type'] ?? ''),
+            'controls' => $controls,
             'backendUrl' => $this->backendUrl($table, (int)$form['compileUid']),
             'revision' => hash('sha256', json_encode([$table, $form['compileUid'], $form['workspaceId'], $form['resolvedRow'], $field, $uids], JSON_THROW_ON_ERROR)),
-            'workspaceId' => $form['workspaceId'], 'uids' => $uids, 'children' => $children,
-            'minItems' => (int)($config['minitems'] ?? 0), 'maxItems' => $max,
+            'workspaceId' => $form['workspaceId'], 'workspace' => $context['workspace'],
+            'languageId' => $context['languageId'], 'translationMode' => $context['translationMode'],
+            'uids' => $uids, 'children' => $children,
+            'minItems' => $min, 'maxItems' => $max,
             'canCreate' => $createReason === '', 'createReason' => $createReason,
-            'createHidden' => $form['workspaceId'] === 0 && (bool)($this->configuration->forPage($pid)['createHidden'] ?? true),
+            'requiredBackend' => $requiredBackend,
+            'canSort' => $sortReason === '', 'sortReason' => $sortReason,
+            'translationLanguages' => $sync['languages'],
+            'canSync' => $syncReason === '', 'syncReason' => $syncReason,
+            'syncDefaultMode' => $this->configuration->syncDefaultMode($pid),
+            // Core hides per record: the eye on one language leaves the others as they are.
+            'hiddenPerLanguage' => $context['translationMode'] === 'connected' || $parentLanguages !== [],
+            'createHidden' => $form['workspaceId'] === 0 && (bool)($this->configuration->forPage((int)$form['scopePageId'])['createHidden'] ?? true),
             // Internal only; stripped at the public field boundary.
-            '_defaults' => $defaults, '_config' => $config,
+            '_defaults' => $defaults, '_config' => $config, '_sync' => $sync['internal'],
         ];
     }
 
     /**
-     * @return array<string, mixed>
+     * A delete placeholder of this workspace: listed read-only under its live
+     * identity. The placeholder version uid never reaches the browser.
+     *
+     * @param array<string, mixed> $form
+     * @param array<string, mixed> $config
+     * @param array<string, mixed> $overlaid
+     * @return array<string, mixed>|null null when the entry is not this relation's or not accessible
+     */
+    private function placeholder(string $table, array $form, array $config, array $overlaid, string $hiddenField): ?array
+    {
+        $childTable = (string)$config['foreign_table'];
+        $liveUid = (int)(($overlaid['t3ver_oid'] ?? 0) ?: $overlaid['uid']);
+        $live = BackendUtility::getRecord($childTable, $liveUid);
+        if (!$live || !$this->belongs($table, $form, $config, $live)
+            || !$this->users->getOrThrow()->checkRecordEditAccess($childTable, $live)->isAllowed) {
+            return null;
+        }
+        return [
+            'uid' => $liveUid, 'table' => $childTable, 'liveUid' => $liveUid, 'state' => 'deleted',
+            'label' => BackendUtility::getRecordTitle($childTable, $live),
+            'hidden' => $hiddenField !== '' && !empty($live[$hiddenField]), 'hiddenField' => $hiddenField,
+            'canHide' => false, 'hideReason' => 'deleted', 'canEditLabel' => false, 'labelReason' => 'deleted', 'labelValue' => '',
+            'translationOnly' => false, 'untranslated' => [], 'cascade' => ['translations' => 0, 'languages' => []],
+            'canMoveUp' => false, 'canMoveDown' => false,
+            'canDelete' => false, 'deleteReason' => 'deleted', 'verb' => '',
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $column
      * @param array<string, mixed> $form
+     * @return array<string, mixed>
      */
     private function unavailable(string $field, array $column, string $table, array $form, string $reason = 'rights'): array
     {
+        $context = $this->context($table, $form);
         return ['name' => $field, 'label' => $column['label'] ?? $field, 'type' => 'inline',
             'canCreate' => false, 'createReason' => $reason, 'children' => [],
+            'workspaceId' => $form['workspaceId'], 'workspace' => $context['workspace'],
+            'languageId' => $context['languageId'], 'translationMode' => $context['translationMode'],
             'backendUrl' => $this->backendUrl($table, (int)$form['compileUid'])];
+    }
+
+    /**
+     * Core's appearance.enabledControls with FormEngine's defaults (TcaInlineConfiguration).
+     *
+     * @param array<string, mixed> $config
+     * @return array{new: bool, delete: bool, hide: bool, sort: bool, dragdrop: bool, localize: bool, info: bool}
+     */
+    public static function controls(array $config): array
+    {
+        $enabled = is_array($config['appearance']['enabledControls'] ?? null) ? $config['appearance']['enabledControls'] : [];
+        $controls = [];
+        foreach (['new', 'delete', 'hide', 'sort', 'dragdrop', 'localize', 'info'] as $control) {
+            $controls[$control] = (bool)($enabled[$control] ?? true);
+        }
+        return $controls;
+    }
+
+    /**
+     * Why the entries cannot be reordered here: 'unsorted' when Core has no
+     * sorting column to renumber (no foreign_sortby, no ctrl sortby), 'controls'
+     * when the field disables both FormEngine sort controls and drag and drop.
+     *
+     * @param array<string, mixed> $config
+     * @param array<string, bool> $controls
+     */
+    public static function sortReason(string $childTable, array $config, array $controls): string
+    {
+        if (empty($config['foreign_sortby']) && empty($GLOBALS['TCA'][$childTable]['ctrl']['sortby'])) {
+            return 'unsorted';
+        }
+        return !$controls['sort'] && !$controls['dragdrop'] ? 'controls' : '';
+    }
+
+    /**
+     * The child's primary label column when it is a plain input/text column, the
+     * field the inspector stages through the vendor store; '' otherwise (RTE, select, ...).
+     */
+    public static function labelField(string $childTable): string
+    {
+        $label = (string)($GLOBALS['TCA'][$childTable]['ctrl']['label'] ?? '');
+        $config = $GLOBALS['TCA'][$childTable]['columns'][$label]['config'] ?? [];
+        if ($label === '' || !in_array($config['type'] ?? '', ['input', 'text'], true) || !empty($config['enableRichtext'])) {
+            return '';
+        }
+        return $label;
+    }
+
+    /**
+     * Why a generic (vendor store) save of one child field would not persist:
+     * DataHandler silently drops exclude fields without the right, so the control is
+     * never offered where the write would vanish.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function writeReason(string $childTable, string $fieldName, string $missing, array $row, bool $control, string $collectionReason): string
+    {
+        if (in_array($collectionReason, ['unsupported', 'disabled'], true)) {
+            return $collectionReason;
+        }
+        if ($fieldName === '') {
+            return $missing;
+        }
+        if (!$control) {
+            return 'controls';
+        }
+        $languageField = (string)($GLOBALS['TCA'][$childTable]['ctrl']['languageField'] ?? '');
+        if (($GLOBALS['TCA'][$childTable]['columns'][$fieldName]['l10n_mode'] ?? '') === 'exclude'
+            && $languageField !== '' && (int)($row[$languageField] ?? 0) > 0) {
+            return 'translation';
+        }
+        return $this->mayWrite($childTable, $fieldName) ? '' : 'rights';
+    }
+
+    /**
+     * Live/workspace and language context of the parent record.
+     *
+     * @param array<string, mixed> $form
+     * @return array{workspace: array{id: int, title: string, firstVersion: bool}, languageId: int, translationMode: 'default'|'connected'|'free'}
+     */
+    private function context(string $table, array $form): array
+    {
+        $workspaceId = (int)$form['workspaceId'];
+        $firstVersion = $workspaceId > 0 && (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== $workspaceId;
+        $languageField = (string)($form['processedTca']['ctrl']['languageField'] ?? '');
+        $pointer = (string)($form['processedTca']['ctrl']['transOrigPointerField'] ?? '');
+        $languageId = $languageField !== '' ? (int)($form['resolvedRow'][$languageField] ?? 0) : 0;
+        $mode = 'default';
+        if ($languageId > 0) {
+            $mode = $pointer !== '' && (int)($form['resolvedRow'][$pointer] ?? 0) > 0 ? 'connected' : 'free';
+        }
+        return [
+            'workspace' => [
+                'id' => $workspaceId,
+                'title' => $this->users->workspaceTitle($workspaceId),
+                // The next structural action would create a first draft here: of the
+                // parent, or of a connected translation Core versions along with it.
+                'firstVersion' => $firstVersion || ($workspaceId > 0 && $mode === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, $workspaceId)),
+            ],
+            'languageId' => $languageId,
+            'translationMode' => $mode,
+        ];
+    }
+
+    /**
+     * Core's DataMapProcessor pushes a default-language change into the element's
+     * translations; in a workspace that creates the translated parent's first draft,
+     * whose versioning bookkeeping stamps its live entries.
+     *
+     * @param array<string, mixed> $form
+     */
+    private function translatedParentsNeedFirstVersion(string $table, array $form, int $workspaceId): bool
+    {
+        foreach ($this->translations->parentsByLanguage($table, $form) as $translation) {
+            if ($this->snapshots->needsFirstVersion($table, (int)(($translation['t3ver_oid'] ?? 0) ?: $translation['uid']), $workspaceId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -171,29 +443,35 @@ final readonly class InlineRecordService
     private function unsupported(string $table, string $field, array $config, array $form): string
     {
         $childTable = (string)($config['foreign_table'] ?? '');
-        if (in_array($childTable, ['tt_content', 'pages'], true) || str_starts_with($childTable, 'sys_') || str_starts_with($childTable, 'be_') || str_starts_with($childTable, 'fe_')
-            || empty($config['foreign_field']) || $childTable === 'sys_file_reference'
-            || !isset($GLOBALS['TCA'][$childTable])
-            || array_intersect(array_keys($config), ['MM', 'foreign_selector', 'foreign_unique', 'foreign_types', 'foreign_default_sortby', 'symmetric_field', 'symmetric_label', 'symmetric_sortby', 'foreign_record_defaults', 'overrideChildTca']) !== []
-            || !empty($GLOBALS['TCA'][$childTable]['ctrl']['type'])
-        ) {
-            return 'unsupported';
-        }
         $settings = $this->configuration->forPage((int)$form['scopePageId']);
-        if (!($settings['tables.'][$childTable . '.']['enabled'] ?? true)) {
-            return 'disabled';
+        $reason = self::relationReason($config, $settings);
+        if ($reason !== '') {
+            return $reason;
         }
         if (($settings['requireWorkspace'] ?? false) && !$form['workspaceId']) {
             return 'workspace';
         }
-        if ($form['workspaceId'] && (empty($GLOBALS['TCA'][$table]['ctrl']['versioningWS']) || empty($GLOBALS['TCA'][$childTable]['ctrl']['versioningWS']) || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== (int)$form['workspaceId'])) {
-            return 'workspace';
+        if ($form['workspaceId']) {
+            if (empty($GLOBALS['TCA'][$table]['ctrl']['versioningWS']) || empty($GLOBALS['TCA'][$childTable]['ctrl']['versioningWS'])) {
+                return 'workspace';
+            }
+            $parentWorkspace = (int)($form['resolvedRow']['t3ver_wsid'] ?? 0);
+            if ($parentWorkspace !== 0 && $parentWorkspace !== (int)$form['workspaceId']) {
+                return 'workspace';
+            }
+            // The first structural action would create the parent's first draft
+            // (Core auto-versioning). Allowed only where the site opted in.
+            if (!$this->configuration->firstVersion((int)$form['scopePageId']) && ($parentWorkspace === 0
+                || ($this->context($table, $form)['translationMode'] === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, (int)$form['workspaceId'])))) {
+                return 'firstVersion';
+            }
         }
         $pointer = $form['processedTca']['ctrl']['transOrigPointerField'] ?? '';
-        if ($pointer !== '' && (int)($form['resolvedRow'][$pointer] ?? 0) > 0) {
+        if ($pointer !== '' && (int)($form['resolvedRow'][$pointer] ?? 0) > 0
+            && $this->configuration->translatedParents((int)$form['scopePageId']) === 'default-only') {
             return 'translation';
         }
-        if (($columnMode = $form['processedTca']['columns'][$field]['l10n_mode'] ?? '') === 'exclude'
+        if (($form['processedTca']['columns'][$field]['l10n_mode'] ?? '') === 'exclude'
             && (int)($form['resolvedRow'][$form['processedTca']['ctrl']['languageField'] ?? ''] ?? 0) > 0) {
             return 'translation';
         }
@@ -223,41 +501,54 @@ final readonly class InlineRecordService
         return true;
     }
 
-    /**
-     * @param array<string, mixed> $row
-     */
-    private function deleteReason(string $table, array $row): string
+    /** @param array<string, mixed> $row */
+    private function isTranslationOnly(string $table, array $row): bool
     {
-        // Cascade deletion can touch other languages and nested records. Until those
-        // dependencies have their own permission proof, leave it to the backend form.
-        $pointer = $GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? '';
-        $live = (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']);
-        if ($pointer !== '') {
-            $query = $this->connections->getQueryBuilderForTable($table);
-            $query->getRestrictions()->removeAll()
-                ->add(GeneralUtility::makeInstance(\TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction::class))
-                ->add(GeneralUtility::makeInstance(\TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction::class, $this->users->getOrThrow()->workspace));
-            $translations = $query->select('*')->from($table)->where(
-                $query->expr()->eq($pointer, $query->createNamedParameter($live)),
-            )->executeQuery()->fetchAllAssociative();
-            foreach ($translations as $translation) {
-                BackendUtility::workspaceOL($table, $translation, $this->users->getOrThrow()->workspace);
-                if ($translation && (int)($translation['t3ver_state'] ?? 0) !== 2) {
-                    return 'translations';
-                }
-            }
-        }
-        foreach ($GLOBALS['TCA'][$table]['columns'] ?? [] as $name => $column) {
-            if (in_array($column['config']['type'] ?? '', ['inline', 'file'], true) && !empty($row[$name])) {
-                return 'cascade';
-            }
-        }
-        return $this->users->getOrThrow()->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights';
+        $pointer = (string)($GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? '');
+        return $pointer !== '' && (int)($row[$pointer] ?? 0) === 0;
     }
 
     /**
-     * @return array{array<string, mixed>, string}
+     * Removal refusals. Core cascades a delete to the entry's translations
+     * (deleteL10nOverlayRecords) and to nested inline/file children. Translations
+     * are removable with the entry when every active one compiles for this editor
+     * (owner chain, language, page) and passes the delete access check; nested
+     * children and media stay with the backend form until their dependencies have
+     * a permission proof of their own.
+     *
+     * @param array<string, mixed> $row
+     * @param list<array<string, mixed>> $translations
+     * @param 'confirm'|'refuse' $mode
+     */
+    private function deleteReason(string $table, array $row, array $translations, string $mode, ServerRequestInterface $request): string
+    {
+        if ($translations !== [] && $mode === 'refuse') {
+            return 'translations';
+        }
+        $user = $this->users->getOrThrow();
+        foreach ([$row, ...$translations] as $affected) {
+            foreach ($GLOBALS['TCA'][$table]['columns'] ?? [] as $name => $column) {
+                if (in_array($column['config']['type'] ?? '', ['inline', 'file'], true) && !empty($affected[$name])) {
+                    return 'cascade';
+                }
+            }
+        }
+        foreach ($translations as $translation) {
+            try {
+                $this->contexts->compile($table, (int)$translation['uid'], $request);
+            } catch (AccessDeniedException|DatabaseRecordException) {
+                return 'translations';
+            }
+            if (!$user->checkRecordEditAccess($table, $translation, false, true)->isAllowed) {
+                return 'translations';
+            }
+        }
+        return $user->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights';
+    }
+
+    /**
      * @param array<string, mixed> $parent
+     * @return array{array<string, mixed>, string, list<string>}
      */
     private function defaults(string $table, array $parent, ServerRequestInterface $request): array
     {
@@ -267,12 +558,13 @@ final readonly class InlineRecordService
             'inlineResolveExistingChildren' => false, 'inlineCompileExistingChildren' => false,
         ], GeneralUtility::makeInstance(TcaDatabaseRecord::class));
         $defaults = ['pid' => $pid];
+        $required = [];
         $label = $new['processedTca']['ctrl']['label'] ?? '';
         foreach ($new['processedTca']['columns'] as $name => $column) {
             $config = $column['config'];
             if (!in_array($config['type'], ['input', 'text', 'number', 'check', 'select', 'color', 'link', 'datetime', 'language'], true)) {
                 if (!empty($config['required']) || (int)($config['minitems'] ?? 0) > 0) {
-                    return [[], 'required'];
+                    $required[] = (string)$name;
                 }
                 continue;
             }
@@ -284,29 +576,33 @@ final readonly class InlineRecordService
                 $value = (string)($GLOBALS['LANG']->translate('frontend.inlineRecords.newEntry', 'EXT:visual_editor_enhancements/Resources/Private/Language/locallang_library.xlf') ?? 'New entry');
             }
             if (!empty($config['required']) && trim((string)$value) === '') {
-                return [[], 'required'];
+                $required[] = (string)$name;
+                continue;
             }
             if ($value !== '' && $this->mayWrite($table, $name)) {
                 $defaults[$name] = $value;
             } elseif (!empty($config['required'])) {
-                return [[], 'rights'];
+                return [[], 'rights', []];
             }
+        }
+        if ($required !== []) {
+            return [[], 'required', $required];
         }
         $language = $GLOBALS['TCA'][$table]['ctrl']['languageField'] ?? '';
         if ($language !== '') {
             $defaults[$language] = (int)($parent['resolvedRow'][$parent['processedTca']['ctrl']['languageField'] ?? ''] ?? 0);
             if (!$this->users->getOrThrow()->checkLanguageAccess($defaults[$language])) {
-                return [[], 'language'];
+                return [[], 'language', []];
             }
         }
         $visibility = $GLOBALS['TCA'][$table]['ctrl']['enablecolumns']['disabled'] ?? '';
         if (!$parent['workspaceId'] && ($this->configuration->forPage($pid)['createHidden'] ?? true)) {
             if ($visibility === '' || !$this->mayWrite($table, $visibility)) {
-                return [[], 'hidden'];
+                return [[], 'hidden', []];
             }
             $defaults[$visibility] = 1;
         }
-        return [$defaults, ''];
+        return [$defaults, '', []];
     }
 
     /** @param array<string, mixed> $form */
@@ -316,20 +612,10 @@ final readonly class InlineRecordService
         if ($pointer === '' || $this->users->getOrThrow()->isAdmin()) {
             return true;
         }
-        $connection = $this->connections->getConnectionForTable($table);
-        $live = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
-        $rows = $connection->fetchAllAssociative('SELECT * FROM ' . $connection->quoteIdentifier($table)
-            . ' WHERE ' . $connection->quoteIdentifier($pointer) . ' = ?', [$live]);
-        foreach ($rows as $row) {
-            if ((int)($row['t3ver_wsid'] ?? 0) !== 0 && (int)$row['t3ver_wsid'] !== (int)$form['workspaceId']) {
-                continue;
-            }
-            if (!empty($row[$form['processedTca']['ctrl']['delete'] ?? ''])) {
-                continue;
-            }
+        foreach ($this->translations->of($table, $form['resolvedRow']) as $translation) {
             try {
-                $this->contexts->compile($table, (int)$row['uid'], $request);
-            } catch (\TYPO3\CMS\Backend\Form\Exception\AccessDeniedException|\TYPO3\CMS\Backend\Form\Exception\DatabaseRecordException) {
+                $this->contexts->compile($table, (int)$translation['uid'], $request);
+            } catch (AccessDeniedException|DatabaseRecordException) {
                 return false;
             }
         }
@@ -353,6 +639,7 @@ final readonly class InlineRecordService
         if (!isset($GLOBALS['TCA'][$table])) {
             throw new \InvalidArgumentException('Unknown parent table');
         }
+        $operation = $this->operations[$intent['action']] ?? throw new \InvalidArgumentException('Invalid collection action');
         $request = $request->withQueryParams([...$request->getQueryParams(), 'editMode' => 1]);
         $form = $this->contexts->compile($table, $intent['parentUid'], $request);
         $live = (int)(($form['databaseRow']['t3ver_oid'] ?? 0) ?: $form['databaseRow']['uid']);
@@ -360,7 +647,7 @@ final readonly class InlineRecordService
         $lock = $this->locks->createLocker('vee-inline:' . $table . ':' . $live . ':' . $intent['field'], LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
         try {
             $acquired = $lock->acquire(LockingStrategyInterface::LOCK_CAPABILITY_EXCLUSIVE | LockingStrategyInterface::LOCK_CAPABILITY_NOBLOCK);
-        } catch (\TYPO3\CMS\Core\Locking\Exception\LockAcquireWouldBlockException) {
+        } catch (LockAcquireWouldBlockException) {
             $acquired = false;
         }
         if (!$acquired) {
@@ -376,48 +663,49 @@ final readonly class InlineRecordService
             if (!hash_equals($field['revision'], $intent['revision'])) {
                 return [409, ['success' => false, 'reason' => 'stale', 'collection' => self::publicField($field)]];
             }
-            $uids = $field['uids'];
-            $childTable = $field['_config']['foreign_table'];
-            $data = [];
-            $cmd = [];
-            $newId = 'NEW' . bin2hex(random_bytes(12));
-            if ($intent['action'] === 'create') {
-                if (!$field['canCreate']) {
-                    return [409, ['success' => false, 'reason' => $field['createReason'], 'collection' => self::publicField($field)]];
-                }
-                $after = $intent['afterUid'] ?? null;
-                if ($after !== null && !in_array($after, $uids, true)) {
-                    return [409, ['success' => false, 'reason' => 'stale', 'collection' => self::publicField($field)]];
-                }
-                array_splice($uids, $after === null ? count($uids) : (int)array_search($after, $uids, true) + 1, 0, [$newId]);
-                $data[$childTable][$newId] = $field['_defaults'];
-            } else {
-                $child = current(array_filter($field['children'], static fn(array $child): bool => $child['uid'] === $intent['childUid']));
-                if (!$child || !$child['canDelete']) {
-                    return [409, ['success' => false, 'reason' => $child['deleteReason'] ?? 'membership', 'collection' => self::publicField($field)]];
-                }
-                $uids = array_values(array_diff($uids, [$intent['childUid']]));
-                $cmd[$childTable][$child['deleteUid']]['delete'] = 1;
+            try {
+                $plan = $operation->apply($field, $form, $intent);
+            } catch (IntentRefused $refusal) {
+                return [$refusal->status, ['success' => false, 'reason' => $refusal->reason, 'collection' => self::publicField($field)]];
             }
-            $data = [$table => [(int)$form['compileUid'] => [$intent['field'] => implode(',', $uids)]] + ($data[$table] ?? [])] + $data;
+            if (!$plan->write) {
+                return [200, ['success' => true, 'uid' => null, ...$plan->result,
+                    'workspace' => ['id' => (int)$form['workspaceId'], 'firstVersion' => false],
+                    'collections' => array_map(self::publicField(...), $fields)]];
+            }
+            $childTable = $field['_config']['foreign_table'];
             $connection = $this->connections->getConnectionForTable($table);
             if ($connection !== $this->connections->getConnectionForTable($childTable)) {
                 return [409, ['success' => false, 'reason' => 'connection']];
             }
-            $liveSnapshot = $form['workspaceId'] ? $this->liveSnapshot($table, $form, $field) : [];
+            // Core's first-version bookkeeping is masked only for the step that creates
+            // the parent's first draft, and only where the site enabled it.
+            $firstVersion = (bool)$field['workspace']['firstVersion'] && $this->configuration->firstVersion((int)$form['scopePageId']);
+            $liveUid = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
+            $before = $form['workspaceId'] ? $this->snapshots->capture($table, $liveUid, (int)$form['workspaceId']) : null;
+            if ($before !== null && $firstVersion && $before['truncated']) {
+                return [409, ['success' => false, 'reason' => 'workspace', 'collection' => self::publicField($field)]];
+            }
             $connection->beginTransaction();
             try {
-                $handler = GeneralUtility::makeInstance(\Webconsulting\VisualEditorEnhancements\DataHandling\InlineDataHandler::class);
-                $handler->start($data, $cmd);
-                $handler->process_datamap();
-                if (!$handler->errorLog) {
+                $handler = GeneralUtility::makeInstance(InlineDataHandler::class);
+                $handler->start($plan->data, $plan->cmd);
+                if ($plan->cmdFirst) {
                     $handler->process_cmdmap();
+                    if (!$handler->errorLog) {
+                        $handler->process_datamap();
+                    }
+                } else {
+                    $handler->process_datamap();
+                    if (!$handler->errorLog) {
+                        $handler->process_cmdmap();
+                    }
                 }
                 if ($handler->errorLog) {
                     $connection->rollBack();
                     return [422, ['success' => false, 'errorLog' => $handler->errorLog]];
                 }
-                if ($form['workspaceId'] && $liveSnapshot !== $this->liveSnapshot($table, $form, $field)) {
+                if ($before !== null && !$this->snapshots->unchanged($before, $this->snapshots->capture($table, $liveUid, (int)$form['workspaceId']), $firstVersion)) {
                     $connection->rollBack();
                     return [409, ['success' => false, 'reason' => 'workspaceLiveChange']];
                 }
@@ -427,39 +715,60 @@ final readonly class InlineRecordService
                 throw $error;
             }
             $fresh = $this->contexts->compile($table, $intent['parentUid'], $request);
-            $freshFields = array_map(self::publicField(...), $this->fields($table, $fresh, $request));
-            return [200, ['success' => true, 'uid' => $handler->substNEWwithIDs[$newId] ?? null, 'collections' => $freshFields]];
+            $freshFields = $this->fields($table, $fresh, $request);
+            $response = ['success' => true, 'uid' => null];
+            if ($plan->newId !== null) {
+                $uid = (int)($handler->substNEWwithIDs[$plan->newId] ?? 0);
+                $response['uid'] = $uid ?: null;
+                $response['created'] = ['uid' => $uid ?: null, ...($plan->result['created'] ?? [])];
+            }
+            $response += array_diff_key($plan->result, ['created' => true]);
+            if (isset($response['synced'])) {
+                $response['synced'] = $this->syncedCounts($response['synced'], $field, $freshFields);
+            }
+            $response['workspace'] = ['id' => (int)$form['workspaceId'], 'firstVersion' => $firstVersion];
+            $response['collections'] = array_map(self::publicField(...), $freshFields);
+            return [200, $response];
         } finally {
             $lock->release();
         }
     }
 
     /**
-     * @param array<string, mixed> $form
-     * @param array<string, mixed> $field
+     * What a sync actually did, from the preflight before and after the write.
+     *
+     * @param array<string, mixed> $synced
+     * @param array<string, mixed> $before
+     * @param list<array<string, mixed>> $freshFields
      * @return array<string, mixed>
      */
-    private function liveSnapshot(string $table, array $form, array $field): array
+    private function syncedCounts(array $synced, array $before, array $freshFields): array
     {
-        $config = $field['_config'];
-        $childTable = $config['foreign_table'];
-        $parent = $form['resolvedRow'];
-        $live = (int)(($parent['t3ver_oid'] ?? 0) ?: $parent['uid']);
-        $connection = $this->connections->getConnectionForTable($table);
-        $parentRow = $connection->fetchAssociative('SELECT * FROM ' . $connection->quoteIdentifier($table) . ' WHERE uid = ?', [$live]);
-        $childConnection = $this->connections->getConnectionForTable($childTable);
-        $children = $childConnection->fetchAllAssociative('SELECT * FROM ' . $childConnection->quoteIdentifier($childTable)
-            . ' WHERE ' . $childConnection->quoteIdentifier($config['foreign_field']) . ' = ? AND t3ver_wsid = 0 ORDER BY uid', [$live]);
-        return ['parent' => $parentRow, 'children' => $children];
+        $language = (int)$synced['language'];
+        $find = static function (array $field) use ($language): array {
+            foreach ($field['translationLanguages'] ?? [] as $entry) {
+                if ((int)$entry['id'] === $language) {
+                    return $entry;
+                }
+            }
+            return ['missing' => 0, 'orphaned' => 0];
+        };
+        $after = $find(current(array_filter($freshFields, static fn(array $field): bool => $field['name'] === $before['name'])) ?: []);
+        $previous = $find($before);
+        return [...$synced, 'localized' => max(0, (int)$previous['missing'] - (int)$after['missing']),
+            'removed' => max(0, (int)$previous['orphaned'] - (int)$after['orphaned'])];
     }
 
     /**
+     * The collection as the browser may see it: no internal defaults, relation config
+     * or command targets (delete targets can be placeholder version uids).
+     *
      * @return array<string, mixed>
      * @param array<string, mixed> $field
      */
     public static function publicField(array $field): array
     {
-        unset($field['_defaults'], $field['_config']);
+        unset($field['_defaults'], $field['_config'], $field['_sync']);
         foreach ($field['children'] as &$child) {
             unset($child['deleteUid']);
         }

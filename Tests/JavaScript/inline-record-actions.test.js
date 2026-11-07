@@ -13,24 +13,25 @@ test('create and delete send intent only, no client identities or datamaps', () 
 test('move always carries childUid and afterUid, null meaning the first position', () => {
   assert.deepEqual(collectionIntent(field, 'move', {childUid: 4, afterUid: 2}), {inlineRecord: {action: 'move', ...common, childUid: 4, afterUid: 2}});
   assert.deepEqual(collectionIntent(field, 'move', {childUid: 4, afterUid: null}), {inlineRecord: {action: 'move', ...common, childUid: 4, afterUid: null}});
+  assert.deepEqual(collectionIntent(field, 'move', {childUid: 4}).inlineRecord.afterUid, null);
   assert.throws(() => collectionIntent(field, 'move', {afterUid: 2}), /needs childUid/);
 });
-test('sync carries language, a known mode and optional ids only', () => {
-  assert.deepEqual(collectionIntent(field, 'sync', {language: 2, mode: 'localize', ids: [4]}), {inlineRecord: {action: 'sync', ...common, language: 2, mode: 'localize', ids: [4]}});
-  assert.deepEqual(collectionIntent(field, 'sync', {language: 2, mode: 'synchronize'}), {inlineRecord: {action: 'sync', ...common, language: 2, mode: 'synchronize'}});
-  assert.equal(collectionIntent(field, 'sync', {language: 2, mode: 'copy'}).inlineRecord.mode, 'localize');
-  assert.deepEqual(collectionIntent(field, 'sync', {language: 2, ids: [4, 'x', -1]}).inlineRecord.ids, [4]);
+test('sync carries language, mode and optional ids for localize only', () => {
+  assert.deepEqual(collectionIntent(field, 'sync', {language: 1, mode: 'localize'}), {inlineRecord: {action: 'sync', ...common, language: 1, mode: 'localize'}});
+  assert.deepEqual(collectionIntent(field, 'sync', {language: 2, mode: 'localize', ids: [7, 7, 8]}).inlineRecord.ids, [7, 8]);
+  assert.equal('ids' in collectionIntent(field, 'sync', {language: 1, mode: 'synchronize'}).inlineRecord, false);
+  assert.throws(() => collectionIntent(field, 'sync', {language: 1, mode: 'synchronize', ids: [7]}), /Only localize/);
+  assert.throws(() => collectionIntent(field, 'sync', {language: 1, mode: 'copy'}), /needs mode/);
   assert.throws(() => collectionIntent(field, 'sync', {mode: 'localize'}), /needs language/);
 });
-test('no child table, pid, sorting, language identity, live uid or unknown action leaves the browser', () => {
+test('no child table, pid, sorting, language, live uid or unknown action leaves the browser', () => {
   const forged = {childUid: 4, afterUid: 2, childTable: 'x', pid: 1, sorting: 3, sys_language_uid: 1, liveUid: 9, hidden: 0, uids: [4, 2], data: {}};
-  for (const action of ['create', 'delete', 'move']) {
-    for (const key of Object.keys(collectionIntent({...field, childTable: 'x', pid: 1}, action, forged).inlineRecord)) {
-      assert.ok(['action', 'parentTable', 'parentUid', 'field', 'revision', 'childUid', 'afterUid'].includes(key), `${action} leaked ${key}`);
+  const allowed = {create: ['afterUid'], delete: ['childUid'], move: ['childUid', 'afterUid'], sync: ['language', 'mode']};
+  for (const action of ['create', 'delete', 'move', 'sync']) {
+    const keys = Object.keys(collectionIntent({...field, childTable: 'x', pid: 1}, action, {...forged, language: 1, mode: 'synchronize'}).inlineRecord);
+    for (const key of keys) {
+      assert.ok(['action', 'parentTable', 'parentUid', 'field', 'revision', ...allowed[action]].includes(key), `${action} leaked ${key}`);
     }
-  }
-  for (const key of Object.keys(collectionIntent(field, 'sync', {...forged, language: 1, mode: 'localize', ids: [4]}).inlineRecord)) {
-    assert.ok(['action', 'parentTable', 'parentUid', 'field', 'revision', 'language', 'mode', 'ids'].includes(key), `sync leaked ${key}`);
   }
   assert.throws(() => collectionIntent(field, 'copy', {}), /Unknown collection action/);
 });

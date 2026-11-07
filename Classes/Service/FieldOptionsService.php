@@ -147,6 +147,9 @@ final readonly class FieldOptionsService
         foreach ($this->inlineRecords->fields($table, $formData, $request) as $inline) {
             $inline = InlineRecordService::publicField($inline);
             $inline['label'] = $languageService->sL((string)$inline['label']);
+            if (isset($inline['childTitle'])) {
+                $inline['childTitle'] = $languageService->sL((string)$inline['childTitle']);
+            }
             $inline['group'] = $fieldGroups[$inline['name']]['label'] ?? '';
             $inline['tab'] = $fieldGroups[$inline['name']]['tab'] ?? '';
             $inline['tabId'] = $fieldGroups[$inline['name']]['tabId'] ?? 0;

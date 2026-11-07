@@ -8,10 +8,8 @@ const intentKeys = {
   create: {afterUid: 'optional'},
   delete: {childUid: 'required'},
   move: {childUid: 'required', afterUid: 'nullable'},
-  sync: {language: 'required', mode: 'mode', ids: 'list'},
+  sync: {language: 'required', mode: 'mode', ids: 'ids'},
 };
-
-const syncModes = ['localize', 'synchronize'];
 
 /**
  * Pure server-intent builder. Relation and DataHandler identities never come from
@@ -20,7 +18,7 @@ const syncModes = ['localize', 'synchronize'];
  * @param {object} field   collection payload (parentTable, parentUid, name, revision)
  * @param {string} action  create | delete | move | sync
  * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
- *                         · sync {language, mode: 'localize'|'synchronize', ids?: uid[]}
+ *                         · sync {language, mode: 'localize'|'synchronize', ids?: [default entry uids], localize only}
  */
 export function collectionIntent(field, action, options = {}) {
   const keys = intentKeys[action];
@@ -31,14 +29,20 @@ export function collectionIntent(field, action, options = {}) {
     field: field.name, revision: field.revision};
   for (const [key, rule] of Object.entries(keys)) {
     const value = options?.[key];
-    if (rule === 'nullable') {
-      intent[key] = Number.isInteger(value) ? value : null;
-    } else if (rule === 'mode') {
-      intent[key] = syncModes.includes(value) ? value : 'localize';
-    } else if (rule === 'list') {
-      if (Array.isArray(value) && value.length > 0) {
-        intent[key] = value.filter((uid) => Number.isInteger(uid) && uid > 0);
+    if (rule === 'mode') {
+      if (!['localize', 'synchronize'].includes(value)) {
+        throw new Error(`Collection action ${action} needs mode localize or synchronize`);
       }
+      intent[key] = value;
+    } else if (rule === 'ids') {
+      if (Array.isArray(value) && value.length > 0 && value.every(Number.isInteger)) {
+        if (options.mode !== 'localize') {
+          throw new Error('Only localize accepts selected entries');
+        }
+        intent[key] = [...new Set(value)];
+      }
+    } else if (rule === 'nullable') {
+      intent[key] = Number.isInteger(value) ? value : null;
     } else if (Number.isInteger(value)) {
       intent[key] = value;
     } else if (rule === 'required') {
@@ -162,7 +166,6 @@ const inlineFallbacks = {
   "countMax": "{count} / {max}",
   "minHint": "min {min}",
   "draftCreated": "Draft created. Core renumbered the stored order values; the visible order is unchanged.",
-  "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.",
   "stage": "The element is in review; its editing stage is closed.",
   "settings": "Item settings",
   "backend": "Open backend form",
@@ -217,10 +220,6 @@ const inlineFallbacks = {
   "confirmStage": "Deletion is staged in this workspace; the live entry remains until publication.",
   "confirmLive": "It disappears from the live site immediately.",
   "confirmReset": "Reset does not undo this operation.",
-  "confirmTranslation": "Also removes 1 translation ({languages}).",
-  "confirmTranslations": "Also removes {count} translations ({languages}).",
-  "confirmTranslationStage": "Also marks 1 translation ({languages}) for deletion.",
-  "confirmTranslationsStage": "Also marks {count} translations ({languages}) for deletion.",
   "confirmLanguageOnly": "Only the entry in this language is removed; the default-language entry stays.",
   "cancel": "Cancel",
   "newEntry": "New entry",
@@ -229,5 +228,15 @@ const inlineFallbacks = {
   "label": "This entry's title is not a plain text field. Edit it in the form.",
   "moveUp": "Move up",
   "moveDown": "Move down",
-  "unsorted": "This collection has no stored order. Use the backend form."
+  "unsorted": "This collection has no stored order. Use the backend form.",
+  "syncNone": "All translations are complete.",
+  "syncWorkspace": "Synchronize translations in the live site; it is not available in a workspace.",
+  "syncDisabled": "Synchronizing translations is switched off for this site.",
+  "orderFollowsDefault": "Order follows the default language after a sync.",
+  "confirmTranslations": "Also removes {count} translations ({languages}).",
+  "confirmTranslationsStage": "Also marks {count} translations ({languages}) for deletion.",
+  "badgeTranslationOnly": "Only in this language",
+  "badgeUntranslated": "Not translated here: {languages}",
+  "hiddenPerLanguage": "Visibility is per language.",
+  "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
 };

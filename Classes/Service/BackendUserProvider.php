@@ -35,6 +35,20 @@ class BackendUserProvider
      * the coarse "is this an editor for this table" check every JSON endpoint
      * of this extension runs before it answers with record data.
      */
+    /**
+     * Title of a workspace for the editor's context strip; '' for live or when the
+     * workspace (or EXT:workspaces) is unavailable.
+     */
+    public function workspaceTitle(int $workspaceId): string
+    {
+        if ($workspaceId <= 0 || !isset($GLOBALS['TCA']['sys_workspace'])) {
+            return '';
+        }
+        $row = \TYPO3\CMS\Backend\Utility\BackendUtility::getRecord('sys_workspace', $workspaceId, 'title');
+
+        return (string)($row['title'] ?? '');
+    }
+
     public function mayModifyTable(string $table): bool
     {
         $backendUser = $this->get();
