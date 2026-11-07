@@ -78,12 +78,51 @@ jobs:
           node-version: '26.12.1'
 
       # The shipped JavaScript has no build step and the unit tests use the
-      # Node test runner, so there is nothing to install. The Playwright
-      # end-to-end suite in Tests/E2E needs a running TYPO3 and stays out of CI.
+      # Node test runner, so there is nothing to install. The login-free
+      # Playwright component specs run in the `components` job; the
+      # `enhancements` project needs a running TYPO3 and stays out of CI.
       - name: Pin npm 12.2.1
         run: npm install --global npm@12.2.1
       - name: JavaScript unit tests
         run: node --test 'Tests/JavaScript/*.test.js'
+
+  components:
+    name: Playwright components (Chromium, login-free)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The harness serves the real Lit, Core backend and Visual Editor
+      # modules straight from vendor/, so the Composer dependencies are needed.
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          coverage: none
+
+      - uses: ramsey/composer-install@v4
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.12.1'
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix . --no-save --no-package-lock --no-audit --no-fund \
+            "@playwright/test@$(node -p "require('./Tests/E2E/package.json').devDependencies['@playwright/test']")"
+          node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Component specs
+        run: node_modules/.bin/playwright test --config Tests/E2E --project=components
+
+      - name: Keep the failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-components
+          path: Tests/E2E/test-results/
+          retention-days: 7
 
   functional:
     name: Functional tests PHP ${{ matrix.php }}, MariaDB 10.11

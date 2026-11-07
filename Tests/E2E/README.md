@@ -4,7 +4,19 @@ These specs drive a **running** TYPO3 installation with this extension, the
 Visual Editor and a catalog provider (an extension answering
 `?elementLibrary=1`, `?elementLibrarySearch=` and `?elPreview`) installed. They
 are not part of `composer ci` and not run in GitHub Actions — there is no
-TYPO3 instance there.
+TYPO3 instance there. The login-free **component** specs (`*-component.spec.js`,
+project `components`) need no TYPO3 and run in the CI job `components`
+(Chromium, after `composer install`, because the harness serves Lit, Core's
+backend modules and the Visual Editor from `vendor/`):
+
+```bash
+node_modules/.bin/playwright test --config Tests/E2E --project=components
+```
+
+The regular-runtime suite against a real installation (disposable users,
+workspace, restricted editor, MariaDB, axe) lives in the lab:
+`Build/Scripts/ve-runtime.sh fixture|run|cleanup` with
+`Tests/Integration/VisualEditor/runtime.spec.js`.
 
 ## Environment
 
