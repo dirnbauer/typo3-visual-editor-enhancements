@@ -1,7 +1,7 @@
 import {html, nothing} from 'lit';
 import {live} from 'lit/directives/live.js';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
-import {inlineLabel, collectionReason} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {collectionLimit, collectionReason, fromTextControl, inlineLabel, titleKeyAction} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {addEntryIconSvg, caretDownIconSvg, caretUpIconSvg, eyeSlashIconSvg, formInsertAfterIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
 
@@ -94,14 +94,24 @@ function titleControl(field, child, ctx, position, reason) {
     return html`<span class="entryTitleText">${label}</span>`;
   }
   if (child.canEditLabel && field.labelField) {
-    return html`<input type="text" class="entryTitle" data-child-edit=${child.uid}
-      aria-label=${fill(inlineLabel('titleOf'), {position})} .value=${live(ctx.title(child))}
-      placeholder=${inlineLabel('newEntry')} autocomplete="off" spellcheck="true"
-      @input=${(event) => ctx.stageTitle(child, event.target.value)}
-      @keydown=${(event) => {
-        if (event.key === 'Enter') { event.preventDefault(); event.target.blur(); }
-        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); ctx.restoreTitle(child); event.target.value = ctx.title(child); }
-      }}>`;
+    const multiline = !!field.labelMultiline;
+    const keydown = (event) => {
+      const action = titleKeyAction(event, multiline);
+      if (action === 'commit') { event.preventDefault(); event.target.blur(); }
+      if (action === 'restore') { event.preventDefault(); event.stopPropagation(); ctx.restoreTitle(child); event.target.value = ctx.title(child); }
+    };
+    // A text-area label column (TCA type=text) keeps its line breaks: a
+    // one-row textarea growing with its content (field-sizing), never an
+    // <input>, whose value sanitising would strip them.
+    return multiline
+      ? html`<textarea class="entryTitle isMultiline" rows="1" data-child-edit=${child.uid}
+        aria-label=${fill(inlineLabel('titleOf'), {position})} .value=${live(ctx.title(child))}
+        placeholder=${inlineLabel('newEntry')} autocomplete="off" spellcheck="true"
+        @input=${(event) => ctx.stageTitle(child, event.target.value)} @keydown=${keydown}></textarea>`
+      : html`<input type="text" class="entryTitle" data-child-edit=${child.uid}
+        aria-label=${fill(inlineLabel('titleOf'), {position})} .value=${live(ctx.title(child))}
+        placeholder=${inlineLabel('newEntry')} autocomplete="off" spellcheck="true"
+        @input=${(event) => ctx.stageTitle(child, event.target.value)} @keydown=${keydown}>`;
   }
   // Not a plain text field (or no right): Core's contextual sheet edits it.
   const editLabel = `${inlineLabel('edit')}: ${label}`;
@@ -144,15 +154,19 @@ function rowMenuItems(field, child, ctx) {
   return items;
 }
 
+/**
+ * Row shortcuts on the row's controls (not inside its title, where
+ * Alt/Option+Arrow moves the caret and Delete deletes text).
+ */
 function rowKeydown(event, field, child, ctx, reason) {
-  if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+  const inField = fromTextControl(event);
+  if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown') && !inField) {
     event.preventDefault();
     const direction = event.key === 'ArrowUp' ? 'up' : 'down';
     const target = moveTarget(field, child, direction);
     if (target && !reason[direction]) { ctx.action('move', child, {...target, direction}); }
     return;
   }
-  const inField = event.composedPath().some((node) => node instanceof HTMLInputElement);
   if (event.key === 'Delete' && !inField && !event.altKey && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
     if (!reason.remove) { ctx.action('delete', child); }
@@ -242,7 +256,7 @@ function renderRow(field, child, index, ctx) {
 export function renderCollection(field, ctx) {
   const children = field.children ?? [];
   const count = activeChildren(field).length;
-  const max = Number(field.maxItems ?? 0);
+  const max = collectionLimit(field.maxItems);
   const min = Number(field.minItems ?? 0);
   const createReason = ctx.blocked || (field.createReason ? collectionReason(field.createReason) : (field.canCreate === false ? inlineLabel('controls') : ''));
   const addText = field.childTitle ? fill(inlineLabel('addEntry'), {title: field.childTitle}) : inlineLabel('add');

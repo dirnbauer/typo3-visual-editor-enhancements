@@ -10,7 +10,7 @@ import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/
 import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
 import {changeCollection, collectionBlockReason, elementHasStagedData, rowBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
-import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
+import {deferElementRefresh, refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {effectiveHidden, markEntries, setActiveEntry, trackEntryMarks} from '@webconsulting/visual-editor-enhancements/Frontend/entry-page-marks.js';
 import {highlightRow, joinChildren, onPageRow, rowsOf} from '@webconsulting/visual-editor-enhancements/Frontend/collection-rows.js';
 import {activeChildren, renderCollection, rovingItems, setRoving} from '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/collections.js';
@@ -122,6 +122,13 @@ export class VeFieldChooser extends LitElement {
     };
     /** @type {HTMLElement|null} the control that had focus when the popover opened */
     this.returnFocus = null;
+    // An element refresh (structural action, Save) replaces the wrapper and
+    // with it the action-bar trigger; the extension re-injects the bar
+    // buttons after the new element's first render, hence the macrotask.
+    this.onElementRefreshed = (event) => {
+      if (event.target !== this.#wrapper()) { return; }
+      Promise.resolve(event.target.updateComplete).then(() => setTimeout(() => this.#rebindTrigger()));
+    };
     this.onDocumentPointerDown = (event) => {
       const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
       if (path.includes(this)) {
@@ -214,6 +221,7 @@ export class VeFieldChooser extends LitElement {
     if (!this.open) {
       return;
     }
+    this.#rebindTrigger();
     this.open = false;
     this.trigger?.setAttribute('aria-expanded', 'false');
     this.loadSeq++;
@@ -241,6 +249,7 @@ export class VeFieldChooser extends LitElement {
     } catch { /* unknown cross-origin state stays blocked */ }
     document.addEventListener('keydown', this.onDocumentKeydown);
     document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
+    document.addEventListener('ve:element-refreshed', this.onElementRefreshed);
   }
 
   #stopListening() {
@@ -253,6 +262,28 @@ export class VeFieldChooser extends LitElement {
     this.saveObserver?.disconnect();
     document.removeEventListener('keydown', this.onDocumentKeydown);
     document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
+    document.removeEventListener('ve:element-refreshed', this.onElementRefreshed);
+  }
+
+  /**
+   * The trigger is the element's Entries button: after an element refresh
+   * replaced the wrapper, the replacement's own Entries button takes over -
+   * in every layout - so aria-expanded stays true while the panel is open,
+   * Escape returns the focus to a live control and the anchored layout keeps
+   * following its element.
+   */
+  #rebindTrigger() {
+    if (!this.open || this.rootView !== 'entries' || !this.trigger || this.trigger.isConnected) {
+      return;
+    }
+    const replacement = this.#wrapper()?.shadowRoot?.querySelector('[data-ve-enhancement="inline-records"]');
+    if (!replacement) {
+      return;
+    }
+    const returnToTrigger = this.returnFocus === this.trigger || !this.returnFocus?.isConnected;
+    this.trigger = replacement;
+    this.trigger.setAttribute('aria-expanded', 'true');
+    if (returnToTrigger) { this.returnFocus = this.trigger; }
   }
 
   /**
@@ -264,17 +295,10 @@ export class VeFieldChooser extends LitElement {
    * scroll, so the anchored panel scrolls with its element.
    */
   #position() {
+    this.#rebindTrigger();
     if (this.docked) {
       this.popoverStyle = '';
       return;
-    }
-    // An element refresh replaced the wrapper and with it the trigger.
-    if (this.trigger && !this.trigger.isConnected && this.rootView === 'entries') {
-      const replacement = this.#wrapper()?.shadowRoot?.querySelector('[data-ve-enhancement="inline-records"]');
-      if (replacement) {
-        this.trigger = replacement;
-        this.trigger.setAttribute('aria-expanded', 'true');
-      }
     }
     const edge = 12;
     const gap = 8;
@@ -518,7 +542,10 @@ export class VeFieldChooser extends LitElement {
     const hints = [];
     if (field.hiddenPerLanguage) { hints.push(inlineLabel('hiddenPerLanguage')); }
     if (field.translationMode === 'connected') { hints.push(inlineLabel('orderFollowsDefault')); }
-    if (field.workspace?.id && field.workspace.firstVersion) { hints.push(inlineLabel('firstVersionNext')); }
+    // Promise the first draft only where the site allows it: a 'firstVersion'
+    // refusal on the same payload says the opposite (and explains itself).
+    const firstVersionRefused = field.createReason === 'firstVersion' || field.sortReason === 'firstVersion';
+    if (field.workspace?.id && field.workspace.firstVersion && !firstVersionRefused) { hints.push(inlineLabel('firstVersionNext')); }
     return html`${mode ? html`<span class="contextMode">${mode}</span>` : ''}
       ${hints.length ? html`<span class="contextMode contextHint">${hints.join(' ')}</span>` : ''}`;
   }
@@ -818,12 +845,20 @@ export class VeFieldChooser extends LitElement {
   /**
    * Baselines for the staged title and visibility of every listed entry -
    * the vendor's own element pattern: setInitialData first, so toggling back
-   * (or Escape in the title) clears the staged change again.
+   * (or Escape in the title) clears the staged change again. A title that a
+   * page editable renders keeps the baseline the editable seeded: it is the
+   * authoritative one (the vendor seeds "\n" where the stored label has
+   * "<br>", and markSaved() carries it forward) - overwriting it from the
+   * payload would dispatch an 'initial' change and rewrite the page text.
+   * Titles without a page editable take the payload, the freshest source.
    */
   #seedEntries() {
+    const baseline = dataHandlerStore.initialData;
+    const pageOwned = (child, field) => baseline[child.table]?.[child.uid]?.[field] !== undefined
+      && document.querySelector(`ve-editable-text[table="${CSS.escape(child.table)}"][uid="${CSS.escape(String(child.uid))}"][field="${CSS.escape(field)}"]`) !== null;
     for (const field of this.fields.filter((field) => field.type === 'inline')) {
       for (const child of activeChildren(field)) {
-        if (child.canEditLabel && field.labelField) {
+        if (child.canEditLabel && field.labelField && !pageOwned(child, field.labelField)) {
           dataHandlerStore.setInitialData(child.table, child.uid, field.labelField, String(child.labelValue ?? ''));
         }
         if (child.canHide && child.hiddenField) {
@@ -918,13 +953,18 @@ export class VeFieldChooser extends LitElement {
         messages.push(inlineLabel('draftCreated'));
       }
       // The element shows the change at once unless its own entries have
-      // staged text or visibility: then after the next Save (Save now).
+      // staged text or visibility: then after the next Save (Save now) -
+      // refreshElement() remembers it for that save, as it does here while
+      // a save is running or fields are invalid.
       if (!collectionBlockReason()) {
         const refreshed = await refreshElement(this.rootRecord.table, this.rootRecord.uid, {records: this.#entries()});
         if (!refreshed) { messages.push(inlineLabel(elementHasStagedData(this.rootRecord, this.#entries()) ? 'savedPageLater' : 'refreshPending')); }
+      } else {
+        deferElementRefresh(this.rootRecord.table, this.rootRecord.uid, this.#entries());
       }
       this.message = messages.join(' ');
       await this.refresh();
+      this.#rebindTrigger();
       if (action === 'create') {
         createdUid = Number(result.created?.uid ?? result.uid ?? 0) || null;
         this.createdUid = createdUid;

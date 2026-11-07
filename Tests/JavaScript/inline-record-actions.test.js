@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {collectionIntent, postCollectionIntent, recordTree, rowPendingReason, structuralBlockReason, treeHasStagedData} from '../../Resources/Public/JavaScript/Shared/inline-record-actions.js';
+import {collectionIntent, collectionLimit, fromTextControl, postCollectionIntent, recordTree, rowPendingReason, structuralBlockReason, titleKeyAction, treeHasStagedData} from '../../Resources/Public/JavaScript/Shared/inline-record-actions.js';
 
 const field = {parentTable: 'tt_content', parentUid: 5, name: 'cards', revision: 'opaque', childTable: 'ignored', hidden: 0};
 const common = {parentTable: 'tt_content', parentUid: 5, field: 'cards', revision: 'opaque'};
@@ -80,4 +80,34 @@ test('German operational messages use the exported TYPO3 catalogue', async () =>
   assert.equal(collectionReason('rights'), 'Zugriff eingeschränkt.');
   assert.equal(inlineLabel('unavailable').replace('{value}', 'legacy'), 'Nicht verfügbar: legacy');
   delete globalThis.window;
+});
+
+test('title keys: Enter commits, Shift+Enter is a line break only in a multi-line title, Escape restores', () => {
+  assert.equal(titleKeyAction({key: 'Enter'}), 'commit');
+  assert.equal(titleKeyAction({key: 'Enter', shiftKey: true}), 'commit');
+  assert.equal(titleKeyAction({key: 'Enter'}, true), 'commit');
+  assert.equal(titleKeyAction({key: 'Enter', shiftKey: true}, true), null);
+  assert.equal(titleKeyAction({key: 'Escape'}, true), 'restore');
+  assert.equal(titleKeyAction({key: 'Escape'}), 'restore');
+  assert.equal(titleKeyAction({key: 'a'}, true), null);
+  // An open IME composition owns Enter and Escape.
+  assert.equal(titleKeyAction({key: 'Enter', isComposing: true}, true), null);
+  assert.equal(titleKeyAction({key: 'Escape', isComposing: true}), null);
+});
+
+test('collection limit: 0, missing, invalid and Core\'s 99999 default are unlimited', () => {
+  assert.equal(collectionLimit(3), 3);
+  assert.equal(collectionLimit('6'), 6);
+  for (const unlimited of [0, undefined, null, '', 'x', -1, 99999, 100000]) {
+    assert.equal(collectionLimit(unlimited), 0, String(unlimited));
+  }
+});
+
+test('row shortcuts stay out of text controls', () => {
+  const event = (...nodes) => ({composedPath: () => nodes});
+  assert.equal(fromTextControl(event({localName: 'input'}, {localName: 'li'})), true);
+  assert.equal(fromTextControl(event({localName: 'textarea'}, {localName: 'li'})), true);
+  assert.equal(fromTextControl(event({localName: 'span', isContentEditable: true})), true);
+  assert.equal(fromTextControl(event({localName: 'button'}, {localName: 'li'})), false);
+  assert.equal(fromTextControl({target: {localName: 'textarea'}}), true);
 });

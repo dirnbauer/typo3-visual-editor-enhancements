@@ -37,6 +37,12 @@ import {recordTree, treeHasStagedData} from '@webconsulting/visual-editor-enhanc
  * bubbling 've:element-refreshed' CustomEvent is dispatched on the new
  * element as a hook for site JS that needs to re-initialize behavior.
  *
+ * Structural entry changes (refreshElement) that had to wait because the
+ * element held staged text are remembered as deferred roots: the next
+ * successful save refreshes them even when every staged field of the save
+ * was inline-covered - the server-side change (a new, moved or removed
+ * entry) is not in the DOM yet, whatever the staged text says.
+ *
  * Fallback semantics: structural changes (cmdArray entries from drag/drop,
  * copy, delete) are left alone - the vendor already updated the DOM
  * optimistically. A record whose wrapper cannot be found (before or after
@@ -54,6 +60,24 @@ let lastSnapshot = null;
 
 /** Concurrency guard: one handleSaved run at a time, overlapping runs drop. */
 let refreshing = false;
+
+/**
+ * Elements whose structural change is on the server but not yet on the page
+ * (refreshElement skipped them for staged text): wrapper selector -> the
+ * entries they own. Consumed by the next successful save.
+ * @type {Map<string, Array<{table: string, uid: number}>>}
+ */
+const deferredRefreshes = new Map();
+
+/**
+ * Remembers an element whose re-render waits for the next Save.
+ * @param {string} table
+ * @param {number|string} uid
+ * @param {Array<{table: string, uid: number}>} records the entries it owns
+ */
+export function deferElementRefresh(table, uid, records = []) {
+  deferredRefreshes.set(wrapperSelector(table, String(uid)), records);
+}
 
 export function initializeElementRefresh() {
   if (!isElementRefreshEnabled()) {
@@ -84,12 +108,7 @@ async function handleSaved(snapshot) {
   // drops below): the cached payloads carry pre-save values and would seed
   // stale setInitialData baselines when a popover is (re)opened.
   clearFieldOptionsCache();
-  if (refreshing || !snapshot) {
-    return;
-  }
-  if (snapshot.cmdArray.length > 0) {
-    // Structural changes (move/copy/delete): the vendor's drag/drop already
-    // updated the DOM optimistically - do not interfere.
+  if (refreshing || (!snapshot && deferredRefreshes.size === 0)) {
     return;
   }
   refreshing = true;
@@ -97,7 +116,20 @@ async function handleSaved(snapshot) {
     /** @type {Map<string, Element>} wrapper selector -> live wrapper */
     const staleWrappers = new Map();
     let fullReload = false;
-    for (const [table, records] of Object.entries(snapshot.data)) {
+    // Deferred structural changes first: regardless of what the save held.
+    const deferred = [...deferredRefreshes.keys()];
+    for (const selector of deferred) {
+      const wrapper = document.querySelector(selector);
+      if (wrapper === null) {
+        deferredRefreshes.delete(selector); // the element is gone: nothing left to show
+      } else {
+        staleWrappers.set(selector, wrapper);
+      }
+    }
+    // Structural changes (move/copy/delete) of the vendor's drag/drop: it
+    // already updated the DOM optimistically - do not interfere.
+    const data = snapshot && snapshot.cmdArray.length === 0 ? snapshot.data : {};
+    for (const [table, records] of Object.entries(data)) {
       for (const [uid, fields] of Object.entries(records)) {
         if (Object.keys(fields).every((field) => isInlineCovered(table, uid, field))) {
           continue; // every changed field is inline-edited: DOM already correct
@@ -116,7 +148,9 @@ async function handleSaved(snapshot) {
       return; // nothing server-rendered changed: no fetch needed
     }
     if (!fullReload) {
-      fullReload = !(await refreshWrappers(staleWrappers));
+      const records = deferred.flatMap((selector) => deferredRefreshes.get(selector) ?? []);
+      fullReload = !(await refreshWrappers(staleWrappers, records));
+      if (!fullReload) { deferred.forEach((selector) => deferredRefreshes.delete(selector)); }
     }
     if (dataHandlerStore.changesCount > 0 || dataHandlerStore.invalidCount > 0) { return; }
     if (fullReload) {
@@ -228,17 +262,26 @@ function wrapperHasStagedData(wrapper, records = []) {
 
 /**
  * Re-renders one content element after a structural entry change. Skipped
- * (false) only when the element's own record tree has staged or invalid
- * data - the change is then on the server and the element shows it after
- * the next Save (the 'saved' refresh above).
+ * (false) when the element's own record tree has staged or invalid data -
+ * the change is then on the server, the element is remembered as deferred
+ * and the next successful Save re-renders it (the 'saved' refresh above),
+ * even when everything that save held was inline-covered text.
  * @param {string} table
  * @param {number} uid
  * @param {{records?: Array<{table: string, uid: number}>}} options
  * @return {Promise<boolean>}
  */
 export async function refreshElement(table, uid, {records = []} = {}) {
-  const selector = wrapperSelector(table, uid);
+  const selector = wrapperSelector(table, String(uid));
   const wrapper = document.querySelector(selector);
-  if (!wrapper || wrapperHasStagedData(wrapper, records)) { return false; }
-  return refreshWrappers(new Map([[selector, wrapper]]), records);
+  if (!wrapper) { return false; }
+  if (wrapperHasStagedData(wrapper, records)) {
+    deferElementRefresh(table, uid, records);
+    return false;
+  }
+  const refreshed = await refreshWrappers(new Map([[selector, wrapper]]), records);
+  // Text was staged while the request ran: the swap waits for Save as well.
+  if (!refreshed && wrapper.isConnected && wrapperHasStagedData(wrapper, records)) { deferElementRefresh(table, uid, records); }
+  if (refreshed) { deferredRefreshes.delete(selector); }
+  return refreshed;
 }

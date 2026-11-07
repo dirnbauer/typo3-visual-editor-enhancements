@@ -113,6 +113,45 @@ export function rowPendingReason(store, child) {
   return fields && Object.keys(fields).length > 0 ? inlineLabel('pendingRow') : '';
 }
 
+/**
+ * What a key does in an entry's title control. Enter commits (leaves the
+ * field, the staged value stays for Save) - in a multi-line title too, where
+ * Shift+Enter inserts the line break (the textarea's own default); Escape
+ * restores the stored value. Never while an IME composition is open.
+ * @param {{key: string, shiftKey?: boolean, isComposing?: boolean}} event
+ * @param {boolean} multiline the label column is a text area (labelMultiline)
+ * @return {'commit'|'restore'|null} null: leave the key to the control
+ */
+export function titleKeyAction(event, multiline = false) {
+  if (event.isComposing) { return null; }
+  if (event.key === 'Escape') { return 'restore'; }
+  if (event.key === 'Enter' && !(multiline && event.shiftKey)) { return 'commit'; }
+  return null;
+}
+
+/**
+ * The limit the inspector header shows ("n / max"); 0 = unlimited. Core's
+ * TCA default maxitems (99999) means "no limit" as well.
+ * @param {unknown} maxItems
+ * @return {number}
+ */
+export function collectionLimit(maxItems) {
+  const max = Number(maxItems ?? 0);
+  return Number.isFinite(max) && max > 0 && max < 99999 ? max : 0;
+}
+
+/**
+ * Whether a keyboard event started inside a text control (input, textarea,
+ * contenteditable): row shortcuts (Alt+Arrow move, Delete remove) stay out
+ * of text editing, where Option+Arrow and Delete edit the text.
+ * @param {Event} event
+ * @return {boolean}
+ */
+export function fromTextControl(event) {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
+  return path.some((node) => node?.localName === 'input' || node?.localName === 'textarea' || node?.isContentEditable === true);
+}
+
 export async function postCollectionIntent(url, token, payload) {
   const response = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json',
     'X-Request-Token': token}, body: JSON.stringify(payload)});

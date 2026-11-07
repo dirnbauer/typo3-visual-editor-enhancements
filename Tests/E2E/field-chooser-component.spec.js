@@ -248,7 +248,12 @@ async function openEntries(page) {
   await row(page, 2).waitFor();
 }
 
-/** Upgrades the harness editables to the REAL vendor ve-editable-text (store mirror included). */
+/**
+ * Upgrades the harness editables to the REAL vendor ve-editable-text (store mirror included).
+ * The harness markup has no server-rendered valueinitial and the element is already defined,
+ * so the vendor seeded an empty baseline; seeding the rendered text afterwards is what its
+ * firstUpdated() does on a real page (the page editable owns the title baseline).
+ */
 async function realEditables(page) {
   await page.evaluate(async () => {
     for (const editable of document.querySelectorAll('ve-editable-text')) {
@@ -257,6 +262,9 @@ async function realEditables(page) {
     }
     await import('@typo3/visual-editor/Frontend/components/ve-editable-text');
     await Promise.all([...document.querySelectorAll('ve-editable-text')].map((editable) => editable.updateComplete));
+    for (const editable of document.querySelectorAll('ve-editable-text')) {
+      window.store.setInitialData(editable.getAttribute('table'), Number(editable.getAttribute('uid')), editable.getAttribute('field'), editable.getAttribute('valueinitial'));
+    }
   });
 }
 
@@ -281,6 +289,66 @@ test('title input stages the label field and the page editable follows', async (
   await title.press('Enter');
   await expect(title).not.toBeFocused();
   expect(await page.evaluate(() => window.store.data.items[2].title)).toBe('Kept');
+});
+
+test('R5: a multi-line label is edited in a textarea that keeps its line breaks', async ({page}) => {
+  await fixture(page, {view: 'entries', mode: 'sections', field: {labelMultiline: true,
+    children: [entry(2, 'Line one\nLine two', {canMoveUp: false}), entry(3, 'Second'), entry(4, 'Third', {canMoveDown: false})]}});
+  const title = row(page, 2).getByRole('textbox', {name: 'Title of entry 1'});
+  await expect(title).toHaveValue('Line one\nLine two');
+  // Opening stages nothing.
+  expect(await page.evaluate(() => window.store.changesCount)).toBe(0);
+  // Two visible lines: the control is as tall as two lines of its text.
+  const lines = await title.evaluate((node) => Math.round(node.clientHeight / parseFloat(getComputedStyle(node).lineHeight)));
+  expect(lines).toBeGreaterThanOrEqual(2);
+  await title.focus();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('!');
+  expect(await page.evaluate(() => window.store.data.items[2].title)).toBe('Line one\nLine two!');
+  // Shift+Enter inserts a line break, Enter commits (leaves the field) without one.
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('Three');
+  expect(await page.evaluate(() => window.store.data.items[2].title)).toBe('Line one\nLine two!\nThree');
+  await page.keyboard.press('Enter');
+  await expect(title).not.toBeFocused();
+  expect(await page.evaluate(() => window.store.data.items[2].title)).toBe('Line one\nLine two!\nThree');
+  // Delete inside the textarea edits text, it never removes the row.
+  const dialogs = [];
+  page.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.dismiss(); });
+  await title.focus();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Delete');
+  expect(dialogs).toEqual([]);
+  // Escape restores the stored value with its line break.
+  await page.keyboard.press('Escape');
+  await expect(title).toHaveValue('Line one\nLine two');
+  expect(await page.evaluate(() => window.store.data.items?.[2]?.title)).toBeUndefined();
+  await expect(page.getByRole('dialog', {name: 'Entries'})).toBeVisible();
+  // A single-line label column stays a one-line input.
+  await page.unrouteAll({behavior: 'wait'});
+  await fixture(page, {view: 'entries', mode: 'sections'});
+  expect(await row(page, 3).getByRole('textbox').evaluate((node) => node.localName)).toBe('input');
+});
+
+test('opening Entries keeps the page editable baseline of a label stored with a literal <br>', async ({page}) => {
+  await actionBarHarness(page, {field: {children: [entry(2, 'Summer Sale', {labelValue: 'Summer<br>Sale', canMoveUp: false}), entry(3, 'Export anywhere', {canMoveDown: false})]}});
+  await realEditables(page);
+  // The page editable owns the baseline: the vendor seeds it with "\n" where the stored value has "<br>".
+  await page.evaluate(() => {
+    document.querySelector('ve-editable-text[uid="2"]').setAttribute('allownewlines', '');
+    window.store.setInitialData('items', 2, 'title', 'Summer\nSale');
+  });
+  const slot = page.locator('ve-editable-text[uid="2"] .slot');
+  await expect(slot).toHaveText('Summer\nSale', {useInnerText: true});
+  await page.evaluate(() => {
+    window.__initial = [];
+    window.store.addEventListener('change', (event) => { if (event.detail.kind === 'initial') { window.__initial.push(event.detail); } });
+  });
+  await openEntries(page);
+  expect(await page.evaluate(() => window.__initial.filter((detail) => detail.uid === 2 && detail.field === 'title'))).toEqual([]);
+  expect(await page.evaluate(() => window.store.initialData.items[2].title)).toBe('Summer\nSale');
+  await expect(slot).toHaveText('Summer\nSale', {useInnerText: true});
+  expect(await page.evaluate(() => window.store.changesCount)).toBe(0);
 });
 
 test('toggling the eye twice leaves the store without changes, and the page marks follow the store', async ({page}) => {
@@ -329,17 +397,33 @@ test('move up/down are disabled at the ends and post one move intent; Alt+Arrow 
   await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').busy)).toBe(false);
   const common = {parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1'};
   expect(posts).toEqual([{inlineRecord: {action: 'move', ...common, childUid: 2, afterUid: 3}}]);
-  // Keyboard: Alt+ArrowUp on the third row moves it after the first row.
+  // Inside the title field Alt/Option+Arrow is caret navigation: no move.
   await row(page, 4).getByRole('textbox').focus();
+  await page.keyboard.press('Alt+ArrowUp');
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.waitForTimeout(150);
+  expect(posts).toHaveLength(1);
+  await expect(row(page, 4).getByRole('textbox')).toBeFocused();
+  // Keyboard: Alt+ArrowUp on the third row (its toolbar) moves it after the first row.
+  await row(page, 4).getByRole('button', {name: 'Add after'}).focus();
   await page.keyboard.press('Alt+ArrowUp');
   await expect.poll(() => posts.length).toBe(2);
   await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').busy)).toBe(false);
   expect(posts[1]).toEqual({inlineRecord: {action: 'move', ...common, childUid: 4, afterUid: 2}});
   // To the very top: afterUid null.
-  await row(page, 3).getByRole('textbox').focus();
+  await row(page, 3).getByRole('switch').focus();
   await page.keyboard.press('Alt+ArrowUp');
   await expect.poll(() => posts.length).toBe(3);
   expect(posts[2]).toEqual({inlineRecord: {action: 'move', ...common, childUid: 3, afterUid: null}});
+});
+
+test('the header shows the count alone for unlimited collections and "n / max" for a limit', async ({page}) => {
+  const count = () => page.locator('ve-field-chooser .collectionHeader .count');
+  for (const [maxItems, text] of [[0, '3'], [99999, '3'], [3, '3 / 3'], [5, '3 / 5']]) {
+    await fixture(page, {view: 'entries', mode: 'sections', field: {maxItems}});
+    await expect(count()).toHaveText(text);
+    await page.unrouteAll({behavior: 'wait'});
+  }
 });
 
 test('remove asks the Core modal with cascade counts', async ({page}) => {
@@ -396,6 +480,20 @@ test('a second add while text is pending lists the row and says the page updates
   await expect(row(page, 8).getByRole('textbox')).toBeFocused();
 });
 
+test('R1: a deferred add reaches the page after Save although the only staged data is inline-covered text', async ({page}) => {
+  await actionBarHarness(page);
+  await openEntries(page);
+  // Row 2's title is a page editable: the staged text is inline-covered.
+  await row(page, 2).getByRole('textbox').fill('Unsaved title');
+  await page.getByRole('button', {name: 'Add feature card'}).click();
+  await expect(row(page, 8)).toBeVisible();
+  await expect(page.locator('ve-field-chooser .notice')).toHaveText(/The page shows it after you save your text\./);
+  await expect(page.locator('ve-editable-text[uid="8"]')).toHaveCount(0);
+  // Save succeeded (what the backend Save button reports back to the frame).
+  await page.evaluate(() => window.store.markSaved());
+  await expect(page.locator('ve-editable-text[uid="8"]')).toHaveCount(1);
+});
+
 test('panel stays open on page pointerdown and closes on Escape and ×', async ({page}) => {
   await actionBarHarness(page);
   await openEntries(page);
@@ -425,6 +523,28 @@ test('Escape returns focus to the trigger', async ({page}) => {
     return element.shadowRoot.activeElement?.dataset.veEnhancement ?? null;
   })).toBe('inline-records');
 });
+
+for (const layout of ['inspector', 'tray', 'anchored']) {
+  test(`R3: after Add after the replaced Entries button is expanded and Escape returns focus to it (${layout})`, async ({page}) => {
+    await actionBarHarness(page, {layout});
+    await openEntries(page);
+    await row(page, 2).getByRole('button', {name: 'Add after'}).click();
+    // The element refresh replaced the wrapper (the new entry is on the page) and with it the bar.
+    await expect(page.locator('ve-editable-text[uid="8"]')).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').busy)).toBe(false);
+    const entries = page.locator('ve-content-element[uid="1"] .action-bar [data-ve-enhancement="inline-records"]');
+    await expect(entries).toHaveAttribute('aria-expanded', 'true');
+    expect(await page.evaluate(() => document.querySelector('ve-field-chooser').trigger?.isConnected)).toBe(true);
+    await row(page, 2).getByRole('button', {name: 'Move down'}).focus();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(entries).toHaveAttribute('aria-expanded', 'false');
+    expect(await page.evaluate(() => {
+      const element = document.querySelector('ve-content-element[uid="1"]');
+      return element.shadowRoot.activeElement?.dataset.veEnhancement ?? null;
+    })).toBe('inline-records');
+  });
+}
 
 test('marked-for-deletion rows are listed read-only', async ({page}) => {
   const posts = await fixture(page, {view: 'entries', mode: 'sections', field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: false},
@@ -638,6 +758,20 @@ test('a connected translation shows parity badges and no sync; a workspace refus
   await expect(sync).toHaveAccessibleDescription('Synchronize translations in the live site; it is not available in a workspace.');
   await expect(page.locator('.contextStrip')).toContainText('Workspace draft «Staging»');
   await expect(page.locator('.contextStrip')).toContainText("Your next add, move or remove creates this element's first draft in this workspace.");
+});
+
+test('a refused first version shows the refusal, not the first-draft hint', async ({page}) => {
+  const refusal = 'Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.';
+  await fixture(page, {view: 'entries', mode: 'sections', field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: true},
+    canCreate: false, createReason: 'firstVersion', canSort: false, sortReason: 'firstVersion',
+    children: [entry(2, 'Add a card', {canMoveUp: false, canDelete: false, deleteReason: 'firstVersion'}), entry(3, 'Second', {canDelete: false, deleteReason: 'firstVersion'}),
+      entry(4, 'Third', {canMoveDown: false, canDelete: false, deleteReason: 'firstVersion'})]}});
+  await expect(page.locator('.contextStrip')).toContainText('Workspace draft «Staging»');
+  await expect(page.locator('.contextStrip')).not.toContainText("Your next add, move or remove creates this element's first draft in this workspace.");
+  await expect(page.locator('ve-field-chooser .collectionNotice')).toHaveText(refusal);
+  await expect(page.getByRole('button', {name: 'Add card', exact: true})).toHaveAttribute('aria-disabled', 'true');
+  await expect(row(page, 3).getByRole('button', {name: 'Move up'})).toHaveAttribute('aria-disabled', 'true');
+  await expect(row(page, 3).locator('.actionReason')).toContainText(refusal);
 });
 
 test('first-version refusal and Draft created messages', async ({page}) => {

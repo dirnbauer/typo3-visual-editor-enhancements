@@ -154,6 +154,14 @@ export const styles = [themeTokens, css`
       font: inherit; font-size: 13px; line-height: 18px; text-align: start; text-decoration: none;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* Multi-line label (TCA type=text): one row at rest, growing with its
+       lines where field-sizing is supported; elsewhere rows=1 scrolls and
+       the editor can drag it taller. */
+    .entryTitle.isMultiline {
+      white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip;
+      overflow: auto; max-height: 160px; resize: vertical; field-sizing: content;
+    }
+    @supports (field-sizing: content) { .entryTitle.isMultiline { resize: none; } }
     .entryTitle::placeholder { color: var(--ve-text-muted); }
     .entryItem:hover .entryTitle { border-color: var(--ve-border); background: var(--ve-surface-raised); }
     .entryTitle:focus-visible {
