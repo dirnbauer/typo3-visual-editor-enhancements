@@ -75,9 +75,10 @@ final class InlineMoveTest extends InlineRecordTestCase
     #[Test]
     public function reorderInWorkspaceTouchesOnlyDraftRows(): void
     {
+        $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');
         $this->useWorkspace();
         $refused = $this->intent($this->field(), 'move', ['childUid' => 3, 'afterUid' => null]);
-        self::assertSame([409, 'workspace'], [$refused[0], $refused[1]['reason']], 'Without drafts a move would renumber live rows');
+        self::assertSame([409, 'firstVersion'], [$refused[0], $refused[1]['reason']], 'Without drafts a move would create the first version');
         // FormEngine-style drafts of the parent and every child.
         $this->draftParentAndChild();
         foreach ([2 => 11, 3 => 12] as $live => $draftUid) {

@@ -151,5 +151,6 @@ const inlineFallbacks = {
   "confirmTranslationsStage": "Also marks {count} translations ({languages}) for deletion.",
   "badgeTranslationOnly": "Only in this language",
   "badgeUntranslated": "Not translated here: {languages}",
-  "hiddenPerLanguage": "Visibility is per language."
+  "hiddenPerLanguage": "Visibility is per language.",
+  "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
 };

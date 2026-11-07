@@ -38,6 +38,21 @@ All notable changes to this project are documented here. The format follows
   preflight (`translationLanguages` with missing/orphaned counts, rights,
   language access, `maxitems`), refused in workspaces (`syncWorkspace`).
   TSconfig `syncTranslations`, `syncDefaultMode`.
+- Add TSconfig `firstVersion` (default `0`): with `1`, the first structural
+  action in a workspace creates the element's first draft through Core's
+  stock auto-versioning, under a narrowed live-row invariant verified in the
+  transaction (only the members' sorting, renumbered in the same order, and
+  their `tstamp` may change for records versioned for the first time). With
+  `0`, such actions are refused up front with the reason `firstVersion`.
+  These live `tstamp` writes are real; caches or integrations watching child
+  tables may react to them.
+- **Behaviour change (stricter):** the workspace live-row check now covers
+  connected translations and nested relations up to three levels. Core's
+  DataMapProcessor creates a translated parent's first draft when the
+  default-language element changes, and its versioning bookkeeping stamps the
+  live translated entries; 1.5 did not detect this. Such actions now report
+  `firstVersion` (refused under `firstVersion = 0`) instead of writing live
+  timestamps.
 
 ## [1.5.1] — 2026-11-06
 

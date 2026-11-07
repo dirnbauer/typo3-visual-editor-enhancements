@@ -65,13 +65,50 @@ configurations use backend forms. Deleting entries with media or nested
 children also uses the backend fallback until those cascade permissions are
 proven. Translations are described in :ref:`collections-translations`.
 
-Workspace writes currently require an existing parent draft and versioned
-existing children. In Core 14.3.10 the initial automatic versioning path can
-change live child sorting and timestamps. The extension refuses
-that path before mutation. It does not fix Core's backend versioning itself.
-Existing drafts support repeated add, discard of new entries and marking
-existing entries for deletion. The endpoint additionally compares live rows
-inside the transaction and rolls back if they change.
+.. _collections-workspace:
+
+Workspace boundary
+------------------
+
+Below an existing draft, every structural action (add, remove, reorder)
+writes drafts only. Inside the transaction the endpoint compares the live
+rows it could reach — the parent and its connected translations, every
+inline and file relation of them and of their entries up to three levels,
+and the entries' translations — and rolls back with ``workspaceLiveChange``
+if a single byte differs.
+
+**The first draft.** When the element has no draft in the workspace yet, the
+first structural action makes Core create it: ``process_datamap`` versions the
+parent together with all its relations (stock auto-versioning, the same path a
+FormEngine save or a text edit in the visual editor takes). Core's versioning
+renumbers the live entries' sorting values (``10, 30`` becomes ``1, 2`` — the
+visible order stays) and stamps their ``tstamp``. Core's ``DataMapProcessor``
+also pushes the change into connected translations, so a translated parent
+without a draft gets its first draft — with the same bookkeeping on its live
+entries — even when the default-language element already has one.
+
+``firstVersion = 0`` (default) refuses these actions before any write with the
+reason ``firstVersion``; open the element in the backend workspace first.
+``firstVersion = 1`` allows them under a narrowed invariant, verified inside
+the transaction: for each record that gets its first draft in this request,
+only the sorting column of its relation members (renumbered consecutively, in
+the same order) and their ``tstamp`` may change; records that already had a
+draft, translations outside these relations, every content, owner, language,
+visibility, deletion and PID column, the member sets and the order stay
+byte-identical. Anything else rolls back with ``workspaceLiveChange``.
+Relations deeper than three levels are refused (``workspace``).
+
+These live ``tstamp`` changes are real writes. Caches, the reference index or
+integrations that watch child tables (for example a Solr index queue or
+webhooks) may react to them, as they do to the same bookkeeping of a backend
+save. Stored sorting values are renumbered. Enable ``firstVersion`` where that
+is acceptable.
+
+Visibility and title changes are not structural: Core versions the entry alone
+and needs no parent draft, whatever ``firstVersion`` says. Sync is refused in
+workspaces (:ref:`collections-translations`). In the field payload,
+``workspace.firstVersion`` is true when the next structural action would
+create a first draft; in an action's response, it is true when this action did.
 
 The existing vendor content-element delete path remains a separate issue:
 this implementation adds confirmation and correct identities for collection
@@ -159,6 +196,8 @@ configuration can restrict it further:
         syncTranslations = 1
         # localize | synchronize: the inspector's default sync mode
         syncDefaultMode = localize
+        # 1: allow the first workspace draft (narrowed live-row invariant)
+        firstVersion = 0
         tables.feature_cards_items.enabled = 1
     }
 

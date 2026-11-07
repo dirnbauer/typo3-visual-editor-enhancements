@@ -511,6 +511,11 @@
         <source>Visibility is per language.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.firstVersion">
+      <segment state="final">
+        <source>Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.</source>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

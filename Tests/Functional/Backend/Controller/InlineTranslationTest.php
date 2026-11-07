@@ -213,20 +213,34 @@ final class InlineTranslationTest extends InlineRecordTestCase
     #[Test]
     public function defaultDeleteInWorkspaceMarksTranslationsForDeletionWithoutLiveChange(): void
     {
+        $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');
         $this->translateChild(2, 1);
         $this->useWorkspace();
         $this->draftParentAndChild();
-        self::assertSame(200, $this->act($this->field(), 'create')[0], 'min 1: add one first');
+        // Core's DataMapProcessor pushes default changes into the translation, which in a
+        // workspace creates the translated parent's first draft (with live bookkeeping).
+        $field = $this->field();
+        self::assertSame([true, 'firstVersion'], [$field['workspace']['firstVersion'], $field['createReason']]);
+        // FormEngine-style drafts of the translated parent and its entry: everything stays strict.
+        foreach (['tt_content' => [2, 11], 'tx_vee_item' => [2, 11]] as $table => [$live, $draftUid]) {
+            $draft = $this->row($live, $table);
+            $this->getConnectionPool()->getConnectionForTable($table)->insert($table, [...$draft, 'uid' => $draftUid, 't3ver_oid' => $live, 't3ver_wsid' => 1]);
+        }
+        $field = $this->field();
+        self::assertSame([false, ''], [$field['workspace']['firstVersion'], $field['createReason']]);
+        self::assertSame(200, $this->act($field, 'create')[0], 'min 1: add one first');
         $live = array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0));
+        $liveContent = $this->rows('tt_content');
         $field = $this->field();
         self::assertSame(['translations' => 1, 'languages' => [1]], $field['children'][0]['cascade']);
         $removed = $this->act($field, 'delete', 10);
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
         self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 1], $removed[1]['deleted']);
         self::assertSame($live, array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0)), 'Live rows, translations included, byte-identical');
-        $placeholders = array_column(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_state'] === 2), 't3ver_oid');
-        sort($placeholders);
-        self::assertSame([1, 2], array_map('intval', $placeholders), 'Core marks the entry and its translation for deletion');
+        self::assertSame(array_filter($liveContent, static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0), array_filter($this->rows('tt_content'), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0));
+        $marked = array_map(static fn(array $row): int => (int)$row['t3ver_oid'], array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_state'] === 2));
+        sort($marked);
+        self::assertSame([1, 2], $marked, 'Core marks the entry and its translation for deletion');
     }
 
     #[Test]

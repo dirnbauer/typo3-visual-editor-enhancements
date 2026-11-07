@@ -613,6 +613,12 @@
         <target>Die Sichtbarkeit gilt je Sprache.</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.firstVersion">
+      <segment state="final">
+        <source>Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first.</source>
+        <target>Die erste Änderung an diesem Element würde einen Entwurf im Arbeitsbereich anlegen; das ist auf dieser Website hier nicht freigeschaltet. Das Element zuerst im Backend-Arbeitsbereich öffnen.</target>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.edit">
       <segment>
         <source>Edit entry</source>

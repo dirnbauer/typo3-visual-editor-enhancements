@@ -143,15 +143,16 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
     #[Test]
     public function childHiddenToggleInWorkspaceCreatesChildDraftOnly(): void
     {
+        $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');
         $this->useWorkspace();
         $liveParent = BackendUtility::getRecord('tt_content', 1);
         $liveChild = $this->row(1);
         $field = $this->field();
-        self::assertSame('workspace', $field['createReason'], 'Structure still waits for drafts');
+        self::assertSame('firstVersion', $field['createReason'], 'Structure waits for drafts (TSconfig firstVersion = 0)');
         self::assertTrue($field['workspace']['firstVersion']);
         self::assertSame('Fixture', $field['workspace']['title']);
         $child = $field['children'][0];
-        self::assertSame(['live', true, 'workspace'], [$child['state'], $child['canHide'], $child['deleteReason']]);
+        self::assertSame(['live', true, 'firstVersion'], [$child['state'], $child['canHide'], $child['deleteReason']]);
 
         self::assertSame(200, $this->save(['data' => ['tx_vee_item' => [1 => ['hidden' => 1]]]])[0]);
         self::assertSame($liveChild, $this->row(1), 'Live child byte-identical');
@@ -159,7 +160,7 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
         $drafts = array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 1));
         self::assertCount(1, $drafts);
         self::assertSame([1, 1], [(int)$drafts[0]['t3ver_oid'], (int)$drafts[0]['hidden']]);
-        self::assertSame(0, $this->getConnectionPool()->getConnectionForTable('tt_content')->count('*', 'tt_content', ['t3ver_wsid' => 1]), 'No parent draft');
+        self::assertSame(0, $this->countRows('tt_content', ['t3ver_wsid' => 1]), 'No parent draft');
         self::assertSame('modified', $this->field()['children'][0]['state']);
     }
 

@@ -44,6 +44,7 @@ final readonly class InlineRecordService
         private UriBuilder $uris,
         private FormDataCompiler $compiler,
         private InlineTranslations $translations,
+        private LiveSnapshot $snapshots,
         CreateOperation $create,
         DeleteOperation $delete,
         MoveOperation $move,
@@ -159,8 +160,10 @@ final readonly class InlineRecordService
                         return $this->unavailable($field, $column, $table, $form, 'workspace');
                     }
                     // Listed, so staged visibility/title edits work (Core versions the
-                    // child alone); structural writes would touch this live row.
-                    $liveChildInWorkspace = true;
+                    // child alone). Below an existing parent draft a structural write
+                    // would renumber this live row directly; below a live parent Core
+                    // versions it together with the parent (first version).
+                    $liveChildInWorkspace = $liveChildInWorkspace || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== 0;
                 }
                 $translations = $this->translations->of($childTable, $row);
                 // A control disabled in TCA always reports 'controls', whatever else applies.
@@ -206,7 +209,6 @@ final readonly class InlineRecordService
             }
         }
         unset($entry);
-        $context['workspace']['firstVersion'] = $context['workspace']['firstVersion'] || $liveChildInWorkspace;
         $sortReason = $reason ?: self::sortReason($childTable, $config, $controls);
         foreach ($children as &$entry) {
             // Members only: a listed delete placeholder is not part of $uids.
@@ -396,6 +398,7 @@ final readonly class InlineRecordService
     private function context(string $table, array $form): array
     {
         $workspaceId = (int)$form['workspaceId'];
+        $firstVersion = $workspaceId > 0 && (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== $workspaceId;
         $languageField = (string)($form['processedTca']['ctrl']['languageField'] ?? '');
         $pointer = (string)($form['processedTca']['ctrl']['transOrigPointerField'] ?? '');
         $languageId = $languageField !== '' ? (int)($form['resolvedRow'][$languageField] ?? 0) : 0;
@@ -407,12 +410,30 @@ final readonly class InlineRecordService
             'workspace' => [
                 'id' => $workspaceId,
                 'title' => $this->users->workspaceTitle($workspaceId),
-                // The next structural action would create the parent's first draft here.
-                'firstVersion' => $workspaceId > 0 && (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== $workspaceId,
+                // The next structural action would create a first draft here: of the
+                // parent, or of a connected translation Core versions along with it.
+                'firstVersion' => $firstVersion || ($workspaceId > 0 && $mode === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, $workspaceId)),
             ],
             'languageId' => $languageId,
             'translationMode' => $mode,
         ];
+    }
+
+    /**
+     * Core's DataMapProcessor pushes a default-language change into the element's
+     * translations; in a workspace that creates the translated parent's first draft,
+     * whose versioning bookkeeping stamps its live entries.
+     *
+     * @param array<string, mixed> $form
+     */
+    private function translatedParentsNeedFirstVersion(string $table, array $form, int $workspaceId): bool
+    {
+        foreach ($this->translations->parentsByLanguage($table, $form) as $translation) {
+            if ($this->snapshots->needsFirstVersion($table, (int)(($translation['t3ver_oid'] ?? 0) ?: $translation['uid']), $workspaceId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -430,8 +451,20 @@ final readonly class InlineRecordService
         if (($settings['requireWorkspace'] ?? false) && !$form['workspaceId']) {
             return 'workspace';
         }
-        if ($form['workspaceId'] && (empty($GLOBALS['TCA'][$table]['ctrl']['versioningWS']) || empty($GLOBALS['TCA'][$childTable]['ctrl']['versioningWS']) || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== (int)$form['workspaceId'])) {
-            return 'workspace';
+        if ($form['workspaceId']) {
+            if (empty($GLOBALS['TCA'][$table]['ctrl']['versioningWS']) || empty($GLOBALS['TCA'][$childTable]['ctrl']['versioningWS'])) {
+                return 'workspace';
+            }
+            $parentWorkspace = (int)($form['resolvedRow']['t3ver_wsid'] ?? 0);
+            if ($parentWorkspace !== 0 && $parentWorkspace !== (int)$form['workspaceId']) {
+                return 'workspace';
+            }
+            // The first structural action would create the parent's first draft
+            // (Core auto-versioning). Allowed only where the site opted in.
+            if (!$this->configuration->firstVersion((int)$form['scopePageId']) && ($parentWorkspace === 0
+                || ($this->context($table, $form)['translationMode'] === 'default' && $this->translatedParentsNeedFirstVersion($table, $form, (int)$form['workspaceId'])))) {
+                return 'firstVersion';
+            }
         }
         $pointer = $form['processedTca']['ctrl']['transOrigPointerField'] ?? '';
         if ($pointer !== '' && (int)($form['resolvedRow'][$pointer] ?? 0) > 0
@@ -645,8 +678,14 @@ final readonly class InlineRecordService
             if ($connection !== $this->connections->getConnectionForTable($childTable)) {
                 return [409, ['success' => false, 'reason' => 'connection']];
             }
-            $firstVersion = $field['workspace']['firstVersion'];
-            $liveSnapshot = $form['workspaceId'] ? $this->liveSnapshot($table, $form, $field) : [];
+            // Core's first-version bookkeeping is masked only for the step that creates
+            // the parent's first draft, and only where the site enabled it.
+            $firstVersion = (bool)$field['workspace']['firstVersion'] && $this->configuration->firstVersion((int)$form['scopePageId']);
+            $liveUid = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
+            $before = $form['workspaceId'] ? $this->snapshots->capture($table, $liveUid, (int)$form['workspaceId']) : null;
+            if ($before !== null && $firstVersion && $before['truncated']) {
+                return [409, ['success' => false, 'reason' => 'workspace', 'collection' => self::publicField($field)]];
+            }
             $connection->beginTransaction();
             try {
                 $handler = GeneralUtility::makeInstance(InlineDataHandler::class);
@@ -666,7 +705,7 @@ final readonly class InlineRecordService
                     $connection->rollBack();
                     return [422, ['success' => false, 'errorLog' => $handler->errorLog]];
                 }
-                if ($form['workspaceId'] && $liveSnapshot !== $this->liveSnapshot($table, $form, $field)) {
+                if ($before !== null && !$this->snapshots->unchanged($before, $this->snapshots->capture($table, $liveUid, (int)$form['workspaceId']), $firstVersion)) {
                     $connection->rollBack();
                     return [409, ['success' => false, 'reason' => 'workspaceLiveChange']];
                 }
@@ -718,25 +757,6 @@ final readonly class InlineRecordService
         $previous = $find($before);
         return [...$synced, 'localized' => max(0, (int)$previous['missing'] - (int)$after['missing']),
             'removed' => max(0, (int)$previous['orphaned'] - (int)$after['orphaned'])];
-    }
-
-    /**
-     * @param array<string, mixed> $form
-     * @param array<string, mixed> $field
-     * @return array<string, mixed>
-     */
-    private function liveSnapshot(string $table, array $form, array $field): array
-    {
-        $config = $field['_config'];
-        $childTable = $config['foreign_table'];
-        $parent = $form['resolvedRow'];
-        $live = (int)(($parent['t3ver_oid'] ?? 0) ?: $parent['uid']);
-        $connection = $this->connections->getConnectionForTable($table);
-        $parentRow = $connection->fetchAssociative('SELECT * FROM ' . $connection->quoteIdentifier($table) . ' WHERE uid = ?', [$live]);
-        $childConnection = $this->connections->getConnectionForTable($childTable);
-        $children = $childConnection->fetchAllAssociative('SELECT * FROM ' . $childConnection->quoteIdentifier($childTable)
-            . ' WHERE ' . $childConnection->quoteIdentifier($config['foreign_field']) . ' = ? AND t3ver_wsid = 0 ORDER BY uid', [$live]);
-        return ['parent' => $parentRow, 'children' => $children];
     }
 
     /**

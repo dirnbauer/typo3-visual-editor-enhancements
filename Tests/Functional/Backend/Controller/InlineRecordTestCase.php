@@ -117,6 +117,17 @@ abstract class InlineRecordTestCase extends FunctionalTestCase
         return $this->getConnectionPool()->getConnectionForTable($table)->executeQuery('SELECT * FROM ' . $table . ' WHERE uid = ?', [$uid])->fetchAssociative() ?: throw new \RuntimeException('Fixture row missing');
     }
 
+    /**
+     * Restriction-free count (Connection::count would drop hidden or deleted drafts).
+     *
+     * @param array<string, int|string> $where
+     */
+    protected function countRows(string $table, array $where): int
+    {
+        $sql = 'SELECT COUNT(*) FROM ' . $table . ($where === [] ? '' : ' WHERE ' . implode(' AND ', array_map(static fn(string $column): string => $column . ' = ?', array_keys($where))));
+        return (int)$this->getConnectionPool()->getConnectionForTable($table)->executeQuery($sql, array_values($where))->fetchOne();
+    }
+
     /** @return list<array<string, mixed>> */
     protected function rows(string $table = 'tx_vee_item'): array
     {

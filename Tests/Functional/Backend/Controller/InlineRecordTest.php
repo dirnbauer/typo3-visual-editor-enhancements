@@ -92,6 +92,7 @@ final class InlineRecordTest extends InlineRecordTestCase
     #[Test]
     public function repeatedWorkspaceWritesNeverChangeLiveRows(): void
     {
+        $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');
         $this->getConnectionPool()->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => 1, 'pid' => 0, 'title' => 'Fixture']);
         $this->getConnectionPool()->getConnectionForTable('tt_content')->delete('tt_content', ['uid' => 2]);
         $GLOBALS['BE_USER']->workspace = 1;
@@ -99,9 +100,9 @@ final class InlineRecordTest extends InlineRecordTestCase
         $beforeChild = $this->row(1);
         // Existing FormEngine drafts. Core 14.3.10 first-versioning itself changes
         // live child sorting; the endpoint refuses that unproven path.
-        self::assertSame('workspace', $this->field()['createReason']);
+        self::assertSame('firstVersion', $this->field()['createReason']);
         $refused = $this->act($this->field(), 'create');
-        self::assertSame([409, 'workspace'], [$refused[0], $refused[1]['reason']]);
+        self::assertSame([409, 'firstVersion'], [$refused[0], $refused[1]['reason']]);
         $parentDraft = $beforeParent;
         $parentDraft['uid'] = 10;
         $parentDraft['t3ver_oid'] = 1;
@@ -327,7 +328,7 @@ final class InlineRecordTest extends InlineRecordTestCase
         self::assertSame(403, $this->save(['inlineRecord' => ['action' => 'create', 'parentTable' => 'tx_vee_item', 'parentUid' => 1, 'field' => 'nested', 'revision' => $field['revision']]])[0]);
         self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Denied']]]])[0]);
         self::assertSame($before, $this->row(1));
-        self::assertSame(1, $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->count('*', 'tx_vee_item', []));
+        self::assertSame(1, $this->countRows('tx_vee_item', []));
         $this->restrictedOwnerUser('tt_content,tx_vee_item');
         self::assertSame(200, $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Permitted']]]])[0]);
     }
