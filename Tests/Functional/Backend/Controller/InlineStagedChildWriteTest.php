@@ -33,13 +33,18 @@ final class InlineStagedChildWriteTest extends InlineRecordTestCase
         $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');
         $before = [$this->rows(), $this->rows('tt_content')];
         $child = $this->field()['children'][0];
-        self::assertSame([false, 'firstVersion', false, 'firstVersion'], [$child['canHide'], $child['hideReason'], $child['canEditLabel'], $child['labelReason']]);
+        // The eye follows firstVersion; the title is an ordinary text edit (the page editable's write).
+        self::assertSame([false, 'firstVersion', true, ''], [$child['canHide'], $child['hideReason'], $child['canEditLabel'], $child['labelReason']]);
 
-        foreach ([['hidden' => 1], ['title' => 'Renamed']] as $values) {
+        foreach ([['hidden' => 1], ['hidden' => 1, 'title' => 'Renamed']] as $values) {
             $refused = $this->save(['data' => ['tx_vee_item' => [1 => $values]]]);
             self::assertSame([409, 'firstVersion'], [$refused[0], $refused[1]['reason'] ?? null], json_encode($refused, JSON_THROW_ON_ERROR));
         }
         self::assertSame($before, [$this->rows(), $this->rows('tt_content')], 'Nothing written: no draft, live features byte-identical');
+
+        // A text edit is what the page editable sends: Core versions it as for any Visual Editor save.
+        $saved = $this->save(['data' => ['tx_vee_item' => [1 => ['title' => 'Renamed']]]]);
+        self::assertSame(200, $saved[0], json_encode($saved, JSON_THROW_ON_ERROR));
 
         // The nested feature itself is a leaf: staged writes on it stay available.
         $feature = $this->field('nested', 'tx_vee_item', 1)['children'][0];

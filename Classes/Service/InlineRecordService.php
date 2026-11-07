@@ -177,9 +177,11 @@ final readonly class InlineRecordService
                 $new = (int)($row['t3ver_state'] ?? 0) === 1;
                 $hideReason = $this->writeReason($childTable, $hiddenField, 'hidden', $row, $controls['hide'], $reason);
                 $labelReason = $this->writeReason($childTable, $labelField, 'label', $row, true, $reason);
-                if (($hideReason === '' || $labelReason === '') && $this->stagedWriteNeedsFirstVersion($childTable, $row, $form)) {
-                    $hideReason = $hideReason ?: 'firstVersion';
-                    $labelReason = $labelReason ?: 'firstVersion';
+                // The eye is the extension's own control: it follows firstVersion. A title is
+                // the same write as the page editable's text edit (an ordinary Visual Editor
+                // save that Core versions as always), so it stays available.
+                if ($hideReason === '' && $this->stagedWriteNeedsFirstVersion($childTable, $row, $form)) {
+                    $hideReason = 'firstVersion';
                 }
                 $children[] = [
                     'uid' => $uid, 'table' => $childTable,

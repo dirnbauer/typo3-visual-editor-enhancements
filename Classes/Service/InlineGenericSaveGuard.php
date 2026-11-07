@@ -56,7 +56,7 @@ final class InlineGenericSaveGuard
                 $row = $new ? [] : (BackendUtility::getRecordWSOL($table, (int)$uid) ?: []);
                 $owned = $this->owned($table, $row);
                 if ($owned && $request !== null) {
-                    $this->refuseFirstVersion($table, $row, $this->contexts->compile($table, (int)$uid, $request));
+                    $this->refuseFirstVersion($table, $row, $fields, $this->contexts->compile($table, (int)$uid, $request));
                 }
                 $placement = ['pid', $GLOBALS['TCA'][$table]['ctrl']['sortby'] ?? '', $GLOBALS['TCA'][$table]['ctrl']['languageField'] ?? '', $GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? ''];
                 foreach ($fields as $field => $value) {
@@ -115,11 +115,20 @@ final class InlineGenericSaveGuard
      * the entry's own live nested members with it. Identities come from the
      * compiled record, never from the request.
      *
-     * @param array<string, mixed> $row  workspace-overlaid stored row
-     * @param array<string, mixed> $form compiled entry (EditorRecordContext::compile)
+     * Only the visibility column is refused: text fields (the title included) are the
+     * same writes the vendor's page editables send, ordinary saves Core versions as
+     * it always did; refusing them would break plain text editing.
+     *
+     * @param array<string, mixed> $row    workspace-overlaid stored row
+     * @param array<mixed>         $fields submitted values of this record
+     * @param array<string, mixed> $form   compiled entry (EditorRecordContext::compile)
      */
-    private function refuseFirstVersion(string $table, array $row, array $form): void
+    private function refuseFirstVersion(string $table, array $row, array $fields, array $form): void
     {
+        $hiddenField = (string)($GLOBALS['TCA'][$table]['ctrl']['enablecolumns']['disabled'] ?? '');
+        if ($hiddenField === '' || !array_key_exists($hiddenField, $fields)) {
+            return;
+        }
         $workspace = (int)$form['workspaceId'];
         $pid = (int)$form['scopePageId'];
         if ($workspace <= 0 || !$this->configuration->enabled($pid) || $this->configuration->firstVersion($pid)) {
