@@ -53,6 +53,11 @@ All notable changes to this project are documented here. The format follows
   live translated entries; 1.5 did not detect this. Such actions now report
   `firstVersion` (refused under `firstVersion = 0`) instead of writing live
   timestamps.
+- Pin the 2026-11-05 review findings 1–4 for the new intents and staged
+  writes: client-sent `inlineLocalizeSynchronize`/`copy`/`discard` and other
+  child commands, nested paste updates, NEW owned children, inline-to-
+  `tt_content` relations, `overrideChildTca`, unknown intent keys and nested
+  ancestors without root rights stay refused without any write.
 
 ## [1.5.1] — 2026-11-06
 
