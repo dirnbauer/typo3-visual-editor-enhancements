@@ -1,5 +1,5 @@
 import {inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
-import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
+import {changeCollection, collectionBlockReason, elementHasStagedData} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
 import {refreshCollectionCapability} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
 
@@ -103,9 +103,12 @@ export async function addEntryFromBar(element, button) {
     if (!result) { return; }
     let message = field.workspaceId ? inlineLabel('savedWorkspace')
       : field.createHidden ? inlineLabel('savedHidden') : inlineLabel('savedLive');
-    // Never replace a wrapper while text is pending (refreshElement checks again after fetching).
-    const refreshed = collectionBlockReason() ? false : await refreshElement(table, uid);
-    if (!refreshed) { message += ` ${inlineLabel('refreshPending')}`; }
+    if (result.workspace?.firstVersion) { message += ` ${inlineLabel('draftCreated')}`; }
+    // Never replace a wrapper whose own entries have staged text (refreshElement
+    // checks again after fetching); the inspector then offers Save now.
+    const records = field.children ?? [];
+    const refreshed = collectionBlockReason() ? false : await refreshElement(table, uid, {records});
+    if (!refreshed) { message += ` ${inlineLabel(elementHasStagedData({table, uid}, records) ? 'savedPageLater' : 'refreshPending')}`; }
     const chooser = await openInspector({...base, message});
     const createdUid = Number(result.created?.uid ?? result.uid ?? 0);
     if (!createdUid) { return; }
@@ -116,8 +119,10 @@ export async function addEntryFromBar(element, button) {
       focusEditable(editable);
       return;
     }
-    const row = chooser?.renderRoot.querySelector(`[data-child-edit="${CSS.escape(String(createdUid))}"]`);
-    row?.focus({preventScroll: true});
+    // No editable on the page: the entry's title input in the inspector.
+    const row = chooser?.renderRoot.querySelector(`[data-ve-row="${CSS.escape(String(createdUid))}"]`);
+    const target = row?.querySelector('.entryTitle, [data-child-edit]') ?? chooser?.renderRoot.querySelector(`[data-child-edit="${CSS.escape(String(createdUid))}"]`);
+    target?.focus({preventScroll: true});
     row?.scrollIntoView({block: 'nearest'});
   } finally {
     busy = false;

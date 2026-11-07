@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+- Rebuild the entries panel as the **Entries inspector**: every row shows
+  its actions (move up/down, visibility switch, add after, remove, a
+  `role=menu` overflow menu with item settings, the contextual form and the
+  backend form), quiet at rest and full on row hover or focus. Titles are
+  edited in the row and staged through the Visual Editor's store like the
+  editor's own texts (Escape restores, Enter leaves); visibility is a
+  staged `role=switch`, saved with the page. Rows carry state badges, a
+  context line names live or the workspace draft and the language, and
+  refused actions stay focusable with `aria-disabled` and their reason.
+  Alt+Arrow moves an entry, Delete removes it after the counted Core modal.
+- The inspector stays open while the editor works on the page; it closes on
+  Escape, its close button or its trigger.
+- Staged changes no longer block entry actions everywhere: only the row
+  with staged text waits before Remove, the element refresh is skipped only
+  when the element's own records have staged data, and **Save now** runs the
+  editor's own save (`doSave`). Active saves, invalid fields and uncertain
+  writes still block every structural action.
+- Hidden entries are dimmed and outlined on the page (`data-ve-entry-hidden`)
+  and follow the staged visibility at once.
+
 - Give every action-bar button - the Visual Editor's own and ours - a very
   small text label that appears only on hover, keyboard focus or click. One
   shared constructable stylesheet is adopted into each element's shadow root;

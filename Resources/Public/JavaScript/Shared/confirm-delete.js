@@ -1,14 +1,38 @@
 import {translate} from './dom-utils.js';
 import {inlineLabel} from './inline-record-actions.js';
 
-/** Core delegates to the same-origin backend window. Plain confirm is the cross-origin fallback. */
-export async function confirmCollectionDelete(child) {
-  let focus = document.activeElement;
-  while (focus?.shadowRoot?.activeElement) { focus = focus.shadowRoot.activeElement; }
+/**
+ * The confirmation sentence, counted: Core cascades a default-language
+ * entry's connected translations (deleteL10nOverlayRecords), so the editor
+ * is told how many go with it and in which languages.
+ * @param {{label: string, verb?: string, cascade?: {translations?: number, languages?: number[]}, translationOnly?: boolean}} child
+ * @param {{translationMode?: string, translationLanguages?: Array<{id: number, title: string}>}} field
+ * @return {string}
+ */
+export function deleteConfirmText(child, field = {}) {
   const consequence = child.verb === 'discard' ? inlineLabel('confirmDiscard')
     : child.verb === 'markForDeletion' ? inlineLabel('confirmStage')
       : inlineLabel('confirmLive');
-  const content = `${inlineLabel('confirmEntry').replace('{label}', child.label)} ${consequence} ${inlineLabel('confirmReset')}`;
+  const parts = [inlineLabel('confirmEntry').replace('{label}', child.label ?? '')];
+  const count = Number(child.cascade?.translations ?? 0);
+  if (count > 0) {
+    const titles = new Map((field.translationLanguages ?? []).map((language) => [Number(language.id), language.title]));
+    const languages = (child.cascade?.languages ?? []).map((id) => titles.get(Number(id)) ?? String(id)).join(', ');
+    const staged = child.verb === 'markForDeletion' || child.verb === 'discard';
+    const key = `confirmTranslation${count === 1 ? '' : 's'}${staged ? 'Stage' : ''}`;
+    parts.push(inlineLabel(key).replace('{count}', String(count)).replace('{languages}', languages || '–'));
+  } else if (field.translationMode === 'connected' && !child.translationOnly) {
+    parts.push(inlineLabel('confirmLanguageOnly'));
+  }
+  parts.push(consequence, inlineLabel('confirmReset'));
+  return parts.join(' ');
+}
+
+/** Core delegates to the same-origin backend window. Plain confirm is the cross-origin fallback. */
+export async function confirmCollectionDelete(child, field = {}) {
+  let focus = document.activeElement;
+  while (focus?.shadowRoot?.activeElement) { focus = focus.shadowRoot.activeElement; }
+  const content = deleteConfirmText(child, field);
   try {
     if (window.top === window || window.top.location.origin !== window.location.origin) {
       return window.confirm(content);

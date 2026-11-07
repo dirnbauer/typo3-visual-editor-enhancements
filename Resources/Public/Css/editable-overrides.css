@@ -27,14 +27,26 @@ ve-editable-rich-text[data-ve-inline-toolbar] .ck-editor__top {
 /* Collection entries marked by f:mark.item (edit mode only - the markers do
    not exist on the published page). A hidden entry never looks live: dimmed
    and outlined from the first render. The highlight mirrors the entries
-   panel's hovered or focused row. */
+   panel's hovered or focused row.
+   Without markers, the entries inspector marks the hidden entry's editable
+   texts (data-ve-entry-hidden, Frontend/entry-page-marks.js) and the entry
+   whose row has focus (data-ve-entry-active); both follow the staged state. */
+[data-ve-entry-hidden],
 [data-ve-item-hidden] {
   opacity: .55;
   outline: 1px dashed var(--ve-t3-input-border, color-mix(in srgb, CanvasText 32%, Canvas));
   outline-offset: 2px;
 }
 
+[data-ve-entry-active],
 [data-ve-item-highlight] {
   outline: 2px solid var(--ve-t3-primary-text, LinkText);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-ve-entry-hidden],
+  [data-ve-item-hidden] {
+    transition: opacity .12s ease;
+  }
 }

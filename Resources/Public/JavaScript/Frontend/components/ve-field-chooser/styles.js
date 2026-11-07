@@ -47,61 +47,137 @@ export const styles = [themeTokens, css`
     }
     button:disabled { cursor: default; opacity: 0.55; }
 
-    .notice, .collectionNotice, .collectionHint, .actionReason {
+    .notice, .collectionNotice, .collectionHint, .actionReason, .entryHint, .entryReadOnly {
       margin: 0;
       color: var(--ve-text-muted);
       font-size: 12px;
       line-height: 1.5;
     }
     .notice { padding: 10px 12px; border-bottom: 1px solid var(--ve-border); }
-    .collection { display: flex; flex-direction: column; gap: 10px; }
-    .collection + .collection { padding-top: 16px; border-top: 1px solid var(--ve-border); }
-    .collectionHeader { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-    .collectionHeader h3 { margin: 0; font-size: 12px; font-weight: 600; }
+    /* The status region stays in the DOM (live regions must exist before they speak). */
+    .notice.isEmpty { height: 0; padding: 0; border: 0; overflow: hidden; }
+
+    /* Where the editor works: live / workspace draft, language, translation mode. */
+    .contextStrip {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0;
+      padding: 8px 12px; border-bottom: 1px solid var(--ve-border);
+      color: var(--ve-text-muted); font-size: 11px; line-height: 1.4;
+    }
+    .contextChip {
+      display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px;
+      border-radius: 999px; background: var(--ve-surface-sunken); color: var(--ve-text); font-size: 11px;
+    }
+    .contextChip.isWorkspace { background: var(--ve-primary-subtle); color: var(--ve-primary-text); font-weight: 600; }
+    .contextMode { flex-basis: 100%; }
+
+    .pendingNotice {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border-bottom: 1px solid var(--ve-border); color: var(--ve-text-muted); font-size: 11px; line-height: 1.4;
+    }
+    .pendingNotice > span:nth-child(2) { flex: 1; min-width: 0; }
+    .saveNow {
+      flex: none; padding: 3px 8px; border: 1px solid var(--ve-input-border); border-radius: var(--ve-radius-small);
+      background: var(--ve-surface-raised); color: var(--ve-primary-text); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .saveNow:hover { border-color: var(--ve-primary-text); background: var(--ve-primary-subtle); }
+    .pendingDot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ve-primary-text); }
+
+    .collection { display: flex; flex-direction: column; gap: 8px; }
+    .collection + .collection { padding-top: 14px; border-top: 1px solid var(--ve-border); }
+    .collectionHeader { display: flex; align-items: baseline; gap: 8px; padding: 2px 0; }
+    .collectionHeader h3 { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 600; }
     .count, .entryBadge {
       flex: none;
-      padding: 2px 6px;
+      padding: 0 6px;
       border: 1px solid var(--ve-border);
       border-radius: var(--ve-radius-small);
       color: var(--ve-text-muted);
       font-size: 11px;
       font-weight: 400;
-      line-height: 1.4;
+      line-height: 18px;
+      font-variant-numeric: tabular-nums;
     }
-    .entryList { list-style: none; margin: 0; padding: 0; border: 1px solid var(--ve-border); border-radius: var(--ve-radius); }
-    .entryItem + .entryItem { border-top: 1px solid var(--ve-border); }
-    .entryRow { display: grid; grid-template-columns: 18px minmax(0, 1fr) 28px; align-items: center; gap: 6px; padding: 6px; }
-    .entryNumber { color: var(--ve-text-muted); text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
-    .entryEdit {
-      display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 36px;
-      padding: 4px 2px; border: 0; border-radius: var(--ve-radius-small);
-      background: transparent; color: var(--ve-text); text-align: start;
-      text-decoration: none; font: inherit; font-size: 12px; cursor: pointer;
+    .minHint { color: var(--ve-text-muted); font-size: 11px; }
+
+    .entryHead { display: none; }
+    .entryList { list-style: none; margin: 0 -6px; padding: 0; }
+    .entryItem {
+      position: relative;
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      grid-template-areas: "number main actions" ". note note";
+      align-items: start;
+      gap: 0 6px;
+      padding: 4px 4px 4px 6px;
+      border-radius: var(--ve-radius-small);
     }
-    .entryEdit:hover { color: var(--ve-primary-text); background: var(--ve-hover); }
-    .entryTitle { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    .entryEditIcon { flex: none; color: var(--ve-text-muted); }
-    .entryMenu { display: contents; }
-    .entryMenu > summary { list-style: none; font-size: 18px; background: transparent; border-color: transparent; }
-    .entryMenu > summary::-webkit-details-marker { display: none; }
-    .entryMenu[open] > summary { color: var(--ve-primary-text); background: var(--ve-primary-subtle); }
-    .entryActions { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 4px; padding: 6px 0 4px; }
-    .textAction {
-      display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 5px 8px;
-      border: 0; border-radius: var(--ve-radius-small); background: transparent;
-      color: var(--ve-text); text-align: start; text-decoration: none; font: inherit; font-size: 12px; cursor: pointer;
+    .entryItem + .entryItem { box-shadow: 0 -1px 0 var(--ve-border); }
+    .entryItem:hover, .entryItem:focus-within { background: var(--ve-hover); box-shadow: none; }
+    .entryItem:hover + .entryItem, .entryItem:focus-within + .entryItem { box-shadow: none; }
+    /* The page row under the pointer: one small colour spot, nothing louder. */
+    .entryItem.isMirrored::before {
+      content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
+      border-radius: 2px; background: var(--ve-primary-text);
     }
-    .textAction:hover { background: var(--ve-hover); }
-    .textAction.danger { color: var(--ve-danger); }
-    .actionReason { padding: 0 8px 6px; font-size: 11px; }
+    .entryNumber {
+      grid-area: number; padding-top: 6px;
+      color: var(--ve-text-muted); text-align: end; font-size: 11px; font-variant-numeric: tabular-nums;
+    }
+    .entryMain { grid-area: main; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .entryTitle, .entryTitleLink, .entryTitleText {
+      display: block; width: 100%; min-width: 0; min-height: 28px; margin: 0; padding: 4px 6px;
+      border: 1px solid transparent; border-radius: var(--ve-radius-small);
+      background: transparent; color: var(--ve-text);
+      font: inherit; font-size: 13px; line-height: 18px; text-align: start; text-decoration: none;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .entryTitle::placeholder { color: var(--ve-text-muted); }
+    .entryItem:hover .entryTitle { border-color: var(--ve-border); background: var(--ve-surface-raised); }
+    .entryTitle:focus-visible {
+      outline: none; border-color: var(--ve-focus); background: var(--ve-surface-raised); box-shadow: var(--ve-focus-ring);
+    }
+    .entryTitleLink { cursor: pointer; }
+    .entryTitleLink:hover { color: var(--ve-primary-text); }
+    .isHiddenEntry .entryTitle, .isHiddenEntry .entryTitleLink, .isDeleted .entryTitleText { color: var(--ve-text-muted); }
+    .isDeleted .entryTitleText { text-decoration: line-through; text-decoration-color: var(--ve-border); }
+    .entryMeta { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 6px 2px; }
+    .entryMeta:empty { display: none; }
+    .entryBadge { display: inline-flex; align-items: center; gap: 4px; }
+    .entryBadge.isPending { border-color: transparent; padding-left: 0; }
+    .entryBadge.isDeleted { border-style: dashed; }
+
+    /* Row actions: quiet at rest, full on row hover/focus, always on touch. */
+    .entryActions {
+      grid-area: actions; display: flex; align-items: center; gap: 0; padding-top: 1px;
+      opacity: .35; transition: opacity .12s ease;
+    }
+    .entryItem:hover .entryActions, .entryItem:focus-within .entryActions { opacity: 1; }
+    @media (hover: none) { .entryActions { opacity: 1; } }
+    .rowAction.iconButton {
+      width: 26px; height: 26px; border: 1px solid transparent; background: transparent; color: var(--ve-text);
+    }
+    .rowAction.iconButton:hover:not([aria-disabled="true"]) { border-color: var(--ve-border); background: var(--ve-surface-raised); }
+    .rowAction[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+    .rowAction[role="switch"][aria-checked="false"] { color: var(--ve-text-muted); }
+    .rowAction ve-icon { display: inline-flex; }
+    ve-row-menu.rowAction { color: var(--ve-text); }
+    .entryHint, .actionReason, .entryReadOnly { grid-area: note; padding: 0 6px 4px; font-size: 11px; }
+    .entryReadOnly { grid-area: actions; align-self: center; max-width: 16em; padding: 0; text-align: end; }
+    /* A refused control explains itself while it has keyboard focus. */
+    .actionReason { display: none; }
+    .entryItem:has([aria-disabled="true"][aria-describedby]:focus-visible) .actionReason { display: flex; flex-direction: column; }
+
+    .collectionFooter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+    .footerSpacer { flex: 1; }
     .addEntry {
-      align-self: flex-start; min-height: 32px; padding: 6px 10px;
+      display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 10px;
       border: 1px solid var(--ve-input-border); border-radius: var(--ve-radius-small);
       background: var(--ve-surface-raised); color: var(--ve-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
     }
-    .addEntry:hover:not(:disabled) { background: var(--ve-primary-subtle); border-color: var(--ve-primary-text); }
-    .collectionHint { font-size: 11px; }
-    .backendLink { align-self: flex-start; color: var(--ve-primary-text); font-size: 11px; text-underline-offset: 3px; }
+    .addEntry:hover:not([aria-disabled="true"]) { background: var(--ve-primary-subtle); border-color: var(--ve-primary-text); }
+    .addEntry[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+    .collectionHint, .collectionNotice { font-size: 11px; }
+    .backendLink { color: var(--ve-primary-text); font-size: 11px; text-underline-offset: 3px; }
     .collectionShortcut {
       display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px;
       border: 1px solid var(--ve-border); border-radius: var(--ve-radius-small);
@@ -536,6 +612,6 @@ export const styles = [themeTokens, css`
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .treeToggle svg { transition: none; }
+      .treeToggle svg, .entryActions { transition: none; }
     }
 `];

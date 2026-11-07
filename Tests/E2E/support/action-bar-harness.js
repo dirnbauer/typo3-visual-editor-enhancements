@@ -77,10 +77,25 @@ async function importMap() {
   return imports;
 }
 
-const collectionField = (overrides = {}) => ({name: 'cards', label: 'Feature cards', type: 'inline', parentTable: 'tt_content', parentUid: 1,
-  revision: 'r1', tab: 'General', tabId: 1, canCreate: true, canDelete: true, createHidden: true, backendUrl: '/backend', uids: [2, 3],
-  minItems: 0, maxItems: 6, children: [{uid: 2, table: 'items', label: 'Add a card', backendUrl: '/backend', canDelete: true, verb: 'delete'},
-    {uid: 3, table: 'items', label: 'Export anywhere', backendUrl: '/backend', canDelete: true, verb: 'delete'}], ...overrides});
+/**
+ * One payload entry as the server publishes it (plan 4.3).
+ * @param {number} uid
+ * @param {string} label
+ * @param {object} overrides
+ */
+export const entry = (uid, label, overrides = {}) => ({uid, table: 'items', label, labelValue: label, liveUid: uid, state: 'live',
+  hidden: false, hiddenField: 'hidden', canHide: true, hideReason: '', canEditLabel: true, labelReason: '', canMoveUp: true, canMoveDown: true,
+  canDelete: true, deleteReason: '', verb: 'delete', backendUrl: '/backend', translationOnly: false, untranslated: [],
+  cascade: {translations: 0, languages: []}, ...overrides});
+
+/** A collection field as the server publishes it (plan 4.3): live site, default language. */
+export const collectionField = (overrides = {}) => ({name: 'cards', label: 'Feature cards', type: 'inline', parentTable: 'tt_content', parentUid: 1,
+  revision: 'r1', tab: 'General', tabId: 1, canCreate: true, createReason: '', canDelete: true, createHidden: true, backendUrl: '/backend', uids: [2, 3],
+  minItems: 0, maxItems: 6, childTitle: 'feature card', labelField: 'title', hiddenField: 'hidden', typeField: '', requiredBackend: [],
+  controls: {new: true, delete: true, hide: true, sort: true, dragdrop: true, localize: true, info: true}, canSort: true, sortReason: '',
+  workspaceId: 0, workspace: {id: 0, title: '', firstVersion: false}, languageId: 0, translationMode: 'default',
+  translationLanguages: [], canSync: false, syncReason: 'syncNone', hiddenPerLanguage: false,
+  children: [entry(2, 'Add a card', {canMoveUp: false}), entry(3, 'Export anywhere', {canMoveDown: false})], ...overrides});
 
 function element(uid, cType, name, inner) {
   return `<ve-content-element id="tt_content:${uid}" table="tt_content" uid="${uid}" pid="1" colPos="0" CType="${cType}" elementName="${name}"
@@ -139,15 +154,21 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
   await page.route('https://component.test/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/save') {
-      posts.push(route.request().postDataJSON());
+      const body = route.request().postDataJSON();
+      posts.push(body);
+      if (body?.inlineRecord?.action !== 'create') {
+        await route.fulfill({json: {success: true}});
+        return;
+      }
       state.created = true;
       await route.fulfill({json: {success: true, uid: 8, created: {uid: 8, table: 'items', hidden: true, hiddenField: 'hidden'}}});
       return;
     }
     if (url.searchParams.has('veFieldOptions')) {
+      const base = collectionField(field);
       const fields = url.searchParams.get('uid') === '1'
-        ? [collectionField({...field, ...(state.created ? {uids: [2, 3, 8], children: [...collectionField().children,
-          {uid: 8, table: 'items', label: 'New entry', backendUrl: '/backend', canDelete: true, verb: 'delete', hidden: true}]} : {})})]
+        ? [state.created ? {...base, uids: [2, 3, 8], children: [...base.children.map((child) => ({...child, canMoveDown: true})),
+          entry(8, 'New entry', {hidden: true, canMoveDown: false})]} : base]
         : [];
       await route.fulfill({json: {fields}});
       return;
