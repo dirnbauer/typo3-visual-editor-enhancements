@@ -78,6 +78,58 @@ The existing vendor content-element delete path remains a separate issue:
 this implementation adds confirmation and correct identities for collection
 entries only.
 
+.. _collections-row-markers:
+
+Row markers in templates
+========================
+
+The entries of a collection have no element of their own on the page - only
+their texts do. A template can announce the root element of each entry with
+``f:mark.item``, so the editor finds the whole row: a hidden entry is dimmed
+and outlined from the first render (not only after the entries panel loaded
+it), and the panel can highlight the row it is working on. One line per
+loop - the item variable, and the collection field it came from:
+
+..  code-block:: html
+    :caption: Content Blocks template, HTML root element
+
+    <f:for each="{data.cards}" as="card">
+        <div class="card"{card -> f:mark.item(collection: 'cards')}>
+            <f:render.text record="{card}" field="title" />
+        </div>
+    </f:for>
+
+For a Fluid component that accepts an ``attributes`` array, use the array
+format:
+
+..  code-block:: html
+    :caption: Component root element
+
+    <f:for each="{data.cards}" as="card">
+        <d:molecule.card attributes="{card -> f:mark.item(collection: 'cards', format: 'array')}">
+            ...
+        </d:molecule.card>
+    </f:for>
+
+In edit mode the ViewHelper writes ``data-ve-item="<table>:<uid>"`` (the uid
+the entry's editables save to - its translation's or draft's uid when there
+is one), ``data-ve-item-live="<uid>"``, ``data-ve-collection="<field>"`` and,
+for a hidden entry, ``data-ve-item-hidden``. **Outside edit mode it renders
+nothing**, so the published page is byte-identical with or without markers.
+A field name that is not a collection (TCA ``type=inline``) holding the
+entry's table throws a developer exception in edit mode.
+
+When one entry is rendered by several loops (tab buttons and tab panels,
+navigation and slides), mark each rendering: they are treated as one row,
+and the rendering that contains editable text is the one the editor uses.
+Nested collections work the same way; an entry belongs to the nearest
+enclosing marked entry, or to the content element.
+
+Without markers everything keeps working: hidden entries are dimmed through
+their editable texts once the panel has loaded them, and there is no row
+highlight. Markers add attributes only - the editor never inserts elements
+into the page or guesses row boundaries from the layout.
+
 .. _collections-configuration:
 
 Configuration

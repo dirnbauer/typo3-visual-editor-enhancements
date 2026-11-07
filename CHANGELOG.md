@@ -28,6 +28,16 @@ All notable changes to this project are documented here. The format follows
   "Add entry" (the long sentences remain tooltips in `icons` mode); the
   Entries button uses Core's `actions-list-alternative` icon and loses its
   permanent text. Only the two panel openers keep `aria-haspopup`.
+- Add the `f:mark.item` ViewHelper: templates mark the root element of a
+  collection entry (`{card -> f:mark.item(collection: 'cards')}`, or
+  `format: 'array'` for a component's `attributes`). In edit mode it writes
+  `data-ve-item`, `data-ve-item-live`, `data-ve-collection` and
+  `data-ve-item-hidden`; outside edit mode it renders nothing. Hidden marked
+  entries are dimmed and outlined from the first render; the new
+  `Frontend/collection-rows.js` groups markers per collection and parent
+  (nested collections, entries rendered by several loops), joins them to the
+  entries panel by uid, then live uid, and provides the mirror-highlight
+  hooks for the panel.
 
 ## [1.5.1] — 2026-11-06
 

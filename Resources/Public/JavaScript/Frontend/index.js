@@ -4,6 +4,7 @@ import {editorColorScheme, isElementLibraryEnabled, isFieldChooserEnabled, isInl
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {injectFieldChooserAction, injectInlineRecordsAction, makeButton} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
 import {installActionBarLabels} from '@webconsulting/visual-editor-enhancements/Frontend/action-bar-labels.js';
+import {annotateCollectionRows} from '@webconsulting/visual-editor-enhancements/Frontend/collection-rows.js';
 import {applyTheme} from '@webconsulting/visual-editor-enhancements/Shared/theme-bridge.js';
 import {attachElementContextAffordance} from '@webconsulting/visual-editor-enhancements/Frontend/element-context-affordance.js';
 import {initializeElementRefresh} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
@@ -60,6 +61,7 @@ async function initializeContentElementActions() {
     }
     attachElementContextAffordance(contentElement);
     installActionBarLabels(contentElement);
+    annotateCollectionRows(contentElement);
   };
   const injectAll = () => document.querySelectorAll('ve-content-element').forEach(injectActions);
   injectAll();

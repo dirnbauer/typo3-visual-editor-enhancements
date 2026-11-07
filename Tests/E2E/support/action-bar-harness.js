@@ -89,11 +89,11 @@ function element(uid, cType, name, inner) {
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean}} options
+ * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean}} options
  * @return {Promise<{posts: object[], state: {created: boolean}}>}
  */
 export async function actionBarHarness(page, {mode = 'caption', collectionTypes = {tt_content: {feature_cards: ['cards']}}, lang = 'en',
-  scheme = 'light', field = {}, inlineRecords = true} = {}) {
+  scheme = 'light', field = {}, inlineRecords = true, markers = false} = {}) {
   const imports = await importMap();
   const lang_ = await labels(lang);
   const posts = [];
@@ -106,6 +106,7 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
     <script>window.visualEditorEnhancements = ${JSON.stringify(config)};
       window.veInfo = {token: 'token', allowNewContent: true, languageId: 0, editContentUrl: '/edit/__TABLE__/__UID__', editContentContextualUrl: '/contextual/__TABLE__/__UID__'};
       window.TYPO3 = {lang: ${JSON.stringify(lang_)}, settings: {ajaxUrls: {visual_editor_save: '/save'}}};</script>
+    <link rel="stylesheet" href="/css/editable-overrides.css">
     <style>
       html { color-scheme: ${scheme}; }
       body { margin: 0; padding: 96px 48px; font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -118,8 +119,8 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
     <ve-backend-save-button aria-busy="false"></ve-backend-save-button>
     <main>
       ${element(1, 'feature_cards', 'Feature Cards Grid', `<div class="cards">
-        <div><ve-editable-text table="items" uid="2" field="title"><span contenteditable="plaintext-only">Add a card</span></ve-editable-text></div>
-        <div><ve-editable-text table="items" uid="3" field="title"><span contenteditable="plaintext-only">Export anywhere</span></ve-editable-text></div>
+        <div${markers ? ' data-ve-item="items:2" data-ve-item-live="2" data-ve-collection="cards"' : ''}><ve-editable-text table="items" uid="2" field="title"><span contenteditable="plaintext-only">Add a card</span></ve-editable-text></div>
+        <div${markers ? ' data-ve-item="items:3" data-ve-item-live="3" data-ve-collection="cards" data-ve-item-hidden=""' : ''}><ve-editable-text table="items" uid="3" field="title"><span contenteditable="plaintext-only">Export anywhere</span></ve-editable-text></div>
         ${state.created ? '<div><ve-editable-text table="items" uid="8" field="title"><span contenteditable="plaintext-only">New entry</span></ve-editable-text></div>' : ''}
       </div>`)}
       ${element(5, 'text', 'Text', '<p>A plain text element without collections.</p>')}
@@ -149,6 +150,10 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
           {uid: 8, table: 'items', label: 'New entry', backendUrl: '/backend', canDelete: true, verb: 'delete', hidden: true}]} : {})})]
         : [];
       await route.fulfill({json: {fields}});
+      return;
+    }
+    if (url.pathname === '/css/editable-overrides.css') {
+      await route.fulfill({contentType: 'text/css', body: await readFile(fileURLToPath(new URL('Resources/Public/Css/editable-overrides.css', root)), 'utf8')});
       return;
     }
     if (STUBS[url.pathname]) {

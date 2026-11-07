@@ -516,5 +516,10 @@
         <source>This element has no entries you can edit here.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.hiddenOnPage">
+      <segment>
+        <source>Hidden on the live site</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

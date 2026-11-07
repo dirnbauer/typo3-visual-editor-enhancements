@@ -309,3 +309,21 @@ test('screenshots: caption at rest and on Add entry, light and dark, with the in
     await page.unrouteAll({behavior: 'wait'});
   }
 });
+
+test('f:mark.item markers: hidden rows are dimmed from the first render, rows group and highlight', async ({page}) => {
+  await actionBarHarness(page, {markers: true});
+  const result = await page.evaluate(async () => {
+    const {rowsOf, highlightRow, joinChildren} = await import('@webconsulting/visual-editor-enhancements/Frontend/collection-rows.js');
+    const element = document.querySelector('ve-content-element');
+    const group = rowsOf(element, {table: 'tt_content', uid: 1}, 'cards');
+    const [visible, hidden] = [...element.querySelectorAll('[data-ve-item]')];
+    const joined = joinChildren(group, [{uid: 2, table: 'items'}, {uid: 3, table: 'items'}]);
+    highlightRow(joined.get(2), true);
+    return {rows: [...group.rows.keys()], hiddenRow: group.rows.get('items:3').hidden,
+      opacity: [getComputedStyle(visible).opacity, getComputedStyle(hidden).opacity], outline: getComputedStyle(hidden).outlineStyle,
+      title: hidden.getAttribute('title'), visibleTitle: visible.getAttribute('title'),
+      highlight: [visible.hasAttribute('data-ve-item-highlight'), getComputedStyle(visible).outlineStyle]};
+  });
+  expect(result).toEqual({rows: ['items:2', 'items:3'], hiddenRow: true, opacity: ['1', '0.55'], outline: 'dashed',
+    title: 'Hidden on the live site', visibleTitle: null, highlight: [true, 'solid']});
+});

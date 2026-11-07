@@ -619,5 +619,11 @@
         <target>Dieses Element hat keine Einträge, die Sie hier bearbeiten können.</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.hiddenOnPage">
+      <segment state="final">
+        <source>Hidden on the live site</source>
+        <target>Auf der Live-Seite ausgeblendet</target>
+      </segment>
+    </unit>
   </file>
 </xliff>
