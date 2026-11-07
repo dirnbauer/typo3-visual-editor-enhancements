@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
 
 import {
+  actionLabelMode,
+  collectionFieldsFor,
+  collectionTypes,
   contentAddedFeedback,
   editorColorScheme,
   elementLibraryColumns,
@@ -35,6 +38,9 @@ describe('without a configuration object', () => {
     assert.deepEqual(fieldChooserTables(), []);
     assert.equal(contentAddedFeedback(), null);
     assert.equal(editorColorScheme(), 'auto');
+    assert.equal(actionLabelMode(), 'caption');
+    assert.equal(collectionTypes(), null);
+    assert.equal(collectionFieldsFor('tt_content', 'text'), null);
   });
 
   it('still answers the column count with the wide default', () => {
@@ -92,5 +98,29 @@ describe('with the configuration the middleware inlines', () => {
 
     globalThis.window.visualEditorEnhancements.colorScheme = 'sepia';
     assert.equal(editorColorScheme(), 'auto');
+  });
+
+  it('passes the action label mode through, anything else is caption', () => {
+    for (const mode of ['caption', 'inline', 'stacked', 'icons']) {
+      globalThis.window.visualEditorEnhancements.actionLabelMode = mode;
+      assert.equal(actionLabelMode(), mode);
+    }
+    for (const mode of ['all', '', null, 3]) {
+      globalThis.window.visualEditorEnhancements.actionLabelMode = mode;
+      assert.equal(actionLabelMode(), 'caption');
+    }
+  });
+
+  it('reads the collection index; a missing index means "discover on interaction"', () => {
+    assert.equal(collectionTypes(), null);
+    assert.equal(collectionFieldsFor('tt_content', 'feature_cards'), null);
+    globalThis.window.visualEditorEnhancements.collectionTypes = {tt_content: {feature_cards: ['cards', '', 7]}};
+    assert.deepEqual(collectionFieldsFor('tt_content', 'feature_cards'), ['cards']);
+    assert.deepEqual(collectionFieldsFor('tt_content', 'text'), []);
+    assert.deepEqual(collectionFieldsFor('pages', '1'), []);
+    for (const invalid of [[], 'x', null]) {
+      globalThis.window.visualEditorEnhancements.collectionTypes = invalid;
+      assert.equal(collectionTypes(), null);
+    }
   });
 });

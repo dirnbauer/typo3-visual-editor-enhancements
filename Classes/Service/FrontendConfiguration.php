@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Webconsulting\VisualEditorEnhancements\Service;
 
+use Webconsulting\VisualEditorEnhancements\Enum\ActionLabelMode;
 use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
 
 /**
@@ -38,7 +39,8 @@ final readonly class FrontendConfiguration
      *     workspaceId: int,
      *     workspaceTitle: string,
      *     elementRefreshEnabled: bool,
-     *     colorScheme: 'auto'|'light'|'dark'
+     *     colorScheme: 'auto'|'light'|'dark',
+     *     actionLabelMode: value-of<ActionLabelMode>
      * }
      */
     public function build(?int $pageId): array
@@ -73,6 +75,7 @@ final readonly class FrontendConfiguration
             'workspaceTitle' => $this->backendUserProvider->workspaceTitle($workspaceId),
             'elementRefreshEnabled' => $this->features->isElementRefreshEnabled(),
             'colorScheme' => $this->colorScheme($userSettings['colorScheme'] ?? null),
+            'actionLabelMode' => ActionLabelMode::fromUserSetting($userSettings['tx_visualeditor_actionLabels'] ?? null)->value,
         ];
     }
 

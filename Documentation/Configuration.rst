@@ -57,6 +57,35 @@ On the *Visual editor* tab of :guilabel:`User settings`:
         ``1`` gives a compact list beside one large docked preview, higher
         values a preview grid.
 
+    ..  confval:: tx_visualeditor_inlineRecords
+        :type: boolean
+        :default: 0
+
+        Edit collection entries (repeatable rows such as feature cards) from
+        the action bar and the entries panel. See :ref:`collections`.
+
+    ..  confval:: tx_visualeditor_actionLabels
+        :type: string
+        :default: caption
+
+        How the buttons of an element's action bar show their names:
+        ``caption`` (the pointed, focused or clicked button's name in a
+        reserved row below the icons), ``inline`` (every name beside its
+        icon), ``stacked`` (every name under its icon) or ``icons`` (icons
+        with tooltips only). Unknown values mean ``caption``. See
+        :ref:`usage-action-bar-labels`.
+
+Install-wide defaults for these settings are Core User TSconfig, for
+example for an editor group:
+
+..  code-block:: typoscript
+    :caption: User TSconfig
+
+    setup.default.tx_visualeditor_actionLabels = inline
+    setup.default.tx_visualeditor_inlineRecords = 1
+
+A user's own choice in :guilabel:`User settings` still wins.
+
 ..  _configuration-field-chooser:
 
 Field chooser

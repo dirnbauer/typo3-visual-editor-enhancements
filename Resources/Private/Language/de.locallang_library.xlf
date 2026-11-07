@@ -655,5 +655,65 @@
         <target>Hinzufügen und Entfernen wird sofort gespeichert.</target>
       </segment>
     </unit>
+    <unit id="frontend.actionBar.library">
+      <segment state="final">
+        <source>Library</source>
+        <target>Bibliothek</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.settings">
+      <segment state="final">
+        <source>Settings</source>
+        <target>Einstellungen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.entries">
+      <segment state="final">
+        <source>Entries</source>
+        <target>Einträge</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.addEntry">
+      <segment state="final">
+        <source>Add entry</source>
+        <target>Eintrag hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.edit">
+      <segment state="final">
+        <source>Edit</source>
+        <target>Bearbeiten</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.show">
+      <segment state="final">
+        <source>Show</source>
+        <target>Anzeigen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.delete">
+      <segment state="final">
+        <source>Delete</source>
+        <target>Löschen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.add">
+      <segment state="final">
+        <source>Add</source>
+        <target>Hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.noCollections">
+      <segment state="final">
+        <source>This element has no entries you can edit here.</source>
+        <target>Dieses Element hat keine Einträge, die Sie hier bearbeiten können.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenOnPage">
+      <segment state="final">
+        <source>Hidden on the live site</source>
+        <target>Auf der Live-Seite ausgeblendet</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use Webconsulting\VisualEditorEnhancements\Enum\ActionLabelMode;
 use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
 
 defined('TYPO3') or die();
@@ -26,6 +27,15 @@ defined('TYPO3') or die();
             'items' => array_map(
                 static fn(FieldChooserMode $mode): array => ['label' => $labels . 'fieldChooserMode.' . $mode->value, 'value' => $mode->value],
                 FieldChooserMode::cases(),
+            ),
+        ],
+        'tx_visualeditor_actionLabels' => [
+            'type' => 'select',
+            'renderType' => 'selectSingle',
+            'default' => ActionLabelMode::Caption->value,
+            'items' => array_map(
+                static fn(ActionLabelMode $mode): array => ['label' => $labels . 'actionLabels.' . $mode->value, 'value' => $mode->value],
+                ActionLabelMode::cases(),
             ),
         ],
         'tx_visualeditor_panelColumns' => [

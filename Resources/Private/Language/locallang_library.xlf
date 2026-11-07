@@ -546,5 +546,55 @@
         <source>Adding or removing entries saves immediately.</source>
       </segment>
     </unit>
+    <unit id="frontend.actionBar.library">
+      <segment>
+        <source>Library</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.settings">
+      <segment>
+        <source>Settings</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.entries">
+      <segment>
+        <source>Entries</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.addEntry">
+      <segment>
+        <source>Add entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.edit">
+      <segment>
+        <source>Edit</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.show">
+      <segment>
+        <source>Show</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.delete">
+      <segment>
+        <source>Delete</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.short.add">
+      <segment>
+        <source>Add</source>
+      </segment>
+    </unit>
+    <unit id="frontend.actionBar.noCollections">
+      <segment>
+        <source>This element has no entries you can edit here.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.hiddenOnPage">
+      <segment>
+        <source>Hidden on the live site</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

@@ -4,7 +4,7 @@ import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handle
 import {fieldChooserMode} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
-import {entriesIconSvg, linkIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
+import {linkIconSvg, listIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
 import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {changeCollection, collectionBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
@@ -108,7 +108,7 @@ export class VeFieldChooser extends LitElement {
       }
       // Chooser buttons toggle/re-anchor via their own click handler; closing
       // here already on pointerdown would make that click re-open the popover.
-      if (path.some((node) => node instanceof Element && ['field-chooser', 'inline-records'].includes(node.dataset?.veEnhancement))) {
+      if (path.some((node) => node instanceof Element && ['field-chooser', 'inline-records', 'inline-add'].includes(node.dataset?.veEnhancement))) {
         return;
       }
       this.close();
@@ -127,11 +127,14 @@ export class VeFieldChooser extends LitElement {
    * never tabs) under scopeLabel. Re-anchoring the OPEN popover to another scope
    * of the same element only re-filters the already loaded fields - it never
    * refetches.
-   * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string}} options
+   * toggle=false (the action-bar Add entry button) keeps an already open
+   * popover open; focus=false leaves the focus where it is (Add entry puts it
+   * into the new entry on the page); message is shown in the status line.
+   * @param {{table: string, uid: number, elementName?: string, anchorRect: DOMRect, scopeFields?: string[]|null, scopeLabel?: string, toggle?: boolean, focus?: boolean, message?: string}} options
    */
-  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = '', context = [], rootRecord = null, nested = false, view = 'settings', trigger = null}) {
+  openFor({table, uid, elementName, anchorRect, scopeFields = null, scopeLabel = '', context = [], rootRecord = null, nested = false, view = 'settings', trigger = null, toggle = true, focus = true, message = ''}) {
     const sameRecord = this.table === table && this.uid === uid && JSON.stringify(this.context) === JSON.stringify(context);
-    if (!nested && this.open && sameRecord && this.view === view && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
+    if (toggle && !nested && this.open && sameRecord && this.view === view && scopeKeyOf(this.scopeFields) === scopeKeyOf(scopeFields)) {
       this.close({restoreFocus: true});
       return;
     }
@@ -142,7 +145,7 @@ export class VeFieldChooser extends LitElement {
       this.trigger?.setAttribute('aria-expanded', 'true');
       this.anchorRect = anchorRect;
       this.docked = view === 'entries';
-      this.message = '';
+      this.message = message;
     }
     this.view = view;
     // Re-filtering an already loaded element must not refetch - but after a
@@ -167,7 +170,9 @@ export class VeFieldChooser extends LitElement {
     }
     // Move focus into the (non-modal) dialog so keyboard and screen-reader
     // users land in it; Escape and the close button hand it back.
-    this.updateComplete.then(() => this.renderRoot.querySelector('.popover')?.focus({preventScroll: true}));
+    if (focus) {
+      this.updateComplete.then(() => this.renderRoot.querySelector('.popover')?.focus({preventScroll: true}));
+    }
   }
 
   /**
@@ -578,7 +583,7 @@ export class VeFieldChooser extends LitElement {
     if (field.type === 'inline') {
       if (this.view === 'entries' || this.scopeFields) { return this.#renderCollection(field); }
       return html`<button type="button" class="collectionShortcut" @click=${() => this.#openCollection(field)}>
-        ${unsafeHTML(entriesIconSvg(16))}<span>${field.label}</span>
+        ${unsafeHTML(listIconSvg(16))}<span>${field.label}</span>
         ${field.uids ? html`<span class="count">${field.uids.length}</span>` : ''}<span aria-hidden="true">→</span>
       </button>`;
     }

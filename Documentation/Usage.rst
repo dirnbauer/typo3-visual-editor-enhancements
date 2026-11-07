@@ -36,7 +36,7 @@ Changing an element's settings
 
 Two ways in:
 
-*   The :guilabel:`Edit field settings` button on the element's action bar
+*   The :guilabel:`Settings` button on the element's action bar
     opens the full popover: every choice field of that record, grouped like
     the backend form.
 *   Hovering an editable text or rich-text output shows a small floating
@@ -50,6 +50,74 @@ list and are written by its normal save. Setting a field back to its original
 value removes the pending change again. After a save the affected elements are
 re-fetched and swapped in place, so a changed layout or frame is visible
 without losing the scroll position or any other element's editor state.
+
+..  _usage-action-bar-labels:
+
+Action bar labels
+=================
+
+Every button of an element's action bar - the Visual Editor's own
+(:guilabel:`Edit`, :guilabel:`Show`, :guilabel:`Delete`, :guilabel:`Add`)
+and this extension's (:guilabel:`Library`, :guilabel:`Settings`,
+:guilabel:`Entries`, :guilabel:`Add entry`) - has a name in very small text.
+How it appears is a personal choice,
+:confval:`tx_visualeditor_actionLabels` in :guilabel:`User settings >
+Visual editor > Action bar labels`:
+
+``caption`` (default)
+    The bar keeps its icons. Below them a narrow row is always reserved;
+    the name of the button under the pointer, the button that has keyboard
+    focus, or the button you clicked appears there in 11 px text. The bar
+    never changes size while you move across it, and the name stays while
+    the pointer is anywhere inside the bar - also on the name itself.
+    Leaving the element clears it.
+
+``inline``
+    Every button shows its name beside its icon whenever the bar is shown.
+    The bar becomes wider once, when it appears.
+
+``stacked``
+    Every button shows its name, 10 px, under its icon whenever the bar is
+    shown.
+
+``icons``
+    The Visual Editor's look: icons only, with the browser's tooltips.
+
+The visible text is always the button's accessible name or a word contained
+in it: the Visual Editor's buttons show "Edit", "Show", "Delete" and "Add"
+(German "Bearbeiten", "Anzeigen", "Löschen", "Hinzufügen") only because
+those words are part of their names ("Edit content element", ...); in a
+language where they are not, the full name shows. Screen readers announce
+the same names as before.
+
+On a touch screen there is no hover, so ``caption`` behaves like ``inline``
+there. With "reduce motion" the names appear without a fade.
+
+Not offered, on purpose: a mode that shows every name only while the pointer
+is over the bar. The bar has no reserved width, so growing it under the
+pointer would move the button the pointer is on and start a loop. The
+Visual Editor's own buttons still show the browser's native tooltip after a
+second next to the caption; that tooltip comes from the Visual Editor's
+template and is left alone.
+
+..  _usage-add-entry:
+
+Adding an entry from the action bar
+===================================
+
+With :confval:`tx_visualeditor_inlineRecords` on, an element with a
+collection (feature cards, FAQ items, table rows, ...) shows two more
+buttons from the moment the page is shown: :guilabel:`Entries` opens the
+entries panel, :guilabel:`Add entry` adds one entry at the end and puts the
+cursor into its first text on the page. A new entry on the live site starts
+hidden, exactly like an entry added in the panel.
+
+When the element has several collections, :guilabel:`Add entry` opens the
+panel with the first collection's :guilabel:`Add entry` button focused, so
+you choose the collection with one more click. When you may not add an entry
+(the collection is full, the field is read-only for you, ...), the button
+stays visible and focusable but is marked unavailable, and its tooltip says
+why.
 
 ..  _usage-links:
 
