@@ -136,5 +136,30 @@
         <source>Below the element's toolbar, scrolls with it</source>
       </segment>
     </unit>
+    <unit id="collectionRows">
+      <segment>
+        <source>Entries on the page</source>
+      </segment>
+    </unit>
+    <unit id="collectionRows.description">
+      <segment>
+        <source>Whether entries (feature cards, FAQ items, …) can also be changed right on the page. Works for templates that mark their entries; the entries panel always offers every action and is the keyboard path.</source>
+      </segment>
+    </unit>
+    <unit id="collectionRows.panel">
+      <segment>
+        <source>In the entries panel only</source>
+      </segment>
+    </unit>
+    <unit id="collectionRows.appender">
+      <segment>
+        <source>Panel, plus an add button after the last entry</source>
+      </segment>
+    </unit>
+    <unit id="collectionRows.rows">
+      <segment>
+        <source>Panel, add button and a small toolbar on each entry</source>
+      </segment>
+    </unit>
 </file>
 </xliff>

@@ -119,3 +119,16 @@ export function collectionFieldsFor(table, recordType) {
   const fields = types[table]?.[recordType];
   return Array.isArray(fields) ? fields.filter((name) => typeof name === 'string' && name !== '') : [];
 }
+
+/**
+ * Whether entries can also be changed on the page (User settings > Visual
+ * editor > Entries on the page, be_users.uc tx_visualeditor_collectionRows):
+ * `panel` = the entries panel only, `appender` = plus one "Add <entry>"
+ * button after the last marked entry, `rows` = plus a row toolbar on the
+ * hovered or focused marked entry (Frontend/row-layer.js).
+ * @return {'panel'|'appender'|'rows'}
+ */
+export function collectionRowsMode() {
+  const mode = enhancementConfig().collectionRows;
+  return ['panel', 'appender', 'rows'].includes(mode) ? mode : 'panel';
+}
