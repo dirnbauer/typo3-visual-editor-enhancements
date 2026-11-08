@@ -314,6 +314,7 @@ final readonly class InlineRecordService
             'languageId' => $context['languageId'], 'translationMode' => $context['translationMode'],
             'uids' => $uids, 'children' => $children,
             'minItems' => $min, 'maxItems' => $max,
+            'levelLinksPosition' => self::levelLinksPosition($table, $field, (string)($form['recordTypeValue'] ?? ''), $config),
             'canCreate' => $createReason === '', 'createReason' => $createReason,
             'requiredBackend' => $requiredBackend,
             'canSort' => $sortReason === '', 'sortReason' => $sortReason,
@@ -470,6 +471,33 @@ final readonly class InlineRecordService
     private static function labelValue(string $stored): string
     {
         return str_replace('<br>', "\n", $stored);
+    }
+
+    /**
+     * Where the on-page add button sits: TCA appearance.levelLinksPosition when the
+     * field (or its record type's columnsOverrides) sets it, "bottom" otherwise;
+     * "none" when the field hides its new-record link (Core's TCA migration turns
+     * levelLinksPosition = none into showNewRecordLink = false). FormEngine resolves
+     * a missing value to "top", so the processed config cannot tell an explicit
+     * choice from the default; the raw TCA can. "bottom" is where Core appends a new
+     * entry, so the default add button costs one write, not a create plus a move.
+     *
+     * @param array<string, mixed> $config resolved inline column config
+     * @return 'top'|'bottom'|'both'|'none'
+     */
+    public static function levelLinksPosition(string $table, string $field, string $recordType, array $config): string
+    {
+        if (($config['appearance']['showNewRecordLink'] ?? true) === false) {
+            return 'none';
+        }
+        $tca = $GLOBALS['TCA'][$table] ?? [];
+        $position = $tca['types'][$recordType]['columnsOverrides'][$field]['config']['appearance']['levelLinksPosition']
+            ?? $tca['columns'][$field]['config']['appearance']['levelLinksPosition']
+            ?? 'bottom';
+        return match ($position) {
+            'top', 'both' => $position,
+            default => 'bottom',
+        };
     }
 
     /**

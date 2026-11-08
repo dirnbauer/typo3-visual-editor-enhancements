@@ -478,12 +478,20 @@ Editor's element wrapper, and no Visual Editor code is patched.
     intents, reasons and confirmations. Nested entries get their own
     toolbar; their collection is resolved through the same payload chain as
     *Item settings*.
-*   The add button sits after the last entry of each top-level collection,
-    or before the first when TCA ``appearance.levelLinksPosition`` is
-    ``top`` (two buttons for ``both``, none for ``none``; a payload without
-    ``levelLinksPosition`` means after the last entry). *Add at the start*
-    is Core's append followed by one ``move`` to the first position. At the
-    maximum the button stays, refused with the reason.
+*   The appender sits after the last entry unless the field sets
+    ``levelLinksPosition``: TCA ``appearance.levelLinksPosition = top`` puts
+    it before the first entry, ``both`` shows two, and a field without a
+    new-record link (``showNewRecordLink = false``; Core migrates
+    ``levelLinksPosition = none`` to that) shows none. The server publishes
+    ``levelLinksPosition`` only from the field's own TCA (or its record
+    type's ``columnsOverrides``), not FormEngine's default ``top``: an add
+    button above the first entry costs two writes (Core's append, then one
+    ``move`` to the first position), one after the last entry costs one. A
+    payload without the key means after the last entry. At the maximum the
+    button stays, refused with the reason. The button never straddles the
+    element's edge: it sits in the gap between the entries and the edge of
+    the content element when the gap holds it, otherwise just outside that
+    edge (nothing is inserted to make room).
 *   Keyboard: no :kbd:`Tab` handling at all. :kbd:`Escape` inside the
     toolbar returns the focus to the entry, :kbd:`←`/:kbd:`→`,
     :kbd:`Home`/:kbd:`End` move between its buttons. The inspector remains
@@ -668,6 +676,12 @@ reason key (``frontend.inlineRecords.<reason>``).
             A column without ``maxitems`` resolves to Core's 99999, and any
             value of 99999 or more is published as ``0``; create's ``max``
             refusal and the sync preflight's ``max`` use the same rule.
+    *   -   ``levelLinksPosition``
+        -   Where the on-page add button sits: ``top``, ``bottom`` or ``both``
+            when the field (or its record type's ``columnsOverrides``) sets TCA
+            ``appearance.levelLinksPosition``, otherwise ``bottom`` (not
+            FormEngine's default ``top``); ``none`` when the field hides its
+            new-record link (``showNewRecordLink = false``). Since 1.7.0.
     *   -   ``canSort``, ``sortReason``
         -   Whether entries can be reordered: ``unsorted`` when the child table
             has no sorting column, ``controls`` when the field disables both
