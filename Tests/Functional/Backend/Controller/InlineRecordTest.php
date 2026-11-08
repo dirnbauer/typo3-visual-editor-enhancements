@@ -228,7 +228,10 @@ final class InlineRecordTest extends InlineRecordTestCase
         self::assertSame('tx_vee_item', $child['owner_table']);
         self::assertSame('nested', $child['slot']);
         self::assertSame(1, (int)$child['owner']);
-        self::assertSame('cascade', $this->field()['children'][0]['deleteReason']);
+        // 1.7: the bounded cascade preflight proves the nested entry (only minitems 1 keeps the owner).
+        $owner = $this->field()['children'][0];
+        self::assertSame(['min', '', 1, 0, false], [$owner['deleteReason'], $owner['cascadeReason'], $owner['cascade']['children'], $owner['cascade']['files'], $owner['cascade']['truncated']]);
+        self::assertSame([false, 'copyUnsupported'], [$owner['canDuplicate'], $owner['duplicateReason']], 'Only leaf entries are duplicated');
     }
 
     #[Test]

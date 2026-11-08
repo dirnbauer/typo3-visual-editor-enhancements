@@ -30,7 +30,8 @@ final readonly class DeleteOperation implements OperationInterface
             [(string)$field['parentTable'] => [(int)$form['compileUid'] => [(string)$field['name'] => implode(',', $uids)]]],
             [$childTable => [(int)$child['deleteUid'] => ['delete' => 1]]],
             result: ['deleted' => ['uid' => (int)$child['uid'], 'verb' => (string)$child['verb'],
-                'translations' => (int)($child['cascade']['translations'] ?? 0)]],
+                'translations' => (int)($child['cascade']['translations'] ?? 0),
+                'children' => (int)($child['cascade']['children'] ?? 0), 'files' => (int)($child['cascade']['files'] ?? 0)]],
         );
     }
 }
