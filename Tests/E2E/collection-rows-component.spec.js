@@ -192,7 +192,7 @@ test('move posts one intent and keeps the keyboard on the moved entry\'s control
   await expect(page.locator('ve-row-actions .status')).toContainText('Moved to position 1.');
 });
 
-test('remove asks the counted Core confirm (nested entries, image references) and refuses with the cascade bound', async ({page}) => {
+test('remove asks the counted Core confirm (nested entries, image references) and focuses the next entry', async ({page}) => {
   const {posts} = await rowsPage(page);
   const messages = [];
   page.on('dialog', (dialog) => { messages.push(dialog.message()); dialog.accept(); });
@@ -204,6 +204,8 @@ test('remove asks the counted Core confirm (nested entries, image references) an
     + 'It disappears from the live site immediately. Reset does not undo this operation.');
   expect(posts[0].inlineRecord).toMatchObject({action: 'delete', childUid: 4});
   await expect(page.locator('ve-content-element[uid="1"] .card')).toHaveCount(2);
+  // The last entry went: the focus lands on the entry now in its place (the new last one).
+  await expect.poll(() => focusedEntry(page)).toBe('3');
 });
 
 test('the eye stages visibility like the inspector: the entry dims at once and a second toggle leaves the store clean', async ({page}) => {
@@ -220,6 +222,27 @@ test('the eye stages visibility like the inspector: the entry dims at once and a
   await expect(eye).toHaveAttribute('aria-checked', 'true');
   await expect(cardOf(page, 2)).not.toHaveAttribute('data-ve-item-hidden', '');
   expect(await page.evaluate(() => window.store.hasChangedData('items', 2, 'hidden'))).toBe(false);
+});
+
+test('a Reset (store discard) re-derives the mark of an entry hidden from the toolbar', async ({page}) => {
+  await rowsPage(page);
+  await cardOf(page, 2).hover();
+  await railShown(page);
+  await railButton(page, 'Visible on the live site').click();
+  await expect(cardOf(page, 2)).toHaveAttribute('data-ve-item-hidden', '');
+  await page.evaluate(() => window.store.reset());
+  await expect(cardOf(page, 2)).not.toHaveAttribute('data-ve-item-hidden', '');
+});
+
+test('inline label mode: every toolbar button shows its name beside its icon', async ({page}) => {
+  await rowsPage(page, {mode: 'inline'});
+  await cardOf(page, 3).hover();
+  await railShown(page);
+  const labels = await rail(page).locator('.button').evaluateAll((buttons) => buttons.map((button) => {
+    const style = getComputedStyle(button, '::after');
+    return style.opacity === '1' ? style.content : '';
+  }));
+  expect(labels).toEqual(['"Move up"', '"Move down"', '"Visible on the live site"', '"Add after"', '"Remove"', '"Duplicate"', '"Item settings"']);
 });
 
 test('appender: one add button after the last entry, follows levelLinksPosition, refused at the maximum', async ({page}) => {
@@ -365,4 +388,33 @@ test('screenshots: the row toolbar and the add button, light and dark, 1280 and 
       await page.unrouteAll({behavior: 'wait'});
     }
   }
+});
+
+test('nested collections: a nested entry\'s toolbar acts on its own collection through the payload chain', async ({page}) => {
+  const nested = (uid, label) => `<li data-ve-item="items:${uid}" data-ve-item-live="${uid}" data-ve-collection="features">
+    <ve-editable-text table="items" uid="${uid}" field="title"><span contenteditable="plaintext-only">${label}</span></ve-editable-text></li>`;
+  const requests = [];
+  const {posts} = await actionBarHarness(page, {collectionRows: 'rows', css: CSS,
+    body: () => element(1, 'pricing', 'Pricing', `<div class="cards"><div class="card" data-ve-item="items:2" data-ve-item-live="2" data-ve-collection="plans">
+      <ve-editable-text table="items" uid="2" field="title"><span contenteditable="plaintext-only">Pro</span></ve-editable-text>
+      <ul>${nested(31, 'Unlimited pages')}${nested(32, 'Priority support')}</ul></div></div>`),
+    payload: (url) => {
+      requests.push(`${url.searchParams.get('table')}:${url.searchParams.get('uid')}:${url.searchParams.get('context') ?? ''}`);
+      if (url.searchParams.get('table') === 'tt_content') {
+        return [collectionField({name: 'plans', label: 'Plans', childTitle: 'plan', uids: [2], children: [entry(2, 'Pro', {canMoveUp: false, canMoveDown: false})]})];
+      }
+      return [collectionField({name: 'features', label: 'Features', parentTable: 'items', parentUid: 2, revision: 'n1', childTitle: 'feature', uids: [31, 32],
+        children: [entry(31, 'Unlimited pages', {canMoveUp: false}), entry(32, 'Priority support', {canMoveDown: false})]})];
+    },
+  });
+  await page.locator('[data-ve-item="items:32"]').hover();
+  await railShown(page);
+  await expect(page.getByRole('toolbar', {name: 'Entry 2: Priority support'})).toBeVisible();
+  expect(requests).toContain(`items:2:${JSON.stringify([{table: 'tt_content', uid: 1, field: 'plans'}])}`);
+  await railButton(page, 'Move up').click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].inlineRecord).toEqual({action: 'move', parentTable: 'items', parentUid: 2, field: 'features', revision: 'n1', childUid: 32, afterUid: null});
+  // Hovering the parent entry outside the nested list shows the parent's toolbar.
+  await page.locator('[data-ve-item="items:2"] > ve-editable-text').hover();
+  await expect(page.getByRole('toolbar', {name: 'Entry 1: Pro'})).toBeVisible();
 });

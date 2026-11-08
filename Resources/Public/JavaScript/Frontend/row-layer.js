@@ -305,9 +305,31 @@ function edgeReason(direction) {
   return inlineLabel(direction === 'up' ? 'firstEntry' : 'lastEntry');
 }
 
+/** @type {Map<string, {root: {table: string, uid: number}, children: Map<string, object>}>} entries whose eye was staged here */
+const staged = new Map();
+let marksTracked = false;
+
+/**
+ * The page marks of entries toggled from the toolbar follow the store from
+ * then on - Reset and Save re-derive them, as the inspector's marks do.
+ */
+function trackStagedMarks(root, child) {
+  const key = `${root.table}:${root.uid}`;
+  if (!staged.has(key)) { staged.set(key, {root, children: new Map()}); }
+  staged.get(key).children.set(`${child.table}:${child.uid}`, child);
+  if (marksTracked) { return; }
+  marksTracked = true;
+  dataHandlerStore.addEventListener('change', () => {
+    for (const {root: owner, children} of staged.values()) {
+      markEntries(wrapperOf(owner), [...children.values()], dataHandlerStore);
+    }
+  });
+}
+
 function toggleEye(element, root, marker, resolved) {
   const {child} = resolved;
   toggleEntryHidden(child);
+  trackStagedMarks(root, child);
   markEntries(wrapperOf(root) ?? element, [child], dataHandlerStore);
   const rail = getRowActions();
   rail.items = railItems(element, root, marker, resolved);
