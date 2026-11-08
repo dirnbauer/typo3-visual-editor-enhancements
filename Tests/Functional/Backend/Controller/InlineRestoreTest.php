@@ -62,6 +62,35 @@ final class InlineRestoreTest extends InlineRecordTestCase
         self::assertSame([409, 'stale'], $this->reasonOf($this->intent($field, 'restore', ['childUid' => 3])), 'Nothing left to restore');
     }
 
+    /**
+     * The removal's parent-list write renumbers the later entries' drafts
+     * (FormEngine recipe), so Core's discard alone brings the entry back with a
+     * sorting that ties with its old successor. Restore puts it back after its
+     * nearest live predecessor (lab runtime 2026-11-08: the middle entry came
+     * back last).
+     */
+    #[Test]
+    public function restoreReturnsTheEntryToItsPlaceAmongItsSiblings(): void
+    {
+        $this->addItem(4, ['sorting' => 40]);
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['vee_items' => 3], ['uid' => 1]);
+        $this->useWorkspace();
+        $live = null;
+        foreach ([3, 1, 4] as $entry) {
+            $removed = $this->intent($this->field(), 'delete', ['childUid' => $this->listedUid($this->field(), $entry)]);
+            self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
+            // The first removal drafts the parent (firstVersion = 1: live sorting/tstamp bookkeeping only).
+            $live ??= $this->liveRows();
+            self::assertSame([1, 3, 4], array_column($this->field()['children'], 'liveUid'), 'Placeholder listed in place of ' . $entry);
+            $restored = $this->intent($this->field(), 'restore', ['childUid' => $entry]);
+            self::assertSame(200, $restored[0], json_encode($restored, JSON_THROW_ON_ERROR));
+            $field = $this->field();
+            self::assertSame([1, 3, 4], array_column($field['children'], 'liveUid'), 'Back in place after restoring ' . $entry);
+            self::assertSame(['modified', 'modified', 'modified'], array_column($field['children'], 'state'));
+            self::assertSame($live, $this->liveRows(), 'Live rows byte-identical');
+        }
+    }
+
     #[Test]
     public function restoreInLiveIsRefusedAndVersionUidsOrListedEntriesAreStale(): void
     {
@@ -149,6 +178,21 @@ final class InlineRestoreTest extends InlineRecordTestCase
             }
         }
         self::fail('No delete placeholder listed for ' . $liveUid);
+    }
+
+    /**
+     * The uid an entry is listed under (its draft's uid in a workspace).
+     *
+     * @param array<string, mixed> $field
+     */
+    private function listedUid(array $field, int $liveUid): int
+    {
+        foreach ($field['children'] as $child) {
+            if ($child['state'] !== 'deleted' && $child['liveUid'] === $liveUid) {
+                return $child['uid'];
+            }
+        }
+        self::fail('Entry ' . $liveUid . ' is not listed');
     }
 
     /**

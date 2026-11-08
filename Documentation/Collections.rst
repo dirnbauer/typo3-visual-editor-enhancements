@@ -366,7 +366,10 @@ Undo removal
 ------------
 
 A removal in a workspace leaves a delete placeholder; the inspector lists it
-under the entry's live uid with ``state: deleted``. ``restore`` with that uid
+under the entry's live uid with ``state: deleted``, after the entry that
+precedes it in live order (the removal's list write renumbered the later
+entries' drafts, so the placeholder's own sorting value no longer tells its
+place). ``restore`` with that uid
 undoes the removal: the server looks up this workspace's delete placeholder
 itself, together with the placeholders Core's cascade left on the entry's
 translations, and runs Core's ``discard`` on them. Core discards the nested
@@ -376,8 +379,9 @@ browser.
 Discarding a placeholder drops the entry's draft in this workspace, with any
 unpublished change it carried; the entry returns as it is in live, with its
 stored sorting value. Below an element that has a draft here, a leaf entry is
-drafted again right away (Core's ``version`` command), so add, move and
-remove stay available. An entry with nested members is not drafted again
+drafted again right away (Core's ``version`` command) and the element's
+draft takes it back at the listed place, so it returns where it was and add,
+move and remove stay available. An entry with nested members is not drafted again
 (Core would version its members with live bookkeeping); the collection then
 reports ``workspace`` until the element is reopened in the backend
 workspace, exactly as after a discard in the Workspaces module.

@@ -43,8 +43,10 @@ that is not acceptable.
 - Server intent `restore {childUid}` for a listed delete placeholder (its live
   uid): Core's discard of the placeholder the server finds in the current
   workspace and of those the delete cascade left on the entry's translations;
-  a leaf entry below a drafted element is drafted again (Core `version`) so
-  the collection stays editable. Version uids are never accepted. Refused
+  a leaf entry below a drafted element is drafted again (Core `version`) and
+  put back at its place in the element's draft list, so the collection stays
+  editable. A placeholder is listed after the entry that precedes it in live
+  order. Version uids are never accepted. Refused
   `restoreLive` outside a workspace, `stale`, `rights`, `max`. Discarding drops
   the entry's earlier draft changes (Core).
 - `InlineCascadePreflight` and the payload keys `cascade.children`,

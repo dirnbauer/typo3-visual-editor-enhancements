@@ -227,6 +227,7 @@ final readonly class InlineRecordService
             }
         }
         $uids = $formUids;
+        $children = self::placePlaceholders($childTable, $config, $children);
         $min = (int)($config['minitems'] ?? 0);
         if ($reason === '' && $liveChildInWorkspace) {
             $reason = 'workspace';
@@ -327,6 +328,44 @@ final readonly class InlineRecordService
             // Internal only; stripped at the public field boundary.
             '_defaults' => $defaults, '_config' => $config, '_sync' => $sync['internal'],
         ];
+    }
+
+    /**
+     * Lists every delete placeholder where its entry was: after the nearest entry
+     * that precedes it in live order. The removal's parent-list write (FormEngine's
+     * recipe) renumbers the later entries' drafts, so the placeholder's own sorting
+     * ties with its old successor and Core's order between the two is arbitrary.
+     * Restore puts the entry back at this listed place (RestoreOperation).
+     * Members keep their order; without a sorting field nothing moves.
+     *
+     * @param array<string, mixed>             $config
+     * @param list<array<string, mixed>>       $children
+     * @return list<array<string, mixed>>
+     */
+    private static function placePlaceholders(string $childTable, array $config, array $children): array
+    {
+        $sortby = (string)($config['foreign_sortby'] ?? $GLOBALS['TCA'][$childTable]['ctrl']['sortby'] ?? '');
+        if ($sortby === '' || !in_array('deleted', array_column($children, 'state'), true)) {
+            return $children;
+        }
+        $keys = [];
+        foreach ($children as $child) {
+            $live = BackendUtility::getRecord($childTable, (int)$child['liveUid'], $sortby) ?? [];
+            $keys[(int)$child['liveUid']] = [(int)($live[$sortby] ?? 0), (int)$child['liveUid']];
+        }
+        $placeholders = array_values(array_filter($children, static fn(array $child): bool => $child['state'] === 'deleted'));
+        $listed = array_values(array_filter($children, static fn(array $child): bool => $child['state'] !== 'deleted'));
+        foreach ($placeholders as $placeholder) {
+            $key = $keys[(int)$placeholder['liveUid']];
+            $index = 0;
+            foreach ($listed as $position => $entry) {
+                if (($keys[(int)$entry['liveUid']] <=> $key) < 0) {
+                    $index = $position + 1;
+                }
+            }
+            array_splice($listed, $index, 0, [$placeholder]);
+        }
+        return $listed;
     }
 
     /**
