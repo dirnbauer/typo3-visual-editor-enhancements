@@ -6,13 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-11-08
+
+Entries on the page, Duplicate, Undo removal, a bounded delete cascade and
+first workspace drafts by default. Collection editing itself stays off by
+default (`tx_visualeditor_inlineRecords = 0`); the on-page layer is a per-user
+opt-in (default `panel`). Each behaviour change below names the key that
+restores 1.6.x.
+
 ### Behaviour changes
 
 | Change | Before (1.6.x) | 1.7.0 | Restore |
 |---|---|---|---|
 | First workspace draft of a collection (owner decision D1, 2026-11-08) | page TSconfig `inlineRecords.firstVersion` defaulted to `0`: add, move and remove on an element without a draft in the current workspace were refused (`firstVersion`), as was the eye of a live entry with nested members | defaults to `1`: Core's stock auto-versioning creates the first draft under the narrowed live-row invariant (live content byte-identical; only the sorting of the affected live members is renumbered in the same order and their `tstamp` stamped; anything else rolls back with 409 `workspaceLiveChange`) | `tx_visualeditorenhancements.inlineRecords.firstVersion = 0` |
-
 | Removing an entry with nested entries or media | refused (`cascade`), backend form | offered when the bounded preflight proves every record Core deletes with it (nested members, their translations, file references; per record `tables_modify`, edit access with language, page content-edit, same connection; within `cascade.maxDepth = 3` and `cascade.maxRecords = 50`); otherwise `cascade` with `cascadeReason` `depth`, `records`, `rights` or `disabled` | `tx_visualeditorenhancements.inlineRecords.cascade.enabled = 0` |
+| Duplicate an entry | not offered (backend form) | *Duplicate* in the row menu and the on-page toolbar for leaf entries (`canDuplicate`/`duplicateReason`) | `tx_visualeditorenhancements.inlineRecords.duplicate = 0` |
+| Entries on the page | entries panel only | User settings > Visual editor > *Entries on the page* (`tx_visualeditor_collectionRows`) offers `appender` and `rows`; the default stays `panel`, so nothing changes until a user opts in | default `panel`; install-wide `setup.override.tx_visualeditor_collectionRows = panel` |
+| Payload key `levelLinksPosition` | not published | `top`, `bottom` or `both` when the field (or its record type's `columnsOverrides`) sets TCA `appearance.levelLinksPosition`, otherwise `bottom` - the appender sits after the last entry unless the field sets `levelLinksPosition` (FormEngine's default `top` would make each add two writes: create + move); `none` when the field hides its new-record link | set `appearance.levelLinksPosition` on the field |
 
 The live `tstamp` and `sorting` writes of a first draft are real writes:
 caches, the reference index or integrations watching child tables (a Solr
@@ -79,6 +89,12 @@ that is not acceptable.
   `Shared/inline-record-actions.js`.
 - Labels for all of it in English and German.
 
+### Fixed (integration)
+
+- The on-page add button never straddles the content element's edge: it sits
+  in the gap between the entries and the element's edge when the gap holds
+  it, otherwise just outside that edge (still no DOM insertion).
+
 ### Tests (UI)
 
 - `CollectionRowsModeTest`, `FrontendConfigurationTest` (`collectionRows`),
@@ -89,6 +105,17 @@ that is not acceptable.
   mirror highlight, transformed containers, nested collections, label modes,
   axe WCAG 2.2 AA light and dark, screenshots 1280/390 px) and three new
   field-chooser cases. The CI components job installs axe-core.
+
+### Tests (integration)
+
+- Functional: `levelLinksPosition` publication (unset, explicit, unknown,
+  `showNewRecordLink = false`, `columnsOverrides`); duplicate of an entry
+  created in the current workspace (a new draft of its own after its source,
+  live rows byte-identical) on SQLite and MariaDB.
+- Component specs answer duplicate with the server's real response (`uid`,
+  `created`, `duplicated`, `workspace`); the inspector spec checks the focus
+  lands on the copy; the appender spec checks it never crosses the element's
+  edge; node cases for the placement.
 
 ## [1.6.1] — 2026-11-07
 
