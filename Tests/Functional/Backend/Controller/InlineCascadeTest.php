@@ -78,6 +78,8 @@ final class InlineCascadeTest extends InlineRecordTestCase
             self::assertSame($reason, $refused[1]['collection']['children'][0]['cascadeReason']);
             self::assertSame($before, [$this->rows(), $this->rows('sys_file_reference')]);
         }
+        $this->setPageTsConfig("tx_visualeditorenhancements.inlineRecords.cascade.enabled = 0\ntx_visualeditorenhancements.inlineRecords.cascade.maxRecords = 1");
+        self::assertSame(['cascade', 'disabled'], [$this->field()['children'][0]['deleteReason'], $this->field()['children'][0]['cascadeReason']], 'Switched off wins over the bounds');
         $this->setPageTsConfig("tx_visualeditorenhancements.inlineRecords.cascade.maxRecords = 4\ntx_visualeditorenhancements.inlineRecords.cascade.maxDepth = 2");
         self::assertSame('', $this->field()['children'][0]['deleteReason'], 'Exactly at the bounds');
     }

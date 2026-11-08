@@ -71,7 +71,8 @@ final readonly class InlineCascadePreflight
             }
         }
         $reason = $state['reason'];
-        if ($reason === '' && ($state['children'] + $state['files']) > 0 && !($settings['enabled'] ?? true)) {
+        // Switched off: every entry with dependents is refused, whatever bound the walk met first.
+        if (($reason !== '' || ($state['children'] + $state['files']) > 0) && !($settings['enabled'] ?? true)) {
             $reason = 'disabled';
         }
         return ['children' => $state['children'], 'files' => $state['files'], 'truncated' => $state['truncated'], 'reason' => $reason];
