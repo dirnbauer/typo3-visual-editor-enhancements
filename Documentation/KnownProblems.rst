@@ -183,8 +183,9 @@ Remove is disabled for an entry
 ===============================
 
 Its reason is on the row. Common ones: the collection is at its minimum
-(``min``); the entry has nested entries or media (``cascade``, backend form
-until 1.7); a translation of it cannot be removed by this editor
+(``min``); the entry has nested entries or media that cannot all be removed
+here (``cascade``: deeper or more than the TSconfig bounds, or one of them is
+outside your rights); a translation of it cannot be removed by this editor
 (``translations``); the list of this translation follows another language
 (``synchronized``); or this entry's title or visibility is staged (save
 first). With ``deleteTranslations = refuse`` every translated entry is refused

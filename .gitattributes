@@ -6,3 +6,4 @@
 /Build export-ignore
 /Tests export-ignore
 /phpstan.neon export-ignore
+/docs export-ignore

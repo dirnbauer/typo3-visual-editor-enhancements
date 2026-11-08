@@ -123,7 +123,7 @@ Collection entries
 The page TSconfig of collection editing lives under
 ``tx_visualeditorenhancements.inlineRecords``; the full block and every
 refusal reason are in :ref:`collections-configuration`. The keys whose
-defaults changed in a release:
+defaults changed or that are new in 1.7.0:
 
 ..  confval-menu::
     :name: configuration-collections-tsconfig
@@ -142,6 +142,40 @@ defaults changed in a release:
         live entries' ``sorting`` (same order) and stamps their ``tstamp``.
         ``0`` restores the refusal of 1.6 (reason ``firstVersion``). The
         default changed from ``0`` to ``1`` in 1.7.0.
+
+    ..  confval:: inlineRecords.duplicate
+        :name: inline-records-duplicate
+        :type: boolean
+        :default: 1
+
+        Offer *Duplicate* for leaf entries (:ref:`collections-duplicate`).
+        ``0`` refuses it with ``controls``. New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.enabled
+        :name: inline-records-cascade-enabled
+        :type: boolean
+        :default: 1
+
+        Offer *Remove* for entries with nested entries or media when every
+        record Core deletes with them passes the editor's checks
+        (:ref:`collections-cascade`). ``0`` refuses every such entry
+        (``cascade`` / ``disabled``), as 1.6 did. New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.maxDepth
+        :name: inline-records-cascade-max-depth
+        :type: integer
+        :default: 3
+
+        Nested levels below the entry a removal may reach; deeper structures
+        are refused (``cascade`` / ``depth``). New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.maxRecords
+        :name: inline-records-cascade-max-records
+        :type: integer
+        :default: 50
+
+        Nested records and file references one removal may take along; more
+        are refused (``cascade`` / ``records``). New in 1.7.0.
 
 ..  _configuration-field-chooser:
 

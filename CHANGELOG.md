@@ -12,11 +12,41 @@ All notable changes to this project are documented here. The format follows
 |---|---|---|---|
 | First workspace draft of a collection (owner decision D1, 2026-11-08) | page TSconfig `inlineRecords.firstVersion` defaulted to `0`: add, move and remove on an element without a draft in the current workspace were refused (`firstVersion`), as was the eye of a live entry with nested members | defaults to `1`: Core's stock auto-versioning creates the first draft under the narrowed live-row invariant (live content byte-identical; only the sorting of the affected live members is renumbered in the same order and their `tstamp` stamped; anything else rolls back with 409 `workspaceLiveChange`) | `tx_visualeditorenhancements.inlineRecords.firstVersion = 0` |
 
+| Removing an entry with nested entries or media | refused (`cascade`), backend form | offered when the bounded preflight proves every record Core deletes with it (nested members, their translations, file references; per record `tables_modify`, edit access with language, page content-edit, same connection; within `cascade.maxDepth = 3` and `cascade.maxRecords = 50`); otherwise `cascade` with `cascadeReason` `depth`, `records`, `rights` or `disabled` | `tx_visualeditorenhancements.inlineRecords.cascade.enabled = 0` |
+
 The live `tstamp` and `sorting` writes of a first draft are real writes:
 caches, the reference index or integrations watching child tables (a Solr
 index queue, webhooks) may react to them, exactly as they react to the same
 bookkeeping of a FormEngine save of the element. Set `firstVersion = 0` where
 that is not acceptable.
+
+### Added
+
+- Server intent `duplicate {childUid}`: Core's copy of a leaf entry directly
+  after itself, in its own language only (translations follow by *Sync
+  translations*), registered in the parent's list like *Add*; hidden in live
+  under `createHidden`. Refused `copyUnsupported` for entries with nested
+  entries or media and below connected translations; `max`, `controls`
+  (`enabledControls.new`, `showNewRecordLink`, page TSconfig
+  `inlineRecords.duplicate = 0`) and the add reasons. Response `created {uid,
+  table, hidden, hiddenField}`, `duplicated {uid}`.
+- Server intent `restore {childUid}` for a listed delete placeholder (its live
+  uid): Core's discard of the placeholder the server finds in the current
+  workspace and of those the delete cascade left on the entry's translations;
+  a leaf entry below a drafted element is drafted again (Core `version`) so
+  the collection stays editable. Version uids are never accepted. Refused
+  `restoreLive` outside a workspace, `stale`, `rights`, `max`. Discarding drops
+  the entry's earlier draft changes (Core).
+- `InlineCascadePreflight` and the payload keys `cascade.children`,
+  `cascade.files`, `cascade.truncated`, `cascadeReason`, `canDuplicate`,
+  `duplicateReason` and, on delete placeholders, `canRestore`, `restoreReason`;
+  the delete response adds `children` and `files`.
+- Page TSconfig `inlineRecords.duplicate`, `inlineRecords.cascade.enabled`,
+  `.maxDepth`, `.maxRecords`.
+- Reasons `copyUnsupported`, `restoreLive`, `cascadeDepth`, `cascadeRecords`,
+  `cascadeRights`, `cascadeDisabled` in English and German.
+- `collectionIntent(field, 'duplicate' | 'restore', {childUid})` in
+  `Shared/inline-record-actions.js`.
 
 ## [1.6.1] — 2026-11-07
 
