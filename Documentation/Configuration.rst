@@ -85,6 +85,18 @@ On the *Visual editor* tab of :guilabel:`User settings`:
         the element's action bar, scrolling with it). Unknown values mean
         ``inspector``. See :ref:`usage-entries-layout`.
 
+    ..  confval:: tx_visualeditor_collectionRows
+        :type: string
+        :default: panel
+
+        Whether entries can also be changed on the page (since 1.7.0):
+        ``panel`` (only in the entries panel), ``appender`` (plus an add
+        button after the last entry of each collection) or ``rows`` (plus
+        a row toolbar on the pointed or focused entry). Works for templates
+        that mark their entries with ``f:mark.item``; the entries panel stays
+        the keyboard path. Unknown values mean ``panel``. See
+        :ref:`usage-entries-on-page`.
+
 ..  _configuration-user-install-wide:
 
 Setting a value for a whole group
@@ -99,6 +111,7 @@ logged in before, use Core's User TSconfig ``setup.override``:
     setup.override.tx_visualeditor_actionLabels = inline
     setup.override.tx_visualeditor_inlineRecords = 1
     setup.override.tx_visualeditor_entriesLayout = tray
+    setup.override.tx_visualeditor_collectionRows = rows
 
 Core merges ``setup.override.*`` into the user's stored settings on every
 backend request, and this extension reads those stored settings. The value
@@ -109,8 +122,8 @@ user's choice.
 ``setup.default.*`` does **not** do this. Core applies it only while a
 user's stored settings are empty - a user who has never logged in, or who
 reset their settings. For everyone else Core fills a missing setting with
-its default from the field definition (``0``, ``caption``, ``inspector``
-above), so a ``setup.default`` line added later never reaches them.
+its default from the field definition (``0``, ``caption``, ``inspector``,
+``panel`` above), so a ``setup.default`` line added later never reaches them.
 1.6.0 documented ``setup.default`` here; that recipe did not work for
 existing users. The behaviour is pinned by
 :file:`Tests/Functional/Service/UserSettingsOverrideTest.php`.

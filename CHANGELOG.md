@@ -6,6 +6,48 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added (UI)
+
+- Entries on the page: User settings > Visual editor > *Entries on the page*
+  (`tx_visualeditor_collectionRows` = `panel` | `appender` | `rows`, default
+  `panel`, edit-frame key `collectionRows`). For templates with `f:mark.item`
+  markers, `rows` shows the row toolbar `ve-row-actions` (a body-level
+  singleton) on the pointed or focused entry - move up/down, the staged eye,
+  add after, remove, duplicate, item settings - with the inspector's intents,
+  reasons and confirmations and the action-bar label modes; `appender` (and
+  `rows`) adds a dashed *Add <entry>* button after the last entry of each
+  collection, following `levelLinksPosition` (read from the payload; missing
+  means after the last entry), refused with its reason at the maximum.
+  Nothing is inserted into the template or the Visual Editor's wrapper, Tab is
+  never intercepted, Escape returns the focus to the entry; the toolbar
+  follows sliders and other transformed containers and steps aside off-screen.
+  Unmarked templates get nothing; the entries panel stays the keyboard path.
+- Inspector: *Duplicate* in the row menu (when the payload has
+  `canDuplicate`; refused items stay focusable with `duplicateReason`), *Undo
+  removal* on workspace delete placeholders (`canRestore`/`restoreReason`),
+  focus on the copy or the restored entry afterwards.
+- Remove confirmation counts nested entries and image references besides
+  translations ("Also removes 2 nested entries, 1 image reference. The files
+  stay in the file list."; "Also marks … for deletion" in a workspace; a
+  truncated count says so). A refused removal names its bound
+  (`cascadeReason` `depth`, `records`, `rights`, `disabled`).
+- `Shared/row-actions.js`: the per-entry reasons, move targets, add-button
+  plan and placements shared by the inspector and the on-page layer (pure,
+  node-tested); `collectionMessage()` and `deleteRefusal()` in
+  `Shared/inline-record-actions.js`.
+- Labels for all of it in English and German.
+
+### Tests (UI)
+
+- `CollectionRowsModeTest`, `FrontendConfigurationTest` (`collectionRows`),
+  node `row-actions.test.js` and `config.test.js`, component spec
+  `collection-rows-component.spec.js` (toolbar on hover and focus, Escape,
+  add after, duplicate, move, counted remove, staged eye and Reset, appender
+  per `levelLinksPosition` and at the maximum, unmarked templates, panel mode,
+  mirror highlight, transformed containers, nested collections, label modes,
+  axe WCAG 2.2 AA light and dark, screenshots 1280/390 px) and three new
+  field-chooser cases. The CI components job installs axe-core.
+
 ## [1.6.1] — 2026-11-07
 
 Fixes from the adversarial review of 1.6.0 (23 confirmed findings). Collection
