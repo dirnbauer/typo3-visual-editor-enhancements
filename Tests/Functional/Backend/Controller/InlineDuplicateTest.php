@@ -102,6 +102,44 @@ final class InlineDuplicateTest extends InlineRecordTestCase
     }
 
     #[Test]
+    public function duplicateOfAnEntryCreatedInThisWorkspaceCopiesTheNewDraft(): void
+    {
+        $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['maxitems'] = 5;
+        $this->useWorkspace();
+        $created = $this->intent($this->field(), 'create', ['afterUid' => 3]);
+        self::assertSame(200, $created[0], json_encode($created, JSON_THROW_ON_ERROR));
+        $new = (int)$created[1]['uid'];
+        $this->getConnectionPool()->getConnectionForTable('tx_vee_item')->update('tx_vee_item', ['title' => 'Drafted only'], ['uid' => $new]);
+        $field = $this->field();
+        $entry = array_column($field['children'], null, 'uid')[$new];
+        self::assertSame(['new', $new, true, ''], [$entry['state'], $entry['liveUid'], $entry['canDuplicate'], $entry['duplicateReason']]);
+        $live = array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0));
+        $liveParent = $this->rows('tt_content');
+        $source = $this->row($new);
+
+        $result = $this->intent($field, 'duplicate', ['childUid' => $new]);
+        self::assertSame(200, $result[0], json_encode($result, JSON_THROW_ON_ERROR));
+        $copyUid = (int)$result[1]['uid'];
+        self::assertNotSame($new, $copyUid);
+        self::assertSame(['uid' => $copyUid, 'table' => 'tx_vee_item', 'hidden' => false, 'hiddenField' => 'hidden'], $result[1]['created']);
+        self::assertSame(['uid' => $new], $result[1]['duplicated']);
+
+        $copy = $this->row($copyUid);
+        self::assertSame(
+            [1, 1, 0, 'Drafted only', 1, 'tt_content', 'items', 0, 0],
+            [(int)$copy['t3ver_wsid'], (int)$copy['t3ver_state'], (int)$copy['t3ver_oid'], $copy['title'], (int)$copy['owner'], $copy['owner_table'], $copy['slot'], (int)$copy['deleted'], (int)$copy['hidden']],
+            'A new draft of its own carrying the draft\'s content'
+        );
+        self::assertSame(self::withoutBookkeeping($source), self::withoutBookkeeping($this->row($new)), 'The source draft keeps its content');
+        $field = $this->field();
+        $members = array_map(static fn(array $child): array => [$child['state'], $child['label']], $field['children']);
+        self::assertSame([['modified', 'Existing'], ['modified', 'Third'], ['new', 'Drafted only'], ['new', 'Drafted only']], $members);
+        self::assertSame($copyUid, $field['children'][3]['uid'], 'Directly after its source');
+        self::assertSame($live, array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0)), 'Live entries byte-identical');
+        self::assertSame($liveParent[0], $this->rows('tt_content')[0], 'Live parent byte-identical');
+    }
+
+    #[Test]
     public function duplicateBelowAConnectedTranslatedParentIsRefused(): void
     {
         $this->addItem(5, ['origin' => 1, 'lang' => 1, 'owner' => 2, 'sorting' => 1, 'title' => 'Übersetzt']);
