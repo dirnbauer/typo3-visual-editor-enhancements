@@ -973,5 +973,41 @@
         <target>Ihr nächstes Hinzufügen, Verschieben oder Entfernen legt den ersten Entwurf dieses Elements in diesem Workspace an.</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.copyUnsupported">
+      <segment state="final">
+        <source>Only entries without nested entries or media can be duplicated here, and not in a connected translation. Use the backend form.</source>
+        <target>Hier lassen sich nur Einträge ohne untergeordnete Einträge oder Medien duplizieren, und nicht in einer verbundenen Übersetzung. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.restoreLive">
+      <segment state="final">
+        <source>Removals on the live site are final. Only removals staged in a workspace can be undone.</source>
+        <target>Entfernungen auf der Live-Website sind endgültig. Rückgängig machen lassen sich nur Entfernungen, die in einem Arbeitsbereich vorgemerkt sind.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeDepth">
+      <segment state="final">
+        <source>This entry's nested entries go deeper than this site allows for a removal here. Use the backend form.</source>
+        <target>Die untergeordneten Einträge dieses Eintrags reichen tiefer, als diese Website es für ein Entfernen hier erlaubt. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeRecords">
+      <segment state="final">
+        <source>Removing this entry would also remove more nested entries or media references than this site allows at once. Use the backend form.</source>
+        <target>Mit diesem Eintrag würden mehr untergeordnete Einträge oder Medienverweise entfernt, als diese Website auf einmal erlaubt. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeRights">
+      <segment state="final">
+        <source>This entry contains nested entries or media you may not remove.</source>
+        <target>Dieser Eintrag enthält untergeordnete Einträge oder Medien, die Sie nicht entfernen dürfen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeDisabled">
+      <segment state="final">
+        <source>Removing entries with nested entries or media is switched off for this site. Use the backend form.</source>
+        <target>Das Entfernen von Einträgen mit untergeordneten Einträgen oder Medien ist für diese Website ausgeschaltet. Bitte das Backend-Formular verwenden.</target>
+      </segment>
+    </unit>
   </file>
 </xliff>
