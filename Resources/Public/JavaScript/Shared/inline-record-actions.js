@@ -9,6 +9,10 @@ const intentKeys = {
   delete: {childUid: 'required'},
   move: {childUid: 'required', afterUid: 'nullable'},
   sync: {language: 'required', mode: 'mode', ids: 'ids'},
+  // 1.7: copy one entry right after itself; undo a workspace removal
+  // (childUid = the live uid of the listed delete placeholder).
+  duplicate: {childUid: 'required'},
+  restore: {childUid: 'required'},
 };
 
 /**
@@ -16,9 +20,10 @@ const intentKeys = {
  * the client: no child table, pid, sorting, language or live uid leaves the browser.
  *
  * @param {object} field   collection payload (parentTable, parentUid, name, revision)
- * @param {string} action  create | delete | move | sync
+ * @param {string} action  create | delete | move | sync | duplicate | restore
  * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
  *                         · sync {language, mode: 'localize'|'synchronize', ids?: [default entry uids], localize only}
+ *                         · duplicate {childUid} · restore {childUid: live uid of the delete placeholder}
  */
 export function collectionIntent(field, action, options = {}) {
   const keys = intentKeys[action];
@@ -150,6 +155,57 @@ export function collectionLimit(maxItems) {
 export function fromTextControl(event) {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target];
   return path.some((node) => node?.localName === 'input' || node?.localName === 'textarea' || node?.isContentEditable === true);
+}
+
+/**
+ * The sentence for a successful collection change, shown in the panel's or
+ * the row toolbar's status line (plain text, never a button).
+ * @param {string} action create | delete | move | sync | duplicate | restore
+ * @param {{workspaceId?: number, createHidden?: boolean}} field
+ * @param {object} result the server response
+ * @param {{position?: number, languageTitle?: string}} options move: the new 1-based position; sync: the language name
+ * @return {string}
+ */
+export function collectionMessage(action, field, result = {}, {position = 0, languageTitle = ''} = {}) {
+  const messages = [];
+  if (action === 'sync') {
+    messages.push(inlineLabel('synced').replace('{language}', languageTitle)
+      .replace('{localized}', String(result.synced?.localized ?? 0)).replace('{removed}', String(result.synced?.removed ?? 0)));
+  } else if (action === 'move') {
+    messages.push(inlineLabel('movedTo').replace('{position}', String(Number(result.moved?.position ?? position))));
+  } else if (action === 'restore') {
+    messages.push(inlineLabel('restored'));
+  } else if (action === 'duplicate') {
+    messages.push(inlineLabel(field.workspaceId ? 'duplicatedWorkspace'
+      : (result.created?.hidden ?? field.createHidden) ? 'duplicatedHidden' : 'duplicated'));
+  } else if (field.workspaceId) {
+    messages.push(inlineLabel('savedWorkspace'));
+  } else if (field.createHidden && action === 'create') {
+    messages.push(inlineLabel('savedHidden'));
+  } else {
+    messages.push(inlineLabel('savedLive'));
+  }
+  if (result.workspace?.firstVersion) {
+    messages.push(inlineLabel('draftCreated'));
+  }
+  return messages.join(' ');
+}
+
+/**
+ * Why an entry's Remove is refused, '' when it is allowed. A removal the
+ * server's cascade preflight refused (deleteReason `cascade`) names its
+ * bound: depth, records, rights or a site that switched cascading off.
+ * @param {{canDelete?: boolean, deleteReason?: string, cascadeReason?: string}} child
+ * @return {string}
+ */
+export function deleteRefusal(child) {
+  if (child.canDelete) {
+    return '';
+  }
+  if (child.deleteReason === 'cascade' && ['depth', 'records', 'rights', 'disabled'].includes(child.cascadeReason)) {
+    return inlineLabel(`cascade${child.cascadeReason[0].toUpperCase()}${child.cascadeReason.slice(1)}`);
+  }
+  return collectionReason(child.deleteReason) || inlineLabel('controls');
 }
 
 export async function postCollectionIntent(url, token, payload) {
@@ -288,5 +344,28 @@ const inlineFallbacks = {
   "badgeTranslationOnly": "Only in this language",
   "badgeUntranslated": "Not translated here: {languages}",
   "hiddenPerLanguage": "Visibility is per language.",
+  "duplicate": "Duplicate",
+  "duplicated": "Copy added below the original. It is live immediately; Reset does not undo it.",
+  "duplicatedHidden": "Copy added below the original. It starts hidden: show it with the eye, then Save.",
+  "duplicatedWorkspace": "Copy added below the original in this workspace. Reset does not undo it.",
+  "copyUnsupported": "This entry cannot be duplicated here (nested entries, media or a translation). Use the backend form.",
+  "undoRemoval": "Undo removal",
+  "restored": "Removal undone. The entry is back in this workspace draft.",
+  "restoreLive": "Only a removal staged in this workspace can be undone here. Use the Workspaces module.",
+  "cascadeDepth": "Its nested entries go deeper than this site allows here. Use the backend form.",
+  "cascadeRecords": "Removing it would also remove more records than this site allows here. Use the backend form.",
+  "cascadeRights": "You may not remove some of its nested entries or media. Use the backend form or ask for access.",
+  "cascadeDisabled": "Removing entries with nested entries or media is switched off for this site. Use the backend form.",
+  "cascadeChildren": "{count} nested entries",
+  "cascadeChildrenOne": "1 nested entry",
+  "cascadeFiles": "{count} image references",
+  "cascadeFilesOne": "1 image reference",
+  "confirmNested": "Also removes {items}.",
+  "confirmNestedStage": "Also marks {items} for deletion.",
+  "confirmFilesStay": "The files stay in the file list.",
+  "confirmTruncated": "Counted up to this site's limit; there can be more.",
+  "rowToolbar": "Entry {position}: {label}",
+  "addEntryFirst": "Add {title} at the start",
+  "addedAtEnd": "The entry was added at the end; moving it to the start failed. Move it up with the arrows.",
   "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
 };
