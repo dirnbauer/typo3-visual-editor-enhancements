@@ -30,8 +30,8 @@ describe('deleteRefusal', () => {
   it('names the bound of a refused cascade', () => {
     assert.equal(deleteRefusal(entry(2)), '');
     assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'depth'})), /deeper than this site allows/);
-    assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'records'})), /more records than this site allows/);
-    assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'rights'})), /may not remove some of its nested/);
+    assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'records'})), /more nested entries or media references than this site allows/);
+    assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'rights'})), /nested entries or media you may not remove/);
     assert.match(deleteRefusal(entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'disabled'})), /switched off for this site/);
   });
 
@@ -84,20 +84,20 @@ describe('row reasons shared by the inspector and the row toolbar', () => {
   it('offers Duplicate only when the server publishes it and explains a refusal', () => {
     assert.equal(rowReasons(field, entry(2)).duplicate, '');
     assert.equal(rowReasons(field, entry(2, {canDuplicate: true})).duplicate, '');
-    assert.match(rowReasons(field, entry(2, {canDuplicate: false, duplicateReason: 'copyUnsupported'})).duplicate, /cannot be duplicated here/);
+    assert.match(rowReasons(field, entry(2, {canDuplicate: false, duplicateReason: 'copyUnsupported'})).duplicate, /Only entries without nested entries or media can be duplicated here/);
     assert.match(rowReasons(field, entry(2, {canDuplicate: false, duplicateReason: 'max'})).duplicate, /entry limit/);
     assert.equal(rowReasons(field, entry(2, {canDuplicate: true}), 'Busy.').duplicate, 'Busy.');
   });
 
   it('holds Remove for staged text and names a refused cascade', () => {
     assert.equal(rowReasons(field, entry(2), '', 'Save first.').remove, 'Save first.');
-    assert.match(rowReasons(field, entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'rights'})).remove, /may not remove/);
+    assert.match(rowReasons(field, entry(2, {canDelete: false, deleteReason: 'cascade', cascadeReason: 'rights'})).remove, /you may not remove/);
   });
 
   it('Undo removal: only on listed placeholders the server marks restorable', () => {
     assert.deepEqual(restoreControl(entry(3, {state: 'deleted'})), {offered: false, reason: ''});
     assert.deepEqual(restoreControl(entry(3, {state: 'deleted', canRestore: true})), {offered: true, reason: ''});
-    assert.match(restoreControl(entry(3, {state: 'deleted', canRestore: false, restoreReason: 'restoreLive'})).reason, /Workspaces module/);
+    assert.match(restoreControl(entry(3, {state: 'deleted', canRestore: false, restoreReason: 'restoreLive'})).reason, /Only removals staged in a workspace can be undone/);
     assert.equal(restoreControl(entry(3, {state: 'deleted', canRestore: true}), 'Busy.').reason, 'Busy.');
     assert.equal(restoreControl(entry(3, {canRestore: true})).offered, false);
   });

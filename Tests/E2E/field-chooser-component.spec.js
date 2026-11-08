@@ -840,7 +840,7 @@ test('Duplicate in the row menu posts the entry and focuses the copy; a refusal 
   await row(page, 3).getByRole('button', {name: /^More actions/}).click();
   const refused = page.getByRole('menuitem', {name: /^Duplicate/});
   await expect(refused).toHaveAttribute('aria-disabled', 'true');
-  await expect(refused).toContainText('cannot be duplicated here');
+  await expect(refused).toContainText('Only entries without nested entries or media can be duplicated here');
   await refused.click({force: true});
   expect(posts).toHaveLength(0);
   await page.keyboard.press('Escape');
@@ -866,7 +866,7 @@ test('Undo removal on a workspace placeholder posts restore; refused placeholder
   await expect(row(page, 3).getByText('Marked for deletion', {exact: true})).toBeVisible();
   const refused = row(page, 5).getByRole('button', {name: 'Undo removal'});
   await expect(refused).toHaveAttribute('aria-disabled', 'true');
-  await expect(refused).toHaveAttribute('title', /Only a removal staged in this workspace/);
+  await expect(refused).toHaveAttribute('title', /Removals on the live site are final/);
   await refused.click({force: true});
   expect(posts).toHaveLength(0);
   await undo.click();
@@ -884,7 +884,7 @@ test('a cascading remove names translations, nested entries and image references
   page.on('dialog', (dialog) => { messages.push(dialog.message()); dialog.accept(); });
   const refused = row(page, 3).getByRole('button', {name: 'Remove'});
   await expect(refused).toHaveAttribute('aria-disabled', 'true');
-  await expect(refused).toHaveAttribute('title', 'Its nested entries go deeper than this site allows here. Use the backend form.');
+  await expect(refused).toHaveAttribute('title', 'This entry\'s nested entries go deeper than this site allows for a removal here. Use the backend form.');
   await row(page, 2).getByRole('button', {name: 'Remove'}).click();
   await expect.poll(() => posts.length).toBe(1);
   expect(messages[0]).toBe('Remove “Pro plan”? Also removes 2 translations (Deutsch, Magyar). Also removes 4 nested entries, 1 image reference. '
