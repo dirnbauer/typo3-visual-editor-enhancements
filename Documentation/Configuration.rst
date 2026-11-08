@@ -115,6 +115,34 @@ above), so a ``setup.default`` line added later never reaches them.
 existing users. The behaviour is pinned by
 :file:`Tests/Functional/Service/UserSettingsOverrideTest.php`.
 
+..  _configuration-collections:
+
+Collection entries
+==================
+
+The page TSconfig of collection editing lives under
+``tx_visualeditorenhancements.inlineRecords``; the full block and every
+refusal reason are in :ref:`collections-configuration`. The keys whose
+defaults changed in a release:
+
+..  confval-menu::
+    :name: configuration-collections-tsconfig
+    :display: table
+    :type:
+    :default:
+
+    ..  confval:: inlineRecords.firstVersion
+        :name: inline-records-first-version
+        :type: boolean
+        :default: 1
+
+        Allow an add, move or remove that creates the element's first
+        workspace draft through Core's auto-versioning, under the narrowed
+        live-row invariant (:ref:`collections-workspace`). Core renumbers the
+        live entries' ``sorting`` (same order) and stamps their ``tstamp``.
+        ``0`` restores the refusal of 1.6 (reason ``firstVersion``). The
+        default changed from ``0`` to ``1`` in 1.7.0.
+
 ..  _configuration-field-chooser:
 
 Field chooser

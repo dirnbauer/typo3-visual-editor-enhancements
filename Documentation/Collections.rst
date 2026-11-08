@@ -162,9 +162,8 @@ synchronize (for example the child tables of Content Blocks collections) get
 no draft this way, so an undrafted translation there neither refuses the
 action nor is announced as a first draft.
 
-``firstVersion = 0`` (default) refuses these actions before any write with the
-reason ``firstVersion``; open the element in the backend workspace first.
-``firstVersion = 1`` allows them under a narrowed invariant, verified inside
+``firstVersion = 1`` (default since 1.7.0) allows them under a narrowed
+invariant, verified inside
 the transaction: for each record that gets its first draft in this request,
 only the sorting column of its relation members (renumbered consecutively, in
 the same order) and their ``tstamp`` may change; records that already had a
@@ -172,12 +171,15 @@ draft, translations outside these relations, every content, owner, language,
 visibility, deletion and PID column, the member sets and the order stay
 byte-identical. Anything else rolls back with ``workspaceLiveChange``.
 Relations deeper than three levels are refused (``workspace``).
+``firstVersion = 0`` restores the refusal of 1.6: these actions are refused
+before any write with the reason ``firstVersion``; open the element in the
+backend workspace first.
 
 These live ``tstamp`` changes are real writes. Caches, the reference index or
 integrations that watch child tables (for example a Solr index queue or
 webhooks) may react to them, as they do to the same bookkeeping of a backend
-save. Stored sorting values are renumbered. Enable ``firstVersion`` where that
-is acceptable.
+save. Stored sorting values are renumbered. Set ``firstVersion = 0`` where
+that is not acceptable.
 
 Visibility and title changes are not structural and need no parent draft.
 For an entry without nested entries or media of its own Core versions the
@@ -314,7 +316,7 @@ When the element has no draft yet, the next add, move or remove creates its
 first draft. With ``firstVersion = 0`` these actions are refused up front:
 the controls are unavailable and explain it ("Your first change to this
 element would create a workspace draft; ..."), and the context line does not
-promise a first draft. With ``firstVersion = 1`` the context line says that
+promise a first draft. With ``firstVersion = 1`` (the default) the context line says that
 the next add, move or remove creates the first draft; the action succeeds
 and the status adds *Draft created. Core renumbered the stored order values;
 the visible order is unchanged.* Titles are always editable. The visibility
@@ -428,10 +430,10 @@ how TYPO3 or the Visual Editor work.
         -   backend form
         -   Named in the panel (``required``, ``requiredBackend``) with a link.
     *   -   First workspace draft by default
-        -   ``firstVersion = 0``
-        -   Opt-in per page TSconfig; the default flips only after the owner's
-            written decision. Under ``0`` the visibility switch of a live entry
-            with nested members is refused as well.
+        -   ``firstVersion = 1`` since 1.7.0
+        -   The owner's written decision (2026-11-08); ``firstVersion = 0``
+            restores the refusal. Under ``0`` the visibility switch of a live
+            entry with nested members is refused as well.
     *   -   Live ``tstamp`` writes under ``firstVersion = 1`` are harmless for
             every consumer
         -   cannot be proven
@@ -479,8 +481,9 @@ configuration can restrict it further:
         syncTranslations = 1
         # localize | synchronize: the inspector's default sync mode
         syncDefaultMode = localize
-        # 1: allow the first workspace draft (narrowed live-row invariant)
-        firstVersion = 0
+        # 1 (default since 1.7.0): allow the first workspace draft under the
+        # narrowed live-row invariant; 0 refuses it (reason firstVersion)
+        firstVersion = 1
         tables.feature_cards_items.enabled = 1
     }
 

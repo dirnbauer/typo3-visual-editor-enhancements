@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Behaviour changes
+
+| Change | Before (1.6.x) | 1.7.0 | Restore |
+|---|---|---|---|
+| First workspace draft of a collection (owner decision D1, 2026-11-08) | page TSconfig `inlineRecords.firstVersion` defaulted to `0`: add, move and remove on an element without a draft in the current workspace were refused (`firstVersion`), as was the eye of a live entry with nested members | defaults to `1`: Core's stock auto-versioning creates the first draft under the narrowed live-row invariant (live content byte-identical; only the sorting of the affected live members is renumbered in the same order and their `tstamp` stamped; anything else rolls back with 409 `workspaceLiveChange`) | `tx_visualeditorenhancements.inlineRecords.firstVersion = 0` |
+
+The live `tstamp` and `sorting` writes of a first draft are real writes:
+caches, the reference index or integrations watching child tables (a Solr
+index queue, webhooks) may react to them, exactly as they react to the same
+bookkeeping of a FormEngine save of the element. Set `firstVersion = 0` where
+that is not acceptable.
+
 ## [1.6.1] — 2026-11-07
 
 Fixes from the adversarial review of 1.6.0 (23 confirmed findings). Collection

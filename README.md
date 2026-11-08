@@ -119,7 +119,8 @@ a menu (item settings, Core's form, translations); titles and visibility are
 staged and saved with the page, while add, move and remove save at once.
 Translations follow FormEngine (translation-only entries, counted removal of
 translations, *Sync translations*), workspaces work on existing drafts, and a
-first workspace draft is a page-TSconfig opt-in (`firstVersion`, off by default).
+first workspace draft is allowed under a narrowed live-row invariant since 1.7.0
+(page TSconfig `firstVersion = 0` restores the refusal).
 Three panel layouts (inspector, tray, anchored) are a user setting. Details,
 limits and every TSconfig key: [Collection entries](Documentation/Collections.rst).
 
