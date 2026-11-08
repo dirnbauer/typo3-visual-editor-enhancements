@@ -5,7 +5,7 @@ import {inlineLabel} from './inline-record-actions.js';
  * The confirmation sentence, counted: Core cascades a default-language
  * entry's connected translations (deleteL10nOverlayRecords), so the editor
  * is told how many go with it and in which languages.
- * @param {{label: string, verb?: string, cascade?: {translations?: number, languages?: number[]}, translationOnly?: boolean}} child
+ * @param {{label: string, verb?: string, cascade?: {translations?: number, languages?: number[], children?: number, files?: number, truncated?: boolean}, translationOnly?: boolean}} child
  * @param {{translationMode?: string, translationLanguages?: Array<{id: number, title: string}>}} field
  * @return {string}
  */
@@ -14,18 +14,45 @@ export function deleteConfirmText(child, field = {}) {
     : child.verb === 'markForDeletion' ? inlineLabel('confirmStage')
       : inlineLabel('confirmLive');
   const parts = [inlineLabel('confirmEntry').replace('{label}', child.label ?? '')];
+  const staged = child.verb === 'markForDeletion' || child.verb === 'discard';
   const count = Number(child.cascade?.translations ?? 0);
   if (count > 0) {
     const titles = new Map((field.translationLanguages ?? []).map((language) => [Number(language.id), language.title]));
     const languages = (child.cascade?.languages ?? []).map((id) => titles.get(Number(id)) ?? String(id)).join(', ');
-    const staged = child.verb === 'markForDeletion' || child.verb === 'discard';
     const key = staged ? 'confirmTranslationsStage' : 'confirmTranslations';
     parts.push(inlineLabel(key).replace('{count}', String(count)).replace('{languages}', languages || '–'));
   } else if (field.translationMode === 'connected' && !child.translationOnly) {
     parts.push(inlineLabel('confirmLanguageOnly'));
   }
+  // Nested entries and image references Core removes with it (the server's
+  // bounded cascade preflight counted them); the files themselves stay.
+  const items = cascadeItems(child.cascade);
+  if (items.length) {
+    parts.push(inlineLabel(staged ? 'confirmNestedStage' : 'confirmNested').replace('{items}', items.join(', ')));
+  }
+  if (Number(child.cascade?.files ?? 0) > 0) {
+    parts.push(inlineLabel('confirmFilesStay'));
+  }
+  if (child.cascade?.truncated) {
+    parts.push(inlineLabel('confirmTruncated'));
+  }
   parts.push(consequence, inlineLabel('confirmReset'));
   return parts.join(' ');
+}
+
+/**
+ * "2 nested entries", "1 image reference" - the counted dependents besides
+ * translations.
+ * @param {{children?: number, files?: number}|undefined} cascade
+ * @return {string[]}
+ */
+export function cascadeItems(cascade) {
+  const items = [];
+  for (const [key, count] of [['cascadeChildren', Number(cascade?.children ?? 0)], ['cascadeFiles', Number(cascade?.files ?? 0)]]) {
+    if (count === 1) { items.push(inlineLabel(`${key}One`)); }
+    if (count > 1) { items.push(inlineLabel(key).replace('{count}', String(count))); }
+  }
+  return items;
 }
 
 /** Core delegates to the same-origin backend window. Plain confirm is the cross-origin fallback. */

@@ -64,7 +64,9 @@ Per backend user, on the *Visual editor* tab of User settings:
 `tx_visualeditor_showLibrary`, `tx_visualeditor_showContextButtons`,
 `tx_visualeditor_fieldChooserMode` (`tabs` | `sections` | `disabled`),
 `tx_visualeditor_panelColumns`, `tx_visualeditor_inlineRecords` (off by
-default), `tx_visualeditor_actionLabels`, `tx_visualeditor_entriesLayout`.
+default), `tx_visualeditor_actionLabels`, `tx_visualeditor_entriesLayout`,
+`tx_visualeditor_collectionRows` (`panel` | `appender` | `rows`, entries on
+the page, since 1.7.0).
 To set one for a whole editor group, existing users included, use User
 TSconfig `setup.override.<setting>` (it then wins over the user's choice);
 `setup.default.<setting>` only seeds users who have never logged in.

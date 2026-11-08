@@ -110,7 +110,7 @@ jobs:
       - name: Install Playwright and Chromium
         run: |
           npm install --prefix . --no-save --no-package-lock --no-audit --no-fund \
-            "@playwright/test@$(node -p "require('./Tests/E2E/package.json').devDependencies['@playwright/test']")"
+            $(node -p "Object.entries(require('./Tests/E2E/package.json').devDependencies).map(([name, version]) => name + '@' + version).join(' ')")
           node_modules/.bin/playwright install --with-deps chromium
 
       - name: Component specs

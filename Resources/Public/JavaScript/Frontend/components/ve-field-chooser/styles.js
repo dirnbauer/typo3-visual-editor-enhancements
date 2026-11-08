@@ -192,6 +192,17 @@ export const styles = [themeTokens, css`
     .rowAction[role="switch"][aria-checked="false"] { color: var(--ve-text-muted); }
     .rowAction ve-icon { display: inline-flex; }
     ve-row-menu.rowAction { color: var(--ve-text); }
+    /* Undo removal on a workspace delete placeholder: a quiet text button,
+       full strength on row hover or focus like the other row actions. */
+    .undoRemoval {
+      display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 8px;
+      border: 1px solid transparent; border-radius: var(--ve-radius-small);
+      background: transparent; color: var(--ve-text); font: inherit; font-size: 12px; cursor: pointer;
+    }
+    .undoRemoval:hover:not([aria-disabled="true"]) { border-color: var(--ve-border); background: var(--ve-surface-raised); }
+    .undoRemoval:focus-visible { outline: 2px solid var(--ve-focus); outline-offset: 1px; }
+    .undoRemoval[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+    .undoRemoval ve-icon { display: inline-flex; }
     .entryHint, .actionReason, .entryReadOnly { grid-area: note; padding: 0 6px 4px; font-size: 11px; }
     /* A refused control explains itself while it has keyboard focus. */
     .actionReason { display: none; }

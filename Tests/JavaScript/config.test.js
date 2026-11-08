@@ -13,6 +13,7 @@ import {
   collectionTypes,
   contentAddedFeedback,
   entriesLayout,
+  collectionRowsMode,
   editorColorScheme,
   elementLibraryColumns,
   fieldChooserMode,
@@ -149,6 +150,24 @@ describe('entriesLayout', () => {
     for (const value of ['inspector', 'tray', 'anchored']) {
       globalThis.window = {visualEditorEnhancements: {entriesLayout: value}};
       assert.equal(entriesLayout(), value);
+    }
+  });
+});
+
+describe('collectionRowsMode', () => {
+  it('defaults to the panel without configuration or for unknown values', () => {
+    globalThis.window = {};
+    assert.equal(collectionRowsMode(), 'panel');
+    for (const value of ['rail', 'Rows', 1, null, ['rows'], '']) {
+      globalThis.window = {visualEditorEnhancements: {collectionRows: value}};
+      assert.equal(collectionRowsMode(), 'panel');
+    }
+  });
+
+  it('passes the three known modes through', () => {
+    for (const value of ['panel', 'appender', 'rows']) {
+      globalThis.window = {visualEditorEnhancements: {collectionRows: value}};
+      assert.equal(collectionRowsMode(), value);
     }
   });
 });

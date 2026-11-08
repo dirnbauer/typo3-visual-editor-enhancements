@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use Webconsulting\VisualEditorEnhancements\Enum\ActionLabelMode;
+use Webconsulting\VisualEditorEnhancements\Enum\CollectionRowsMode;
 use Webconsulting\VisualEditorEnhancements\Enum\EntriesLayout;
 use Webconsulting\VisualEditorEnhancements\Enum\FieldChooserMode;
 
@@ -46,6 +47,15 @@ defined('TYPO3') or die();
             'items' => array_map(
                 static fn(EntriesLayout $layout): array => ['label' => $labels . 'entriesLayout.' . $layout->value, 'value' => $layout->value],
                 EntriesLayout::cases(),
+            ),
+        ],
+        'tx_visualeditor_collectionRows' => [
+            'type' => 'select',
+            'renderType' => 'selectSingle',
+            'default' => CollectionRowsMode::Panel->value,
+            'items' => array_map(
+                static fn(CollectionRowsMode $mode): array => ['label' => $labels . 'collectionRows.' . $mode->value, 'value' => $mode->value],
+                CollectionRowsMode::cases(),
             ),
         ],
         'tx_visualeditor_panelColumns' => [

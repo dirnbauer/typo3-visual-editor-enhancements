@@ -35,13 +35,18 @@ row (always visible on touch screens):
 *   **Remove** - also :kbd:`Delete` on a focused row button (not inside the
     title field). Asks first; the
     question counts what goes with the entry ("Also removes 3 translations
-    (Deutsch, 中文, Magyar)").
-*   **More actions** - *Item settings* (the entry's own choice fields and
-    nested collections), *Edit in form* (TYPO3's contextual form for media
-    and rich text) and *Open backend form*.
+    (Deutsch, 中文, Magyar)", "Also removes 2 nested entries, 1 image
+    reference. The files stay in the file list."). A removal the site's
+    limits refuse names the limit (``cascadeReason``).
+*   **More actions** - *Duplicate* (since 1.7.0, when the server offers it:
+    the copy lands right below the entry and takes the focus), *Item
+    settings* (the entry's own choice fields and nested collections), *Edit
+    in form* (TYPO3's contextual form for media and rich text) and *Open
+    backend form*.
 
 Badges say what the page cannot: *Hidden*, *New in draft*, *Changed in
-draft*, *Marked for deletion* (listed read-only) and *Unsaved* when the
+draft*, *Marked for deletion* (with **Undo removal** where the server offers
+it, since 1.7.0) and *Unsaved* when the
 title or visibility waits for Save. A refused action stays focusable; with
 the keyboard on it the row shows why.
 
@@ -453,6 +458,44 @@ and the rendering that contains editable text is the one the editor uses.
 Nested collections work the same way; an entry belongs to the nearest
 enclosing marked entry, or to the content element.
 
+.. _collections-on-page:
+
+The on-page layer (row toolbar and add button)
+----------------------------------------------
+
+Marked entries can also be changed on the page, per user
+(:confval:`tx_visualeditor_collectionRows`, :ref:`usage-entries-on-page`;
+default ``panel``, since 1.7.0). Both controls are body-level elements of
+this extension - ``ve-row-actions`` (the toolbar, one for the page) and
+``ve-row-appender`` (the add buttons of the pointed element) - positioned
+over the page; nothing is inserted into the template or into the Visual
+Editor's element wrapper, and no Visual Editor code is patched.
+
+*   The toolbar belongs to the entry's primary rendering (the marker with
+    editable text). It opens on pointer hover and when the focus enters the
+    entry, closes 150 ms after both left (staying while the pointer or the
+    focus is inside it) and offers the inspector row's actions with the same
+    intents, reasons and confirmations. Nested entries get their own
+    toolbar; their collection is resolved through the same payload chain as
+    *Item settings*.
+*   The add button sits after the last entry of each top-level collection,
+    or before the first when TCA ``appearance.levelLinksPosition`` is
+    ``top`` (two buttons for ``both``, none for ``none``; a payload without
+    ``levelLinksPosition`` means after the last entry). *Add at the start*
+    is Core's append followed by one ``move`` to the first position. At the
+    maximum the button stays, refused with the reason.
+*   Keyboard: no :kbd:`Tab` handling at all. :kbd:`Escape` inside the
+    toolbar returns the focus to the entry, :kbd:`←`/:kbd:`→`,
+    :kbd:`Home`/:kbd:`End` move between its buttons. The inspector remains
+    the complete keyboard and screen-reader path.
+*   The toolbar is placed above the entry, right-aligned, inside its top
+    edge when there is no room above; it follows the entry every animation
+    frame while shown (scrolling, sliders and other transformed containers)
+    and steps aside while the entry is outside the viewport or clipped by a
+    slider's viewport.
+*   Hovering an inspector row still only outlines the page row (mirror
+    highlight); the toolbar answers the page alone.
+
 Without markers everything keeps working: hidden entries are dimmed through
 their editable texts once the panel has loaded them, and there is no row
 highlight. Markers add attributes only - the editor never inserts elements
@@ -482,10 +525,12 @@ release; the rest follow from how TYPO3 or the Visual Editor work.
         -   not possible
         -   Entries have no wrapper of their own and Content Blocks has no hook
             to add one; guessing rows from the layout is not done.
-    *   -   On-page row toolbar and "add" ghost row, marker codemod for desiderio
-        -   1.7
-        -   ``f:mark.item`` ships now (:ref:`collections-row-markers`); the
-            on-page layer will be a per-user option.
+    *   -   On-page row toolbar and add button without ``f:mark.item``
+            markers, for nested collections' add buttons, or by keyboard
+        -   panel only
+        -   The layer (:ref:`collections-on-page`, since 1.7.0) reads markers
+            only, offers add buttons for top-level collections and is
+            pointer chrome; the entries panel covers the rest.
     *   -   Duplicate an entry with nested entries or media, or below a
             connected translation
         -   backend form

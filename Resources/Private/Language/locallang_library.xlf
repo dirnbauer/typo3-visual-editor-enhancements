@@ -191,6 +191,101 @@
         <source>Back</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.duplicate">
+      <segment>
+        <source>Duplicate</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicated">
+      <segment>
+        <source>Copy added below the original. It is live immediately; Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicatedHidden">
+      <segment>
+        <source>Copy added below the original. It starts hidden: show it with the eye, then Save.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicatedWorkspace">
+      <segment>
+        <source>Copy added below the original in this workspace. Reset does not undo it.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.undoRemoval">
+      <segment>
+        <source>Undo removal</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.restored">
+      <segment>
+        <source>Removal undone. The entry is back in this workspace draft.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeChildren">
+      <segment>
+        <source>{count} nested entries</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeChildrenOne">
+      <segment>
+        <source>1 nested entry</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeFiles">
+      <segment>
+        <source>{count} image references</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeFilesOne">
+      <segment>
+        <source>1 image reference</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmNested">
+      <segment>
+        <source>Also removes {items}.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmNestedStage">
+      <segment>
+        <source>Also marks {items} for deletion.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmFilesStay">
+      <segment>
+        <source>The files stay in the file list.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTruncated">
+      <segment>
+        <source>Counted up to this site's limit; there can be more.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rowToolbar">
+      <segment>
+        <source>Entry {position}: {label}</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addEntryFirst">
+      <segment>
+        <source>Add {title} at the start</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addedAtEnd">
+      <segment>
+        <source>The entry was added at the end; moving it to the start failed. Move it up with the arrows.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstEntry">
+      <segment>
+        <source>This is the first entry.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.lastEntry">
+      <segment>
+        <source>This is the last entry.</source>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.settings">
       <segment>
         <source>Item settings</source>

@@ -2,6 +2,7 @@ import {dataHandlerStore} from '@typo3/visual-editor/Frontend/stores/data-handle
 import {collectionIntent, postCollectionIntent, recordTree, rowPendingReason, structuralBlockReason, treeHasStagedData, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import {confirmCollectionDelete, confirmSynchronize} from '@webconsulting/visual-editor-enhancements/Shared/confirm-delete.js';
 import {clearFieldOptionsCache} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
+import {effectiveHidden} from '@webconsulting/visual-editor-enhancements/Frontend/entry-page-marks.js';
 
 let inFlight = false;
 let uncertain = false;
@@ -86,4 +87,25 @@ function rowOptions(action, child) {
     return {};
   }
   return action === 'create' ? {afterUid: child.uid} : {childUid: child.uid};
+}
+
+/**
+ * The staged eye of one entry - the vendor's own element pattern: the
+ * baseline first (setInitialData), so a second toggle clears the staged
+ * change again; saved with the page. The inspector seeds the baselines of
+ * every listed entry when it loads; the on-page row toolbar seeds only the
+ * entry it toggles.
+ * @param {{table: string, uid: number, hidden?: boolean, hiddenField?: string, canHide?: boolean}} child
+ * @return {boolean} the new staged visibility (true = hidden)
+ */
+export function toggleEntryHidden(child) {
+  if (!child.hiddenField || child.canHide === false) {
+    return effectiveHidden(child, dataHandlerStore.data, dataHandlerStore.initialData);
+  }
+  if (dataHandlerStore.initialData?.[child.table]?.[child.uid]?.[child.hiddenField] === undefined) {
+    dataHandlerStore.setInitialData(child.table, child.uid, child.hiddenField, !!child.hidden);
+  }
+  const next = !effectiveHidden(child, dataHandlerStore.data, dataHandlerStore.initialData);
+  dataHandlerStore.setData(child.table, child.uid, child.hiddenField, next);
+  return next;
 }

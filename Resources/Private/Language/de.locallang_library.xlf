@@ -229,6 +229,120 @@
         <target>Zurück</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.duplicate">
+      <segment state="final">
+        <source>Duplicate</source>
+        <target>Duplizieren</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicated">
+      <segment state="final">
+        <source>Copy added below the original. It is live immediately; Reset does not undo it.</source>
+        <target>Kopie unter dem Original eingefügt. Sie ist sofort live; Zurücksetzen macht das nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicatedHidden">
+      <segment state="final">
+        <source>Copy added below the original. It starts hidden: show it with the eye, then Save.</source>
+        <target>Kopie unter dem Original eingefügt. Sie ist zunächst verborgen: mit dem Auge anzeigen, dann speichern.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.duplicatedWorkspace">
+      <segment state="final">
+        <source>Copy added below the original in this workspace. Reset does not undo it.</source>
+        <target>Kopie in diesem Arbeitsbereich unter dem Original eingefügt. Zurücksetzen macht das nicht rückgängig.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.undoRemoval">
+      <segment state="final">
+        <source>Undo removal</source>
+        <target>Entfernen rückgängig machen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.restored">
+      <segment state="final">
+        <source>Removal undone. The entry is back in this workspace draft.</source>
+        <target>Entfernen rückgängig gemacht. Der Eintrag ist wieder im Entwurf dieses Arbeitsbereichs.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeChildren">
+      <segment state="final">
+        <source>{count} nested entries</source>
+        <target>{count} verschachtelte Einträge</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeChildrenOne">
+      <segment state="final">
+        <source>1 nested entry</source>
+        <target>1 verschachtelten Eintrag</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeFiles">
+      <segment state="final">
+        <source>{count} image references</source>
+        <target>{count} Bildverweise</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeFilesOne">
+      <segment state="final">
+        <source>1 image reference</source>
+        <target>1 Bildverweis</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmNested">
+      <segment state="final">
+        <source>Also removes {items}.</source>
+        <target>Entfernt auch {items}.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmNestedStage">
+      <segment state="final">
+        <source>Also marks {items} for deletion.</source>
+        <target>Markiert auch {items} zum Löschen.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmFilesStay">
+      <segment state="final">
+        <source>The files stay in the file list.</source>
+        <target>Die Dateien bleiben in der Dateiliste.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.confirmTruncated">
+      <segment state="final">
+        <source>Counted up to this site's limit; there can be more.</source>
+        <target>Gezählt bis zur Grenze dieser Website; es können mehr sein.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.rowToolbar">
+      <segment state="final">
+        <source>Entry {position}: {label}</source>
+        <target>Eintrag {position}: {label}</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addEntryFirst">
+      <segment state="final">
+        <source>Add {title} at the start</source>
+        <target>{title} am Anfang hinzufügen</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.addedAtEnd">
+      <segment state="final">
+        <source>The entry was added at the end; moving it to the start failed. Move it up with the arrows.</source>
+        <target>Der Eintrag wurde am Ende eingefügt; das Verschieben an den Anfang ist fehlgeschlagen. Mit den Pfeilen nach oben verschieben.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.firstEntry">
+      <segment state="final">
+        <source>This is the first entry.</source>
+        <target>Das ist der erste Eintrag.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.lastEntry">
+      <segment state="final">
+        <source>This is the last entry.</source>
+        <target>Das ist der letzte Eintrag.</target>
+      </segment>
+    </unit>
     <unit id="frontend.inlineRecords.settings">
       <segment>
         <source>Item settings</source>

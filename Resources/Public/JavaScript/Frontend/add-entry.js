@@ -77,7 +77,7 @@ export function findEntryEditable(root, table, uid) {
  * the inspector where they are.
  * @param {HTMLElement} editable
  */
-function focusEditable(editable) {
+export function focusEditable(editable) {
   editable.scrollIntoView({block: 'nearest'});
   const target = editable.shadowRoot?.querySelector('[contenteditable]') ?? editable.querySelector('[contenteditable]');
   if (target instanceof HTMLElement) {

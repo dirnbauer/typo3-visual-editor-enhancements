@@ -155,6 +155,57 @@ export function fromTextControl(event) {
   return path.some((node) => node?.localName === 'input' || node?.localName === 'textarea' || node?.isContentEditable === true);
 }
 
+/**
+ * The sentence for a successful collection change, shown in the panel's or
+ * the row toolbar's status line (plain text, never a button).
+ * @param {string} action create | delete | move | sync | duplicate | restore
+ * @param {{workspaceId?: number, createHidden?: boolean}} field
+ * @param {object} result the server response
+ * @param {{position?: number, languageTitle?: string}} options move: the new 1-based position; sync: the language name
+ * @return {string}
+ */
+export function collectionMessage(action, field, result = {}, {position = 0, languageTitle = ''} = {}) {
+  const messages = [];
+  if (action === 'sync') {
+    messages.push(inlineLabel('synced').replace('{language}', languageTitle)
+      .replace('{localized}', String(result.synced?.localized ?? 0)).replace('{removed}', String(result.synced?.removed ?? 0)));
+  } else if (action === 'move') {
+    messages.push(inlineLabel('movedTo').replace('{position}', String(Number(result.moved?.position ?? position))));
+  } else if (action === 'restore') {
+    messages.push(inlineLabel('restored'));
+  } else if (action === 'duplicate') {
+    messages.push(inlineLabel(field.workspaceId ? 'duplicatedWorkspace'
+      : (result.created?.hidden ?? field.createHidden) ? 'duplicatedHidden' : 'duplicated'));
+  } else if (field.workspaceId) {
+    messages.push(inlineLabel('savedWorkspace'));
+  } else if (field.createHidden && action === 'create') {
+    messages.push(inlineLabel('savedHidden'));
+  } else {
+    messages.push(inlineLabel('savedLive'));
+  }
+  if (result.workspace?.firstVersion) {
+    messages.push(inlineLabel('draftCreated'));
+  }
+  return messages.join(' ');
+}
+
+/**
+ * Why an entry's Remove is refused, '' when it is allowed. A removal the
+ * server's cascade preflight refused (deleteReason `cascade`) names its
+ * bound: depth, records, rights or a site that switched cascading off.
+ * @param {{canDelete?: boolean, deleteReason?: string, cascadeReason?: string}} child
+ * @return {string}
+ */
+export function deleteRefusal(child) {
+  if (child.canDelete) {
+    return '';
+  }
+  if (child.deleteReason === 'cascade' && ['depth', 'records', 'rights', 'disabled'].includes(child.cascadeReason)) {
+    return inlineLabel(`cascade${child.cascadeReason[0].toUpperCase()}${child.cascadeReason.slice(1)}`);
+  }
+  return collectionReason(child.deleteReason) || inlineLabel('controls');
+}
+
 export async function postCollectionIntent(url, token, payload) {
   const response = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json',
     'X-Request-Token': token}, body: JSON.stringify(payload)});
@@ -177,6 +228,25 @@ export function collectionReason(reason) {
 
 const inlineFallbacks = {
   "back": "Back",
+  "duplicate": "Duplicate",
+  "duplicated": "Copy added below the original. It is live immediately; Reset does not undo it.",
+  "duplicatedHidden": "Copy added below the original. It starts hidden: show it with the eye, then Save.",
+  "duplicatedWorkspace": "Copy added below the original in this workspace. Reset does not undo it.",
+  "undoRemoval": "Undo removal",
+  "restored": "Removal undone. The entry is back in this workspace draft.",
+  "cascadeChildren": "{count} nested entries",
+  "cascadeChildrenOne": "1 nested entry",
+  "cascadeFiles": "{count} image references",
+  "cascadeFilesOne": "1 image reference",
+  "confirmNested": "Also removes {items}.",
+  "confirmNestedStage": "Also marks {items} for deletion.",
+  "confirmFilesStay": "The files stay in the file list.",
+  "confirmTruncated": "Counted up to this site's limit; there can be more.",
+  "rowToolbar": "Entry {position}: {label}",
+  "firstEntry": "This is the first entry.",
+  "lastEntry": "This is the last entry.",
+  "addEntryFirst": "Add {title} at the start",
+  "addedAtEnd": "The entry was added at the end; moving it to the start failed. Move it up with the arrows.",
   "addEntry": "Add {title}",
   "sync": "Sync translations",
   "syncMissing": "{count} missing",

@@ -1,6 +1,6 @@
 import {onMessage, sendMessage} from '@typo3/visual-editor/Shared/iframe-messaging';
 import {elementLibraryOpen} from '@webconsulting/visual-editor-enhancements/Shared/local-stores.js';
-import {editorColorScheme, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
+import {collectionRowsMode, editorColorScheme, isElementLibraryEnabled, isFieldChooserEnabled, isInlineRecordsEnabled} from '@webconsulting/visual-editor-enhancements/Shared/config.js';
 import {translate} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {injectFieldChooserAction, injectInlineRecordsAction, makeButton} from '@webconsulting/visual-editor-enhancements/Frontend/element-field-actions.js';
 import {installActionBarLabels} from '@webconsulting/visual-editor-enhancements/Frontend/action-bar-labels.js';
@@ -49,6 +49,9 @@ async function initializeElementLibrary() {
  */
 async function initializeContentElementActions() {
   const libraryModule = await initializeElementLibrary();
+  // The on-page row layer is opt-in per user: its modules load only then.
+  const rowLayer = isInlineRecordsEnabled() && collectionRowsMode() !== 'panel'
+    ? await import('@webconsulting/visual-editor-enhancements/Frontend/row-layer.js') : null;
   const injectActions = (contentElement) => {
     if (libraryModule !== null) {
       injectLibraryAction(contentElement, libraryModule);
@@ -62,6 +65,7 @@ async function initializeContentElementActions() {
     attachElementContextAffordance(contentElement);
     installActionBarLabels(contentElement);
     annotateCollectionRows(contentElement);
+    rowLayer?.attachRowLayer(contentElement);
   };
   const injectAll = () => document.querySelectorAll('ve-content-element').forEach(injectActions);
   injectAll();
