@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {collectionIntent, collectionMessage, deleteRefusal} from '../../Resources/Public/JavaScript/Shared/inline-record-actions.js';
 import {cascadeItems, deleteConfirmText} from '../../Resources/Public/JavaScript/Shared/confirm-delete.js';
-import {appenderPlacement, appenderPlan, levelLinksPosition, moveTarget, railPlacement, restoreControl, rowReasons, unionRect} from '../../Resources/Public/JavaScript/Shared/row-actions.js';
+import {appenderPlacement, appenderPlan, stackPlacements, levelLinksPosition, moveTarget, railPlacement, restoreControl, rowReasons, unionRect} from '../../Resources/Public/JavaScript/Shared/row-actions.js';
 
 const field = {parentTable: 'tt_content', parentUid: 5, name: 'cards', revision: 'opaque', type: 'inline', uids: [2, 3, 4], maxItems: 6,
   canCreate: true, createReason: '', createHidden: true, workspaceId: 0};
@@ -164,6 +164,33 @@ describe('placement', () => {
     assert.equal(appenderPlacement(rect, 'top', 32, viewport, {frame: {top: 0, bottom: 460}}).top, 62, 'top side: inside the gap');
     // Entries spilling over the frame: placed against the entries.
     assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 380}}).top, 406);
+  });
+
+  it('never covers the element\'s other content beyond the entries (clearance)', () => {
+    const rect = {top: 100, bottom: 400, left: 40, right: 1000};
+    const frame = {top: 0, bottom: 700};
+    // A table body right below the header cells (0 px): outside the element.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame, clearance: 0}).top, 706);
+    // A caption 20 px below the rows: still too tight, outside.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame, clearance: 20}).top, 706);
+    // 50 px of free space before the next content: inside that gap, 6 px below the entries.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame, clearance: 50}).top, 406);
+    // Top side: content right above the first entry puts it above the element.
+    assert.equal(appenderPlacement(rect, 'top', 32, viewport, {frame: {top: 60, bottom: 700}, clearance: 0}).top, 22);
+    // No other content (Infinity) = the element's own gap decides, as before.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 436}, clearance: Infinity}).top, 402);
+  });
+
+  it('stacks add buttons that would land on the same spot', () => {
+    const a = {left: 40, top: 706, width: 960};
+    // Both outside the element: the second moves below the first (32 px + 4 px gap).
+    assert.deepEqual(stackPlacements([a, {...a}], [32, 32], ['bottom', 'bottom']), [a, {...a, top: 742}]);
+    // Top side: the second moves above.
+    assert.deepEqual(stackPlacements([{...a, top: 20}, {...a, top: 20}], [32, 32], ['top', 'top'])[1].top, -16);
+    // Apart already, or off screen: unchanged.
+    assert.deepEqual(stackPlacements([a, {...a, top: 800}, null], [32, 32, 32], ['bottom', 'bottom', 'bottom']), [a, {...a, top: 800}, null]);
+    // Side by side (no horizontal overlap): unchanged.
+    assert.deepEqual(stackPlacements([a, {...a, left: 1100}], [32, 32], ['bottom', 'bottom'])[1].top, 706);
   });
 
   it('unions the boxes of the primary renderings', () => {

@@ -96,6 +96,12 @@ that is not acceptable.
 - The on-page add button never straddles the content element's edge: it sits
   in the gap between the entries and the element's edge when the gap holds
   it, otherwise just outside that edge (still no DOM insertion).
+- Nor does it cover the element's other content beyond the entries: a table
+  body below its header cells, a caption below the rows, a tab panel below the
+  tab buttons (lab runtime QA: a click on the first data row of a data table
+  hit *Add column* and created a record). The gap up to that content counts;
+  too small, and the button goes outside the element.
+- Undo removal puts the entry back where it was (see restore above).
 
 ### Tests (UI)
 

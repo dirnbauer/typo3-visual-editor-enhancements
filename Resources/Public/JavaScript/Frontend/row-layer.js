@@ -444,6 +444,39 @@ async function placeFocus(root, action, {item, group, control, createdUid, child
 
 /* ------------------------------------------------------------ appenders -- */
 
+const CONTENT = 'img, svg, video, picture, iframe, input, textarea, select, button, ve-editable-text, ve-editable-rich-text, [contenteditable]';
+
+/**
+ * How far the element's other content is from a collection's entries on one
+ * side (px; Infinity when there is none): the nearest visible text or
+ * replaced element of the element that is neither inside an entry nor a
+ * container of one, overlapping the entries horizontally - a table body
+ * below its header cells, a caption below the rows, a tab panel below the
+ * tab buttons. The add button never covers it (Shared/row-actions.js).
+ * @param {Element} element the ve-content-element
+ * @param {Element[]} primaries the entries' primary renderings
+ * @param {'top'|'bottom'} side
+ * @return {number}
+ */
+export function contentClearance(element, primaries, side) {
+  const live = primaries.filter((node) => node.isConnected);
+  const box = unionRect(live.map((node) => node.getBoundingClientRect()));
+  if (!box) { return Infinity; }
+  let clearance = Infinity;
+  for (const node of element.querySelectorAll('*')) {
+    if (live.some((entry) => entry.contains(node) || node.contains(entry))) { continue; }
+    const text = [...node.childNodes].some((child) => child.nodeType === Node.TEXT_NODE && child.textContent.trim() !== '');
+    if (!text && !node.matches(CONTENT)) { continue; }
+    const rect = node.getBoundingClientRect();
+    if (rect.width <= 1 || rect.height <= 1 || rect.right <= box.left || rect.left >= box.right) { continue; }
+    const distance = side === 'top' ? box.top - rect.bottom : rect.top - box.bottom;
+    if (distance >= -1) {
+      clearance = Math.min(clearance, Math.max(0, distance));
+    }
+  }
+  return clearance;
+}
+
 /**
  * The add buttons of the element's top-level collections (nested
  * collections are added from their parent entry's toolbar or the panel).
@@ -475,6 +508,7 @@ async function showAppender(element) {
     if (!field) { continue; }
     const primaries = [...group.rows.values()].map((row) => row.primary.node);
     for (const plan of appenderPlan(field, blocked)) {
+      let clearance;
       const title = field.childTitle || '';
       const label = plan.side === 'top' && activeChildren(field).length > 0
         ? inlineLabel('addEntryFirst').replace('{title}', title || inlineLabel('newEntry'))
@@ -484,6 +518,8 @@ async function showAppender(element) {
           const live = primaries.filter((node) => node.isConnected);
           return live.length ? unionRect(live.map((node) => node.getBoundingClientRect())) : null;
         },
+        // Measured once per showing (scrolling moves entries and content alike).
+        clearance: () => (clearance ??= contentClearance(element, primaries, plan.side)),
         run: () => act(element, root, null, {field, child: null}, 'create', plan.side === 'top' ? {first: true} : {})});
     }
   }

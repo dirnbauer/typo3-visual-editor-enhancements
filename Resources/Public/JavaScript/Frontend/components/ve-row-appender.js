@@ -2,7 +2,7 @@ import {css, html, LitElement, nothing} from 'lit';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {viewportSize} from '@webconsulting/visual-editor-enhancements/Shared/dom-utils.js';
 import {addEntryIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
-import {appenderPlacement} from '@webconsulting/visual-editor-enhancements/Shared/row-actions.js';
+import {appenderPlacement, stackPlacements} from '@webconsulting/visual-editor-enhancements/Shared/row-actions.js';
 import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/theme.js';
 
 /**
@@ -16,7 +16,7 @@ import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/them
  * hover or focus. At the collection's maximum a button stays, refused
  * (aria-disabled) with the reason.
  *
- * @typedef {{key: string, side: 'top'|'bottom', label: string, reason: string, rect: () => DOMRect|null, run: () => void}} AppenderItem
+ * @typedef {{key: string, side: 'top'|'bottom', label: string, reason: string, rect: () => DOMRect|null, clearance?: () => number, run: () => void}} AppenderItem
  * @extends {HTMLElement}
  */
 export class VeRowAppender extends LitElement {
@@ -122,13 +122,19 @@ export class VeRowAppender extends LitElement {
     const key = JSON.stringify([frame && [frame.top, frame.bottom], ...layout.map((rect) => rect && [rect.top, rect.left, rect.bottom, rect.right])]) + viewport.width + viewport.height;
     if (key === this.lastLayout) { return; }
     this.lastLayout = key;
+    const heights = this.items.map((item, index) => buttons[index]?.offsetHeight || 32);
+    // The element's own box: the button sits inside the gap below (above)
+    // the entries when it fits there - up to the element's other content -
+    // else just outside: never across the edge, never over the page's content,
+    // never over another add button of the same element.
+    const places = stackPlacements(this.items.map((item, index) => (layout[index] && buttons[index]
+      ? appenderPlacement(layout[index], item.side, heights[index], viewport,
+        {frame: frame && frame.height > 0 ? frame : null, clearance: item.clearance?.() ?? Infinity})
+      : null)), heights, this.items.map((item) => item.side));
     this.items.forEach((item, index) => {
       const button = buttons[index];
-      const rect = layout[index];
+      const place = places[index];
       if (!button) { return; }
-      // The element's own box: the button sits inside the gap below (above)
-      // the entries when it fits there, else just outside - never across the edge.
-      const place = rect ? appenderPlacement(rect, item.side, button.offsetHeight || 32, viewport, {frame: frame && frame.height > 0 ? frame : null}) : null;
       button.toggleAttribute('data-offscreen', place === null);
       if (place) {
         button.style.left = `${place.left}px`;

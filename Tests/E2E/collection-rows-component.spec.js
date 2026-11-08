@@ -425,3 +425,37 @@ test('nested collections: a nested entry\'s toolbar acts on its own collection t
   await page.locator('[data-ve-item="items:2"] > ve-editable-text').hover();
   await expect(page.getByRole('toolbar', {name: 'Entry 1: Pro'})).toBeVisible();
 });
+
+test('appender: never covers the element\'s other content (a table body below its header cells, a caption below the rows)', async ({page}) => {
+  const editable = (uid, text) => `<ve-editable-text table="items" uid="${uid}" field="title"><span contenteditable="plaintext-only">${text}</span></ve-editable-text>`;
+  const cell = (tag, uid, collection, text) => `<${tag} data-ve-item="items:${uid}" data-ve-item-live="${uid}" data-ve-collection="${collection}">${editable(uid, text)}</${tag}>`;
+  await actionBarHarness(page, {collectionRows: 'appender', css: CSS,
+    collectionTypes: {tt_content: {table: ['columns', 'rows']}},
+    body: () => element(1, 'table', 'Table', `<table style="width: 100%; border-collapse: collapse">
+      <thead><tr>${cell('th', 41, 'columns', 'Group')}${cell('th', 42, 'columns', 'Elements')}</tr></thead>
+      <tbody><tr data-ve-item="items:51" data-ve-item-live="51" data-ve-collection="rows"><td>${editable(51, 'Data and dashboards')}</td><td>29</td></tr></tbody>
+      <caption style="caption-side: bottom">Two element groups with their counts.</caption></table>`),
+    payload: (url) => (url.searchParams.get('uid') === '1' ? [
+      collectionField({name: 'columns', label: 'Columns', childTitle: 'column', uids: [41, 42], children: [entry(41, 'Group'), entry(42, 'Elements')]}),
+      collectionField({name: 'rows', label: 'Rows', childTitle: 'row', uids: [51], children: [entry(51, 'Data and dashboards')]}),
+    ] : []),
+  });
+  await page.locator('[data-ve-item="items:51"] td').first().hover();
+  await expect(appenders(page)).toHaveCount(2);
+  const element1 = await page.locator('ve-content-element[uid="1"]').boundingBox();
+  for (const [key, covered] of [['columns-bottom', '[data-ve-item="items:51"]'], ['rows-bottom', 'caption']]) {
+    const button = page.locator(`ve-row-appender .appender[data-key="${key}"]`);
+    await expect(button).toBeVisible();
+    const box = await button.boundingBox();
+    const content = await page.locator(covered).boundingBox();
+    // Not over the body row / the caption: just outside the element instead.
+    expect(box.y >= content.y + content.height - 0.5 || box.y + box.height <= content.y + 0.5, key).toBe(true);
+    expect(box.y, key).toBeGreaterThanOrEqual(element1.y + element1.height - 0.5);
+  }
+  // Both went outside the element: stacked, not on top of each other.
+  const [columnsBox, rowsBox] = await Promise.all(['columns-bottom', 'rows-bottom'].map((key) => page.locator(`ve-row-appender .appender[data-key="${key}"]`).boundingBox()));
+  expect(columnsBox.y + columnsBox.height <= rowsBox.y + 0.5 || rowsBox.y + rowsBox.height <= columnsBox.y + 0.5).toBe(true);
+  // The body row's text stays clickable: the top hit at its centre is the page, not an add button.
+  const cellBox = await page.locator('[data-ve-item="items:51"] td').first().boundingBox();
+  expect(await page.evaluate(({x, y}) => document.elementFromPoint(x, y)?.closest('ve-row-appender') === null, {x: cellBox.x + 20, y: cellBox.y + cellBox.height / 2})).toBe(true);
+});

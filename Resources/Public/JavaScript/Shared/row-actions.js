@@ -157,18 +157,21 @@ export function railPlacement(rect, size, viewport, {gap = 4, edge = 8} = {}) {
  * (`top`). Given the content element's own box (`frame`), the button never
  * straddles the element's edge: it sits inside the gap between the entries
  * and that edge when the gap holds it (at most `gap` from the entries, at
- * least `inset` from the edge), otherwise just outside the edge. Null when
- * that position is outside the viewport.
+ * least `inset` from the edge), otherwise just outside the edge. Other
+ * content of the element beyond the entries (`clearance`: the distance from
+ * the entries to it - a table's body below its header cells, a caption, a
+ * tab panel below the tab buttons) narrows that gap: the button never covers
+ * it either. Null when that position is outside the viewport.
  * @param {{top: number, right: number, bottom: number, left: number}} rect the box of the collection's entries
  * @param {'top'|'bottom'} side
  * @param {number} height the button's height
  * @param {{width: number, height: number}} viewport
- * @param {{gap?: number, minWidth?: number, inset?: number, frame?: {top: number, bottom: number}|null}} options
+ * @param {{gap?: number, minWidth?: number, inset?: number, frame?: {top: number, bottom: number}|null, clearance?: number}} options
  * @return {{left: number, top: number, width: number}|null}
  */
-export function appenderPlacement(rect, side, height, viewport, {gap = 6, minWidth = 160, inset = 2, frame = null} = {}) {
+export function appenderPlacement(rect, side, height, viewport, {gap = 6, minWidth = 160, inset = 2, frame = null, clearance = Infinity} = {}) {
   let top = side === 'top' ? rect.top - gap - height : rect.bottom + gap;
-  const room = frame ? (side === 'top' ? rect.top - frame.top : frame.bottom - rect.bottom) : -1;
+  const room = frame ? Math.min(side === 'top' ? rect.top - frame.top : frame.bottom - rect.bottom, Math.max(0, clearance)) : -1;
   if (room >= height + 2 * inset) {
     const offset = Math.min(gap, (room - height) / 2);
     top = side === 'top' ? rect.top - offset - height : rect.bottom + offset;
@@ -181,6 +184,40 @@ export function appenderPlacement(rect, side, height, viewport, {gap = 6, minWid
   const width = Math.max(minWidth, Math.round(rect.right - rect.left));
   const left = Math.min(Math.max(Math.round(rect.left), 0), Math.max(0, viewport.width - width));
   return {left, top: Math.round(top), width: Math.min(width, viewport.width)};
+}
+
+/**
+ * Keeps add buttons of one element apart: two collections whose buttons both
+ * went outside the element (a table's columns and rows) would land on the
+ * same spot. A button that overlaps an earlier one moves on past it -
+ * further down on the bottom side, further up on the top side. Null
+ * placements (off screen) stay null.
+ * @param {Array<{left: number, top: number, width: number}|null>} places
+ * @param {number[]} heights
+ * @param {Array<'top'|'bottom'>} sides
+ * @param {number} gap
+ * @return {Array<{left: number, top: number, width: number}|null>}
+ */
+export function stackPlacements(places, heights, sides, gap = 4) {
+  const placed = [];
+  return places.map((place, index) => {
+    if (place === null) { return null; }
+    const height = heights[index];
+    let top = place.top;
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const other of placed) {
+        const overlaps = top < other.top + other.height && top + height > other.top
+          && place.left < other.left + other.width && place.left + place.width > other.left;
+        if (overlaps) {
+          top = sides[index] === 'top' ? other.top - height - gap : other.top + other.height + gap;
+          moved = true;
+        }
+      }
+    }
+    placed.push({left: place.left, width: place.width, top, height});
+    return {...place, top};
+  });
 }
 
 /**
