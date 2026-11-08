@@ -11,7 +11,7 @@ use TYPO3\CMS\Backend\Utility\BackendUtility;
  * changed from 1.5 has its own key, so the 1.5 behaviour is one line away:
  *
  *   enabled = 1               createHidden = 1          requireWorkspace = 0
- *   firstVersion = 0          (1: allow the first workspace draft, narrowed invariant)
+ *   firstVersion = 1          (0: refuse the first workspace draft, reason firstVersion)
  *   translatedParents = parity        (default-only restores 1.5)
  *   deleteTranslations = confirm      (refuse restores 1.5)
  *   syncTranslations = 1      syncDefaultMode = localize
@@ -71,11 +71,11 @@ final readonly class InlineRecordConfiguration
 
     /**
      * Allow the first workspace draft of a collection through Core's stock
-     * auto-versioning under the narrowed live-row invariant. Off until the
-     * site enables it.
+     * auto-versioning under the narrowed live-row invariant (default since 1.7.0).
+     * firstVersion = 0 restores the refusal with the reason 'firstVersion'.
      */
     public function firstVersion(int $pid): bool
     {
-        return (bool)($this->forPage($pid)['firstVersion'] ?? false);
+        return (bool)($this->forPage($pid)['firstVersion'] ?? true);
     }
 }

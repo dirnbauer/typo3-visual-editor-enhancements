@@ -61,6 +61,28 @@ final readonly class InlineTranslations
     }
 
     /**
+     * This workspace's delete placeholders of the entry's translations (the versions
+     * Core's delete cascade created via deleteL10nOverlayRecords), by version uid.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function deletePlaceholdersOf(string $table, int $liveUid): array
+    {
+        $pointer = (string)($GLOBALS['TCA'][$table]['ctrl']['transOrigPointerField'] ?? '');
+        $workspace = $this->users->getOrThrow()->workspace;
+        if ($pointer === '' || $workspace <= 0 || empty($GLOBALS['TCA'][$table]['ctrl']['versioningWS'])) {
+            return [];
+        }
+        $query = $this->connections->getQueryBuilderForTable($table);
+        $query->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+        return array_values($query->select('*')->from($table)->where(
+            $query->expr()->eq($pointer, $query->createNamedParameter($liveUid, Connection::PARAM_INT)),
+            $query->expr()->eq('t3ver_wsid', $query->createNamedParameter($workspace, Connection::PARAM_INT)),
+            $query->expr()->eq('t3ver_state', $query->createNamedParameter(2, Connection::PARAM_INT)),
+        )->orderBy('uid')->executeQuery()->fetchAllAssociative());
+    }
+
+    /**
      * Whether Core keeps this field of a connected translation in step with another
      * language: allowLanguageSynchronization on the column and the row's l10n_state
      * says 'parent' (also when unset) or 'source' for it. DataMapProcessor then drops

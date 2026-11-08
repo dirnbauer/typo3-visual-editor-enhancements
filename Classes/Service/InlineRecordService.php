@@ -19,9 +19,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use Webconsulting\VisualEditorEnhancements\DataHandling\InlineDataHandler;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\CreateOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\DeleteOperation;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\DuplicateOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\IntentRefused;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\MoveOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\OperationInterface;
+use Webconsulting\VisualEditorEnhancements\Service\Intent\RestoreOperation;
 use Webconsulting\VisualEditorEnhancements\Service\Intent\SyncOperation;
 
 /**
@@ -34,6 +36,9 @@ final readonly class InlineRecordService
 
     /** Core's maxitems when TCA sets none (TcaInlineConfiguration, DataHandler): no limit. */
     private const UNLIMITED_ITEMS = 99999;
+
+    /** Cascade counts of an entry that is not inspected (refused before, or not removable). */
+    private const NO_CASCADE = ['children' => 0, 'files' => 0, 'truncated' => false, 'reason' => ''];
 
     /** @var array<string, OperationInterface> */
     private array $operations;
@@ -48,12 +53,16 @@ final readonly class InlineRecordService
         private FormDataCompiler $compiler,
         private InlineTranslations $translations,
         private LiveSnapshot $snapshots,
+        private InlineCascadePreflight $cascade,
         CreateOperation $create,
         DeleteOperation $delete,
         MoveOperation $move,
         SyncOperation $sync,
+        DuplicateOperation $duplicate,
+        RestoreOperation $restore,
     ) {
-        $this->operations = ['create' => $create, 'delete' => $delete, 'move' => $move, 'sync' => $sync];
+        $this->operations = ['create' => $create, 'delete' => $delete, 'move' => $move, 'sync' => $sync,
+            'duplicate' => $duplicate, 'restore' => $restore];
     }
 
     public function backendUrl(string $table, int $uid, bool $contextual = false): string
@@ -135,6 +144,8 @@ final readonly class InlineRecordService
         if ($reason === '' && $deleteTranslations === 'refuse' && !$this->relatedParentsEditable($table, $form, $request)) {
             $reason = 'rights';
         }
+        // Restore (Core discard) writes no live row and no relation list: only these refuse it.
+        $restoreBase = in_array($reason, ['unsupported', 'disabled', 'workspace', 'rights'], true) ? $reason : '';
         $hiddenField = (string)($GLOBALS['TCA'][$childTable]['ctrl']['enablecolumns']['disabled'] ?? '');
         $labelField = self::labelField($childTable);
         $parentLanguages = $context['translationMode'] === 'default' ? array_keys($this->translations->parentsByLanguage($table, $form)) : [];
@@ -170,8 +181,12 @@ final readonly class InlineRecordService
                     $liveChildInWorkspace = $liveChildInWorkspace || (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) !== 0;
                 }
                 $translations = $this->translations->of($childTable, $row);
+                $cascade = self::NO_CASCADE;
                 // A control disabled in TCA always reports 'controls', whatever else applies.
-                $deleteReason = $controls['delete'] ? ($reason ?: $this->deleteReason($childTable, $row, $translations, $deleteTranslations)) : 'controls';
+                $deleteReason = 'controls';
+                if ($controls['delete']) {
+                    [$deleteReason, $cascade] = $reason !== '' ? [$reason, self::NO_CASCADE] : $this->deleteReason($childTable, $row, $translations, $deleteTranslations, $pid);
+                }
                 $uid = (int)$child['compileUid'];
                 $formUids[] = $uid;
                 $new = (int)($row['t3ver_state'] ?? 0) === 1;
@@ -196,9 +211,13 @@ final readonly class InlineRecordService
                     'canEditLabel' => $labelReason === '', 'labelReason' => $labelReason, 'labelValue' => $labelField !== '' ? self::labelValue((string)($row[$labelField] ?? '')) : '',
                     'translationOnly' => $context['translationMode'] === 'connected' && $this->isTranslationOnly($childTable, $row),
                     'untranslated' => array_values(array_diff($parentLanguages, $this->translations->languagesOf($childTable, $translations))),
-                    'cascade' => ['translations' => count($translations), 'languages' => $this->translations->languagesOf($childTable, $translations)],
+                    'cascade' => ['translations' => count($translations), 'languages' => $this->translations->languagesOf($childTable, $translations),
+                        'children' => $cascade['children'], 'files' => $cascade['files'], 'truncated' => $cascade['truncated']],
                     'canDelete' => $deleteReason === '',
                     'deleteReason' => $deleteReason,
+                    'cascadeReason' => $deleteReason === 'cascade' ? $cascade['reason'] : '',
+                    // Entry-level copy blockers; the collection-level ones are applied below.
+                    'duplicateReason' => $this->copyBlocker($childTable, $row),
                     'verb' => $new ? 'discard' : ($form['workspaceId'] ? 'markForDeletion' : 'delete'),
                     'deleteUid' => $new ? (int)$row['uid'] : (int)(($row['t3ver_oid'] ?? 0) ?: $row['uid']),
                 ];
@@ -249,13 +268,39 @@ final readonly class InlineRecordService
                 $createReason = 'rights';
             }
         }
+        $copyReason = $createReason;
         $max = self::maxItems($config);
-        if ($createReason === '' && $max > 0 && count($uids) >= $max) {
+        $full = $max > 0 && count($uids) >= $max;
+        if ($createReason === '' && $full) {
             $createReason = 'max';
         }
-        if (!$controls['new'] || ($config['appearance']['showNewRecordLink'] ?? true) === false) {
+        $newControl = $controls['new'] && ($config['appearance']['showNewRecordLink'] ?? true) !== false;
+        if (!$newControl) {
             $createReason = 'controls';
         }
+        $duplicateControl = $newControl && (bool)($this->configuration->forPage($pid)['duplicate'] ?? true);
+        foreach ($children as &$entry) {
+            if ($entry['state'] === 'deleted') {
+                $restoreReason = $restoreBase ?: ($entry['restoreReason'] ?: ($full ? 'max' : ''));
+                $entry['canRestore'] = $restoreReason === '';
+                $entry['restoreReason'] = $restoreReason;
+                continue;
+            }
+            $duplicateReason = match (true) {
+                !$duplicateControl => 'controls',
+                $reason !== '' => $reason,
+                // Core's copy of an entry below a connected translation would leave the
+                // structure of the source language; FormEngine offers no such copy either.
+                $context['translationMode'] === 'connected' => 'copyUnsupported',
+                in_array($copyReason, ['rights', 'language', 'hidden'], true) => $copyReason,
+                $entry['duplicateReason'] !== '' => $entry['duplicateReason'],
+                $full => 'max',
+                default => '',
+            };
+            $entry['canDuplicate'] = $duplicateReason === '';
+            $entry['duplicateReason'] = $duplicateReason;
+        }
+        unset($entry);
         return [
             'name' => $field, 'label' => $column['label'] ?? $field, 'type' => 'inline',
             'parentTable' => $table, 'parentUid' => (int)$form['requestedUid'],
@@ -301,14 +346,50 @@ final readonly class InlineRecordService
             || !$this->users->getOrThrow()->checkRecordEditAccess($childTable, $live)->isAllowed) {
             return null;
         }
+        // Restore = Core discard of this workspace's delete placeholder and of the
+        // placeholders Core's delete cascade left on the entry's translations
+        // (Core's discard does not reach those: it looks them up by the version uid).
+        // Below an owner that has a draft here, every member has one; a discarded
+        // placeholder would leave a live-only member there, which refuses every later
+        // structural action ('workspace'). Core's version command drafts such a leaf
+        // entry again (nested members would be versioned with live bookkeeping).
+        $workspace = (int)$form['workspaceId'];
+        $versions = [(int)($overlaid['_ORIG_uid'] ?? 0)];
+        $redraft = [];
+        $owners = [];
+        $user = $this->users->getOrThrow();
+        $restoreReason = $versions[0] > 0 && $user->checkRecordEditAccess($childTable, $overlaid, false, true)->isAllowed ? '' : 'rights';
+        $leaf = !$this->cascade->hasMembers($childTable, $live, true);
+        if ($leaf && (int)($form['resolvedRow']['t3ver_wsid'] ?? 0) === $workspace) {
+            $redraft[] = $liveUid;
+        }
+        foreach ($this->translations->deletePlaceholdersOf($childTable, $liveUid) as $translation) {
+            $versions[] = (int)$translation['uid'];
+            $owner = (int)($translation[(string)$config['foreign_field']] ?? 0);
+            $owners[] = $owner;
+            if (!$user->checkRecordEditAccess($childTable, $translation, false, true)->isAllowed) {
+                $restoreReason = 'rights';
+            }
+            $translationLive = (int)$translation['t3ver_oid'];
+            $liveTranslation = BackendUtility::getRecord($childTable, $translationLive);
+            if ($owner > 0 && $liveTranslation && !$this->cascade->hasMembers($childTable, $liveTranslation, true)
+                && BackendUtility::getWorkspaceVersionOfRecord($workspace, $table, $owner)) {
+                $redraft[] = $translationLive;
+            }
+        }
         return [
             'uid' => $liveUid, 'table' => $childTable, 'liveUid' => $liveUid, 'state' => 'deleted',
             'label' => BackendUtility::getRecordTitle($childTable, $live),
             'hidden' => $hiddenField !== '' && !empty($live[$hiddenField]), 'hiddenField' => $hiddenField,
             'canHide' => false, 'hideReason' => 'deleted', 'canEditLabel' => false, 'labelReason' => 'deleted', 'labelValue' => '',
-            'translationOnly' => false, 'untranslated' => [], 'cascade' => ['translations' => 0, 'languages' => []],
+            'translationOnly' => false, 'untranslated' => [],
+            'cascade' => ['translations' => count($versions) - 1, 'languages' => [], ...array_diff_key(self::NO_CASCADE, ['reason' => true])],
             'canMoveUp' => false, 'canMoveDown' => false,
-            'canDelete' => false, 'deleteReason' => 'deleted', 'verb' => '',
+            'canDelete' => false, 'deleteReason' => 'deleted', 'cascadeReason' => '', 'verb' => '',
+            'canDuplicate' => false, 'duplicateReason' => 'deleted',
+            'canRestore' => $restoreReason === '', 'restoreReason' => $restoreReason,
+            // Internal only; stripped at the public field boundary.
+            '_restore' => ['versions' => $versions, 'redraft' => $redraft, 'owners' => array_values(array_unique($owners))],
         ];
     }
 
@@ -586,36 +667,51 @@ final readonly class InlineRecordService
 
     /**
      * Removal refusals. Core cascades a delete to the entry's translations
-     * (deleteL10nOverlayRecords) and to nested inline/file children. Translations
-     * are removable with the entry when every active one passes the delete access
-     * check (here, for the payload) and compiles for this editor - owner chain,
-     * page, stage - which cascadeProof() runs where the delete executes, for the
-     * removed entry only. Nested children and media stay with the backend form
-     * until their dependencies have a permission proof of their own.
+     * (deleteL10nOverlayRecords) and to nested inline/file members and their
+     * translations, recursively. Translations are removable with the entry when
+     * every active one passes the delete access check (here, for the payload) and
+     * compiles for this editor - owner chain, page, stage - which cascadeProof()
+     * runs where the delete executes, for the removed entry only. Nested members
+     * and file references are removable when InlineCascadePreflight proves every
+     * one of them within the TSconfig bounds; otherwise 'cascade' with its reason.
      *
      * @param array<string, mixed> $row
      * @param list<array<string, mixed>> $translations
      * @param 'confirm'|'refuse' $mode
+     * @return array{string, array{children: int, files: int, truncated: bool, reason: string}}
      */
-    private function deleteReason(string $table, array $row, array $translations, string $mode): string
+    private function deleteReason(string $table, array $row, array $translations, string $mode, int $pid): array
     {
         if ($translations !== [] && $mode === 'refuse') {
-            return 'translations';
+            return ['translations', self::NO_CASCADE];
         }
         $user = $this->users->getOrThrow();
-        foreach ([$row, ...$translations] as $affected) {
-            foreach ($GLOBALS['TCA'][$table]['columns'] ?? [] as $name => $column) {
-                if (in_array($column['config']['type'] ?? '', ['inline', 'file'], true) && !empty($affected[$name])) {
-                    return 'cascade';
-                }
-            }
+        $cascade = $this->cascade->inspect($table, $row, $translations, $pid);
+        if ($cascade['reason'] !== '') {
+            return ['cascade', $cascade];
         }
         foreach ($translations as $translation) {
             if (!$user->checkRecordEditAccess($table, $translation, false, true)->isAllowed) {
-                return 'translations';
+                return ['translations', $cascade];
             }
         }
-        return $user->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights';
+        return [$user->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights', $cascade];
+    }
+
+    /**
+     * Why this entry itself cannot be duplicated: Core's copy would copy its
+     * nested inline/file members along ('copyUnsupported', leaf entries only), or
+     * the editor may not edit it ('rights'; copy with ignoreLocalization skips
+     * Core's own check, so it is made here).
+     *
+     * @param array<string, mixed> $row
+     */
+    private function copyBlocker(string $table, array $row): string
+    {
+        if ($this->cascade->hasMembers($table, $row)) {
+            return 'copyUnsupported';
+        }
+        return $this->users->getOrThrow()->checkRecordEditAccess($table, $row, false, true)->isAllowed ? '' : 'rights';
     }
 
     /**
@@ -811,7 +907,7 @@ final readonly class InlineRecordService
             }
             // Core's first-version bookkeeping is masked only for the step that creates
             // the parent's first draft, and only where the site enabled it.
-            $firstVersion = (bool)$field['workspace']['firstVersion'] && $this->configuration->firstVersion((int)$form['scopePageId']);
+            $firstVersion = $plan->mayVersion && (bool)$field['workspace']['firstVersion'] && $this->configuration->firstVersion((int)$form['scopePageId']);
             $liveUid = (int)(($form['resolvedRow']['t3ver_oid'] ?? 0) ?: $form['resolvedRow']['uid']);
             $before = $form['workspaceId'] ? $this->snapshots->capture($table, $liveUid, (int)$form['workspaceId']) : null;
             if ($before !== null && $firstVersion && $before['truncated']) {
@@ -832,6 +928,20 @@ final readonly class InlineRecordService
                         $handler->process_cmdmap();
                     }
                 }
+                $followResult = [];
+                if (!$handler->errorLog && $plan->followUp !== null) {
+                    // A second step that needs the first one's result (the uid of a copy).
+                    $next = ($plan->followUp)($handler);
+                    if ($next === null) {
+                        $connection->rollBack();
+                        return [422, ['success' => false, 'errorLog' => ['Core did not carry out the collection command.']]];
+                    }
+                    [$followData, $followResult] = $next;
+                    $second = GeneralUtility::makeInstance(InlineDataHandler::class);
+                    $second->start($followData, []);
+                    $second->process_datamap();
+                    $handler->errorLog = [...$handler->errorLog, ...$second->errorLog];
+                }
                 if ($handler->errorLog) {
                     $connection->rollBack();
                     return [422, ['success' => false, 'errorLog' => $handler->errorLog]];
@@ -851,6 +961,15 @@ final readonly class InlineRecordService
                 $uid = (int)($handler->substNEWwithIDs[$plan->newId] ?? 0);
                 $response['uid'] = $uid ?: null;
                 $response['created'] = ['uid' => $uid ?: null, ...($plan->result['created'] ?? [])];
+            }
+            if (isset($followResult['created'])) {
+                $response['uid'] = (int)$followResult['created']['uid'];
+                $response['created'] = $followResult['created'];
+            }
+            if (isset($response['created']['uid']) && ($response['created']['hiddenField'] ?? '') !== '') {
+                // What Core stored (a copy may also be hidden by ctrl.hideAtCopy).
+                $stored = BackendUtility::getRecordWSOL((string)$response['created']['table'], (int)$response['created']['uid']);
+                $response['created']['hidden'] = !empty($stored[$response['created']['hiddenField']]);
             }
             $response += array_diff_key($plan->result, ['created' => true]);
             if (isset($response['synced'])) {
@@ -905,6 +1024,13 @@ final readonly class InlineRecordService
             if (!empty($config['behaviour']['allowLanguageSynchronization'])
                 || ($intent['action'] === 'sync' && (int)$language['id'] === (int)$intent['language'])) {
                 $parents[] = (int)$language['parentUid'];
+            }
+        }
+        if ($intent['action'] === 'restore') {
+            foreach ($field['children'] as $child) {
+                if ($child['uid'] === $intent['childUid'] && $child['state'] === 'deleted') {
+                    $parents = [...$parents, ...$child['_restore']['owners']];
+                }
             }
         }
         if ($intent['action'] === 'delete') {
@@ -970,7 +1096,7 @@ final readonly class InlineRecordService
 
     /**
      * The collection as the browser may see it: no internal defaults, relation config
-     * or command targets (delete targets can be placeholder version uids).
+     * or command targets (delete and restore targets can be placeholder version uids).
      *
      * @return array<string, mixed>
      * @param array<string, mixed> $field
@@ -979,7 +1105,7 @@ final readonly class InlineRecordService
     {
         unset($field['_defaults'], $field['_config'], $field['_sync']);
         foreach ($field['children'] as &$child) {
-            unset($child['deleteUid']);
+            unset($child['deleteUid'], $child['_restore']);
         }
         return $field;
     }

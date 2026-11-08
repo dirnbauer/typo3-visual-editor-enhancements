@@ -811,5 +811,35 @@
         <source>Your next add, move or remove creates this element's first draft in this workspace.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.copyUnsupported">
+      <segment state="final">
+        <source>Only entries without nested entries or media can be duplicated here, and not in a connected translation. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.restoreLive">
+      <segment state="final">
+        <source>Removals on the live site are final. Only removals staged in a workspace can be undone.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeDepth">
+      <segment state="final">
+        <source>This entry's nested entries go deeper than this site allows for a removal here. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeRecords">
+      <segment state="final">
+        <source>Removing this entry would also remove more nested entries or media references than this site allows at once. Use the backend form.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeRights">
+      <segment state="final">
+        <source>This entry contains nested entries or media you may not remove.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.cascadeDisabled">
+      <segment state="final">
+        <source>Removing entries with nested entries or media is switched off for this site. Use the backend form.</source>
+      </segment>
+    </unit>
   </file>
 </xliff>

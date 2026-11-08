@@ -72,7 +72,7 @@ final class InlineTranslationTest extends InlineRecordTestCase
         $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['vee_items' => 2], ['uid' => 1]);
         $this->translateChild(2, 1);
         $children = $this->field()['children'];
-        self::assertSame(['', ['translations' => 1, 'languages' => [1]], []], [$children[0]['deleteReason'], $children[0]['cascade'], $children[0]['untranslated']]);
+        self::assertSame(['', ['translations' => 1, 'languages' => [1], 'children' => 0, 'files' => 0, 'truncated' => false], []], [$children[0]['deleteReason'], $children[0]['cascade'], $children[0]['untranslated']]);
         self::assertSame([1], $children[1]['untranslated']);
 
         $this->restrictedOwnerUser('tt_content,tx_vee_item', 'tx_vee_item:hidden', '0');
@@ -88,7 +88,7 @@ final class InlineTranslationTest extends InlineRecordTestCase
         self::assertSame('', $field['children'][0]['deleteReason']);
         $removed = $this->intent($field, 'delete', ['childUid' => 1]);
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
-        self::assertSame(['uid' => 1, 'verb' => 'delete', 'translations' => 1], $removed[1]['deleted']);
+        self::assertSame(['uid' => 1, 'verb' => 'delete', 'translations' => 1, 'children' => 0, 'files' => 0], $removed[1]['deleted']);
         self::assertSame(['1', '1', '0'], [(string)$this->row(1)['deleted'], (string)$this->row(2)['deleted'], (string)$this->row(3)['deleted']], 'Core cascades to the translation');
     }
 
@@ -232,10 +232,10 @@ final class InlineTranslationTest extends InlineRecordTestCase
         $live = array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0));
         $liveContent = $this->rows('tt_content');
         $field = $this->field();
-        self::assertSame(['translations' => 1, 'languages' => [1]], $field['children'][0]['cascade']);
+        self::assertSame(['translations' => 1, 'languages' => [1], 'children' => 0, 'files' => 0, 'truncated' => false], $field['children'][0]['cascade']);
         $removed = $this->act($field, 'delete', 10);
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
-        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 1], $removed[1]['deleted']);
+        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 1, 'children' => 0, 'files' => 0], $removed[1]['deleted']);
         self::assertSame($live, array_values(array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0)), 'Live rows, translations included, byte-identical');
         self::assertSame(array_filter($liveContent, static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0), array_filter($this->rows('tt_content'), static fn(array $row): bool => (int)$row['t3ver_wsid'] === 0));
         $marked = array_map(static fn(array $row): int => (int)$row['t3ver_oid'], array_filter($this->rows(), static fn(array $row): bool => (int)$row['t3ver_state'] === 2));

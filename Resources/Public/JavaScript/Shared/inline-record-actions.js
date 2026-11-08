@@ -9,6 +9,8 @@ const intentKeys = {
   delete: {childUid: 'required'},
   move: {childUid: 'required', afterUid: 'nullable'},
   sync: {language: 'required', mode: 'mode', ids: 'ids'},
+  duplicate: {childUid: 'required'},
+  restore: {childUid: 'required'},
 };
 
 /**
@@ -16,9 +18,10 @@ const intentKeys = {
  * the client: no child table, pid, sorting, language or live uid leaves the browser.
  *
  * @param {object} field   collection payload (parentTable, parentUid, name, revision)
- * @param {string} action  create | delete | move | sync
+ * @param {string} action  create | delete | move | sync | duplicate | restore
  * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
  *                         · sync {language, mode: 'localize'|'synchronize', ids?: [default entry uids], localize only}
+ *                         · duplicate {childUid} (a listed entry) · restore {childUid} (the uid a 'deleted' row shows)
  */
 export function collectionIntent(field, action, options = {}) {
   const keys = intentKeys[action];
@@ -288,5 +291,11 @@ const inlineFallbacks = {
   "badgeTranslationOnly": "Only in this language",
   "badgeUntranslated": "Not translated here: {languages}",
   "hiddenPerLanguage": "Visibility is per language.",
+  "copyUnsupported": "Only entries without nested entries or media can be duplicated here, and not in a connected translation. Use the backend form.",
+  "restoreLive": "Removals on the live site are final. Only removals staged in a workspace can be undone.",
+  "cascadeDepth": "This entry's nested entries go deeper than this site allows for a removal here. Use the backend form.",
+  "cascadeRecords": "Removing this entry would also remove more nested entries or media references than this site allows at once. Use the backend form.",
+  "cascadeRights": "This entry contains nested entries or media you may not remove.",
+  "cascadeDisabled": "Removing entries with nested entries or media is switched off for this site. Use the backend form.",
   "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
 };

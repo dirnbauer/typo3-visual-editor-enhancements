@@ -23,6 +23,8 @@ final class InlineIntentTest extends TestCase
         yield 'sync localize' => [['action' => 'sync', ...self::COMMON, 'language' => 1, 'mode' => 'localize']];
         yield 'sync synchronize' => [['action' => 'sync', ...self::COMMON, 'language' => 65535, 'mode' => 'synchronize']];
         yield 'sync localize selected' => [['action' => 'sync', ...self::COMMON, 'language' => 2, 'mode' => 'localize', 'ids' => [4, 7]]];
+        yield 'duplicate' => [['action' => 'duplicate', ...self::COMMON, 'childUid' => 2]];
+        yield 'restore' => [['action' => 'restore', ...self::COMMON, 'childUid' => 2]];
     }
 
     /** @return iterable<string, array{mixed}> */
@@ -58,7 +60,22 @@ final class InlineIntentTest extends TestCase
         yield 'sync too many ids' => [[...$sync, 'ids' => range(1, 1001)]];
         yield 'sync with childUid' => [[...$sync, 'childUid' => 1]];
         yield 'sync with parent language uid' => [[...$sync, 'translatedParentUid' => 2]];
-        foreach (['create' => [], 'delete' => ['childUid' => 2], 'move' => ['childUid' => 2, 'afterUid' => null], 'sync' => ['language' => 1, 'mode' => 'localize']] as $action => $keys) {
+        foreach (['duplicate', 'restore'] as $action) {
+            $valid = ['action' => $action, ...self::COMMON, 'childUid' => 2];
+            yield $action . ' without childUid' => [array_diff_key($valid, ['childUid' => true])];
+            yield $action . ' childUid as string' => [[...$valid, 'childUid' => '2']];
+            yield $action . ' childUid zero' => [[...$valid, 'childUid' => 0]];
+            yield $action . ' childUid negative' => [[...$valid, 'childUid' => -2]];
+            yield $action . ' with afterUid' => [[...$valid, 'afterUid' => 3]];
+            yield $action . ' with target' => [[...$valid, 'target' => -2]];
+            yield $action . ' with versionUid' => [[...$valid, 'versionUid' => 10]];
+            yield $action . ' with childTable' => [[...$valid, 'childTable' => 'tx_vee_item']];
+            yield $action . ' with update' => [[...$valid, 'update' => ['hidden' => 0]]];
+            yield $action . ' with ids' => [[...$valid, 'ids' => [2]]];
+        }
+        yield 'discard action' => [['action' => 'discard', ...self::COMMON, 'childUid' => 2]];
+        yield 'undelete action' => [['action' => 'undelete', ...self::COMMON, 'childUid' => 2]];
+        foreach (['create' => [], 'delete' => ['childUid' => 2], 'move' => ['childUid' => 2, 'afterUid' => null], 'sync' => ['language' => 1, 'mode' => 'localize'], 'duplicate' => ['childUid' => 2], 'restore' => ['childUid' => 2]] as $action => $keys) {
             yield $action . ' with hidden' => [['action' => $action, ...self::COMMON, ...$keys, 'hidden' => 0]];
             yield $action . ' with liveUid' => [['action' => $action, ...self::COMMON, ...$keys, 'liveUid' => 1]];
             if ($action !== 'sync') {

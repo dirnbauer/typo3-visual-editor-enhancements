@@ -24,16 +24,28 @@ test('sync carries language, mode and optional ids for localize only', () => {
   assert.throws(() => collectionIntent(field, 'sync', {language: 1, mode: 'copy'}), /needs mode/);
   assert.throws(() => collectionIntent(field, 'sync', {mode: 'localize'}), /needs language/);
 });
+test('duplicate and restore carry exactly the listed entry uid', () => {
+  assert.deepEqual(collectionIntent(field, 'duplicate', {childUid: 3}), {inlineRecord: {action: 'duplicate', ...common, childUid: 3}});
+  assert.deepEqual(collectionIntent(field, 'restore', {childUid: 3}), {inlineRecord: {action: 'restore', ...common, childUid: 3}});
+  for (const action of ['duplicate', 'restore']) {
+    assert.throws(() => collectionIntent(field, action), /needs childUid/);
+    assert.throws(() => collectionIntent(field, action, {childUid: '3'}), /needs childUid/);
+    // A delete placeholder's version uid, a paste target or an update never leave the browser.
+    const forged = collectionIntent(field, action, {childUid: 3, versionUid: 10, target: -3, update: {hidden: 0}, afterUid: 2, table: 'items'});
+    assert.deepEqual(Object.keys(forged.inlineRecord), ['action', 'parentTable', 'parentUid', 'field', 'revision', 'childUid']);
+  }
+});
 test('no child table, pid, sorting, language, live uid or unknown action leaves the browser', () => {
   const forged = {childUid: 4, afterUid: 2, childTable: 'x', pid: 1, sorting: 3, sys_language_uid: 1, liveUid: 9, hidden: 0, uids: [4, 2], data: {}};
-  const allowed = {create: ['afterUid'], delete: ['childUid'], move: ['childUid', 'afterUid'], sync: ['language', 'mode']};
-  for (const action of ['create', 'delete', 'move', 'sync']) {
+  const allowed = {create: ['afterUid'], delete: ['childUid'], move: ['childUid', 'afterUid'], sync: ['language', 'mode'], duplicate: ['childUid'], restore: ['childUid']};
+  for (const action of ['create', 'delete', 'move', 'sync', 'duplicate', 'restore']) {
     const keys = Object.keys(collectionIntent({...field, childTable: 'x', pid: 1}, action, {...forged, language: 1, mode: 'synchronize'}).inlineRecord);
     for (const key of keys) {
       assert.ok(['action', 'parentTable', 'parentUid', 'field', 'revision', ...allowed[action]].includes(key), `${action} leaked ${key}`);
     }
   }
   assert.throws(() => collectionIntent(field, 'copy', {}), /Unknown collection action/);
+  assert.throws(() => collectionIntent(field, 'discard', {childUid: 4}), /Unknown collection action/);
 });
 test('saving, invalid and uncertain editor states block every structural action; staged changes do not', () => {
   const clean = {changesCount: 0, invalidCount: 0};

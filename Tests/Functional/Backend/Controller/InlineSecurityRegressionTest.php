@@ -37,6 +37,11 @@ final class InlineSecurityRegressionTest extends InlineRecordTestCase
                 ['tx_vee_item' => [1 => ['copy' => ['action' => 'paste', 'target' => 666, 'update' => []]]]],
                 ['tx_vee_item' => [1 => ['move' => -3]]],
                 ['tx_vee_item' => [1 => ['discard' => 1]]],
+                // 1.7: the shapes the duplicate and restore intents run server-side.
+                ['tx_vee_item' => [1 => ['copy' => ['target' => -1, 'ignoreLocalization' => true]]]],
+                ['tx_vee_item' => [1 => ['copy' => ['action' => 'paste', 'target' => -1, 'update' => ['hidden' => 1]]]]],
+                ['tx_vee_item' => [1 => ['undelete' => 1]]],
+                ['tx_vee_item' => [1 => ['version' => ['action' => 'new', 'label' => 'Restored']]]],
                 ['tx_vee_item' => [1 => ['localize' => 1]]],
                 ['tx_vee_item' => [1 => ['version' => ['action' => 'new']]]],
                 ['tt_content' => [1 => ['localize' => 1]]],
@@ -147,9 +152,10 @@ final class InlineSecurityRegressionTest extends InlineRecordTestCase
     /** @return iterable<string, array{string, array<string, mixed>, string, mixed}> */
     public static function unknownKeys(): iterable
     {
-        $actions = ['create' => [], 'delete' => ['childUid' => 1], 'move' => ['childUid' => 1, 'afterUid' => null], 'sync' => ['language' => 1, 'mode' => 'localize']];
+        $actions = ['create' => [], 'delete' => ['childUid' => 1], 'move' => ['childUid' => 1, 'afterUid' => null], 'sync' => ['language' => 1, 'mode' => 'localize'],
+            'duplicate' => ['childUid' => 1], 'restore' => ['childUid' => 1]];
         foreach ($actions as $action => $options) {
-            foreach (['childTable' => 'tx_vee_item', 'pid' => 666, 'hidden' => 0, 'liveUid' => 1, 'sorting' => 1, 'workspace' => 0, 'uids' => [1], 'data' => [], 'translatedParentUid' => 2] as $key => $value) {
+            foreach (['childTable' => 'tx_vee_item', 'pid' => 666, 'hidden' => 0, 'liveUid' => 1, 'sorting' => 1, 'workspace' => 0, 'uids' => [1], 'data' => [], 'translatedParentUid' => 2, 'versionUid' => 10, 'target' => -1] as $key => $value) {
                 yield $action . ' ' . $key => [$action, $options, $key, $value];
             }
         }
@@ -180,7 +186,8 @@ final class InlineSecurityRegressionTest extends InlineRecordTestCase
         $before = $this->snapshot();
         // Child table right, but no right on the root content element.
         $this->restrictedOwnerUser('tx_vee_item');
-        foreach ([['move', ['childUid' => 21, 'afterUid' => null]], ['delete', ['childUid' => 20]], ['sync', ['language' => 1, 'mode' => 'localize']]] as [$action, $options]) {
+        foreach ([['move', ['childUid' => 21, 'afterUid' => null]], ['delete', ['childUid' => 20]], ['sync', ['language' => 1, 'mode' => 'localize']],
+            ['duplicate', ['childUid' => 21]], ['restore', ['childUid' => 21]]] as [$action, $options]) {
             self::assertSame(403, $this->intent($field, $action, $options)[0], $action);
         }
         self::assertSame(403, $this->save(['data' => ['tx_vee_item' => [20 => ['hidden' => 1]]]])[0], 'Staged visibility on a nested entry');

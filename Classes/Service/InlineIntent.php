@@ -26,6 +26,10 @@ final class InlineIntent
         'delete' => ['childUid' => [true, 'uid']],
         'move' => ['childUid' => [true, 'uid'], 'afterUid' => [true, 'uidOrNull']],
         'sync' => ['language' => [true, 'language'], 'mode' => [true, 'mode'], 'ids' => [false, 'ids']],
+        // 1.7: copy of a listed leaf entry, placed directly after it.
+        'duplicate' => ['childUid' => [true, 'uid']],
+        // 1.7: the live uid a listed delete placeholder shows; the server finds the version.
+        'restore' => ['childUid' => [true, 'uid']],
     ];
 
     /** @return array<string, mixed> */

@@ -134,7 +134,7 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
         self::assertSame(['markForDeletion', 'discard'], array_column($field['children'], 'verb'));
         $removed = $this->act($field, 'delete', 10);
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
-        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 0], $removed[1]['deleted']);
+        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 0, 'children' => 0, 'files' => 0], $removed[1]['deleted']);
 
         $field = $this->field();
         $placeholder = array_values(array_filter($field['children'], static fn(array $child): bool => $child['state'] === 'deleted'));

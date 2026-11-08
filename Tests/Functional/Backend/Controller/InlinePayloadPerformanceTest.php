@@ -64,7 +64,7 @@ final class InlinePayloadPerformanceTest extends InlineRecordTestCase
         $removed = $this->intent(array_column($moved[1]['collections'], null, 'name')['vee_items'], 'delete', ['childUid' => 5]);
         $deleteMs = (hrtime(true) - $started) / 1e6;
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
-        self::assertSame(['uid' => 5, 'verb' => 'delete', 'translations' => 2], $removed[1]['deleted']);
+        self::assertSame(['uid' => 5, 'verb' => 'delete', 'translations' => 2, 'children' => 0, 'files' => 0], $removed[1]['deleted']);
         self::assertSame(['1', '1', '1'], [(string)$this->row(5)['deleted'], (string)$this->row(105)['deleted'], (string)$this->row(205)['deleted']]);
         $delete = CompileCounter::take();
 
