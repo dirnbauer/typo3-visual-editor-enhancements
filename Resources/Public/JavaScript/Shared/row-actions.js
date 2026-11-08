@@ -189,3 +189,20 @@ export function unionRect(rects) {
     right: Math.max(...boxes.map((rect) => rect.right)),
   };
 }
+
+/**
+ * The part of a box its clipping ancestors leave visible (a carousel's
+ * viewport, a scrolling list): the intersection of the box with each clip
+ * box. Null when nothing is left.
+ * @param {{top: number, right: number, bottom: number, left: number}} rect
+ * @param {Array<{top: number, right: number, bottom: number, left: number}>} clips
+ * @return {{top: number, right: number, bottom: number, left: number}|null}
+ */
+export function clipRect(rect, clips = []) {
+  let box = {top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left};
+  for (const clip of clips) {
+    box = {top: Math.max(box.top, clip.top), left: Math.max(box.left, clip.left),
+      bottom: Math.min(box.bottom, clip.bottom), right: Math.min(box.right, clip.right)};
+  }
+  return box.right - box.left > 0 && box.bottom - box.top > 0 ? box : null;
+}

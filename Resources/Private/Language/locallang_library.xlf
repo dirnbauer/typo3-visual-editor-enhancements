@@ -926,5 +926,15 @@
         <source>The entry was added at the end; moving it to the start failed. Move it up with the arrows.</source>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.firstEntry">
+      <segment>
+        <source>This is the first entry.</source>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.lastEntry">
+      <segment>
+        <source>This is the last entry.</source>
+      </segment>
+    </unit>
 </file>
 </xliff>

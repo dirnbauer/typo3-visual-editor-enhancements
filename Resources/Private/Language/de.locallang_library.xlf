@@ -1111,5 +1111,17 @@
         <target>Der Eintrag wurde am Ende eingefügt; das Verschieben an den Anfang ist fehlgeschlagen. Mit den Pfeilen nach oben verschieben.</target>
       </segment>
     </unit>
+    <unit id="frontend.inlineRecords.firstEntry">
+      <segment state="final">
+        <source>This is the first entry.</source>
+        <target>Das ist der erste Eintrag.</target>
+      </segment>
+    </unit>
+    <unit id="frontend.inlineRecords.lastEntry">
+      <segment state="final">
+        <source>This is the last entry.</source>
+        <target>Das ist der letzte Eintrag.</target>
+      </segment>
+    </unit>
 </file>
 </xliff>

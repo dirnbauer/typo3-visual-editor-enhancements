@@ -158,3 +158,13 @@ describe('placement', () => {
     assert.equal(unionRect([]), null);
   });
 });
+
+describe('clipRect', () => {
+  it('keeps what a carousel viewport leaves visible', async () => {
+    const {clipRect} = await import('../../Resources/Public/JavaScript/Shared/row-actions.js');
+    const viewport = {top: 100, bottom: 400, left: 100, right: 700};
+    assert.deepEqual(clipRect({top: 120, bottom: 380, left: 600, right: 900}, [viewport]), {top: 120, bottom: 380, left: 600, right: 700});
+    assert.equal(clipRect({top: 120, bottom: 380, left: 720, right: 900}, [viewport]), null, 'the next slide, outside the viewport');
+    assert.deepEqual(clipRect({top: 1, bottom: 2, left: 1, right: 2}), {top: 1, bottom: 2, left: 1, right: 2});
+  });
+});

@@ -365,6 +365,8 @@ const inlineFallbacks = {
   "confirmFilesStay": "The files stay in the file list.",
   "confirmTruncated": "Counted up to this site's limit; there can be more.",
   "rowToolbar": "Entry {position}: {label}",
+  "firstEntry": "This is the first entry.",
+  "lastEntry": "This is the last entry.",
   "addEntryFirst": "Add {title} at the start",
   "addedAtEnd": "The entry was added at the end; moving it to the start failed. Move it up with the arrows.",
   "firstVersion": "Your first change to this element would create a workspace draft; this site has not enabled that here. Open the element in the backend workspace first."
