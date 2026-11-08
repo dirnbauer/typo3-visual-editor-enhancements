@@ -9,6 +9,8 @@ const intentKeys = {
   delete: {childUid: 'required'},
   move: {childUid: 'required', afterUid: 'nullable'},
   sync: {language: 'required', mode: 'mode', ids: 'ids'},
+  duplicate: {childUid: 'required'},
+  restore: {childUid: 'required'},
 };
 
 /**
@@ -16,9 +18,10 @@ const intentKeys = {
  * the client: no child table, pid, sorting, language or live uid leaves the browser.
  *
  * @param {object} field   collection payload (parentTable, parentUid, name, revision)
- * @param {string} action  create | delete | move | sync
+ * @param {string} action  create | delete | move | sync | duplicate | restore
  * @param {object} options create {afterUid?} · delete {childUid} · move {childUid, afterUid: uid|null}
  *                         · sync {language, mode: 'localize'|'synchronize', ids?: [default entry uids], localize only}
+ *                         · duplicate {childUid} (a listed entry) · restore {childUid} (the uid a 'deleted' row shows)
  */
 export function collectionIntent(field, action, options = {}) {
   const keys = intentKeys[action];
