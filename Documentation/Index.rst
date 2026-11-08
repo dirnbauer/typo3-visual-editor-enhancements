@@ -14,7 +14,7 @@ Visual Editor Enhancements
     webconsulting/visual-editor-enhancements
 
 :Version:
-    1.6.1
+    1.7.0
 
 :Language:
     en

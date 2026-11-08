@@ -7,6 +7,7 @@ namespace Webconsulting\VisualEditorEnhancements\Tests\Functional\Backend\Contro
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use Webconsulting\VisualEditorEnhancements\Service\CollectionFieldIndex;
+use Webconsulting\VisualEditorEnhancements\Service\EditorRecordContext;
 use Webconsulting\VisualEditorEnhancements\Service\FieldOptionsService;
 use Webconsulting\VisualEditorEnhancements\Service\InlineRecordService;
 
@@ -53,6 +54,34 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
         foreach ($field['children'] as $entry) {
             self::assertSame(['controls', 'controls'], [$entry['hideReason'], $entry['deleteReason']], 'A disabled control always carries the reason controls');
         }
+    }
+
+    #[Test]
+    public function levelLinksPositionIsPublishedOnlyWhenTheFieldSetsIt(): void
+    {
+        // No references into $GLOBALS['TCA'] here: FormEngine copies the TCA into
+        // processedTca and would write its resolved defaults back through them.
+        unset($GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['appearance']);
+        $form = $this->get(EditorRecordContext::class)->compile('tt_content', 1, $this->request());
+        self::assertSame('top', $form['processedTca']['columns']['vee_items']['config']['appearance']['levelLinksPosition'], 'FormEngine resolves a missing value to top');
+        self::assertSame('bottom', $this->field()['levelLinksPosition'], 'Not set: after the last entry, where Core appends (one write, no move)');
+
+        foreach (['top', 'bottom', 'both'] as $position) {
+            $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['appearance'] = ['levelLinksPosition' => $position];
+            self::assertSame($position, $this->field()['levelLinksPosition'], 'Explicit ' . $position);
+        }
+        $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['appearance'] = ['levelLinksPosition' => 'nonsense'];
+        self::assertSame('bottom', $this->field()['levelLinksPosition'], 'Unknown values fall back to after the last entry');
+
+        // Core's TCA migration turns "none" into showNewRecordLink = false: no add button.
+        $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['appearance'] = ['levelLinksPosition' => 'top', 'showNewRecordLink' => false];
+        $field = $this->field();
+        self::assertSame(['none', 'controls'], [$field['levelLinksPosition'], $field['createReason']]);
+
+        // The record type's columnsOverrides win over the column.
+        $GLOBALS['TCA']['tt_content']['columns']['vee_items']['config']['appearance'] = ['levelLinksPosition' => 'bottom'];
+        $GLOBALS['TCA']['tt_content']['types']['text']['columnsOverrides']['vee_items']['config']['appearance']['levelLinksPosition'] = 'both';
+        self::assertSame('both', $this->field()['levelLinksPosition']);
     }
 
     #[Test]
@@ -134,7 +163,7 @@ final class InlineCapabilityPayloadTest extends InlineRecordTestCase
         self::assertSame(['markForDeletion', 'discard'], array_column($field['children'], 'verb'));
         $removed = $this->act($field, 'delete', 10);
         self::assertSame(200, $removed[0], json_encode($removed, JSON_THROW_ON_ERROR));
-        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 0], $removed[1]['deleted']);
+        self::assertSame(['uid' => 10, 'verb' => 'markForDeletion', 'translations' => 0, 'children' => 0, 'files' => 0], $removed[1]['deleted']);
 
         $field = $this->field();
         $placeholder = array_values(array_filter($field['children'], static fn(array $child): bool => $child['state'] === 'deleted'));

@@ -35,13 +35,18 @@ row (always visible on touch screens):
 *   **Remove** - also :kbd:`Delete` on a focused row button (not inside the
     title field). Asks first; the
     question counts what goes with the entry ("Also removes 3 translations
-    (Deutsch, 中文, Magyar)").
-*   **More actions** - *Item settings* (the entry's own choice fields and
-    nested collections), *Edit in form* (TYPO3's contextual form for media
-    and rich text) and *Open backend form*.
+    (Deutsch, 中文, Magyar)", "Also removes 2 nested entries, 1 image
+    reference. The files stay in the file list."). A removal the site's
+    limits refuse names the limit (``cascadeReason``).
+*   **More actions** - *Duplicate* (since 1.7.0, when the server offers it:
+    the copy lands right below the entry and takes the focus), *Item
+    settings* (the entry's own choice fields and nested collections), *Edit
+    in form* (TYPO3's contextual form for media and rich text) and *Open
+    backend form*.
 
 Badges say what the page cannot: *Hidden*, *New in draft*, *Changed in
-draft*, *Marked for deletion* (listed read-only) and *Unsaved* when the
+draft*, *Marked for deletion* (with **Undo removal** where the server offers
+it, since 1.7.0) and *Unsaved* when the
 title or visibility waits for Save. A refused action stays focusable; with
 the keyboard on it the row shows why.
 
@@ -124,9 +129,10 @@ owner, table discriminator and match fields. Min/max and disabled controls
 are checked again before writing.
 
 FAL, MM, selector/unique relations, child type selectors and special relation
-configurations use backend forms. Deleting entries with media or nested
-children also uses the backend fallback until those cascade permissions are
-proven. Translations are described in :ref:`collections-translations`.
+configurations use backend forms. Removing an entry with media or nested
+entries is checked record by record before Core deletes them
+(:ref:`collections-cascade`). Translations are described in
+:ref:`collections-translations`.
 
 .. _collections-workspace:
 
@@ -162,9 +168,8 @@ synchronize (for example the child tables of Content Blocks collections) get
 no draft this way, so an undrafted translation there neither refuses the
 action nor is announced as a first draft.
 
-``firstVersion = 0`` (default) refuses these actions before any write with the
-reason ``firstVersion``; open the element in the backend workspace first.
-``firstVersion = 1`` allows them under a narrowed invariant, verified inside
+``firstVersion = 1`` (default since 1.7.0) allows them under a narrowed
+invariant, verified inside
 the transaction: for each record that gets its first draft in this request,
 only the sorting column of its relation members (renumbered consecutively, in
 the same order) and their ``tstamp`` may change; records that already had a
@@ -172,12 +177,15 @@ draft, translations outside these relations, every content, owner, language,
 visibility, deletion and PID column, the member sets and the order stay
 byte-identical. Anything else rolls back with ``workspaceLiveChange``.
 Relations deeper than three levels are refused (``workspace``).
+``firstVersion = 0`` restores the refusal of 1.6: these actions are refused
+before any write with the reason ``firstVersion``; open the element in the
+backend workspace first.
 
 These live ``tstamp`` changes are real writes. Caches, the reference index or
 integrations that watch child tables (for example a Solr index queue or
 webhooks) may react to them, as they do to the same bookkeeping of a backend
-save. Stored sorting values are renumbered. Enable ``firstVersion`` where that
-is acceptable.
+save. Stored sorting values are renumbered. Set ``firstVersion = 0`` where
+that is not acceptable.
 
 Visibility and title changes are not structural and need no parent draft.
 For an entry without nested entries or media of its own Core versions the
@@ -306,20 +314,106 @@ Workspaces in the inspector
 
 In a workspace the context line reads *Workspace draft «name»*, so a parked
 workspace is never a surprise. Rows show *New in draft* and *Changed in
-draft*; entries marked for deletion stay listed read-only with *Marked for
-deletion* (undoing it is the Workspaces module's job for now). Removal says
-that the deletion is staged until publication.
+draft*; entries marked for deletion stay listed with *Marked for deletion*
+and can be restored (:ref:`collections-restore`). Removal says that the
+deletion is staged until publication.
 
 When the element has no draft yet, the next add, move or remove creates its
 first draft. With ``firstVersion = 0`` these actions are refused up front:
 the controls are unavailable and explain it ("Your first change to this
 element would create a workspace draft; ..."), and the context line does not
-promise a first draft. With ``firstVersion = 1`` the context line says that
+promise a first draft. With ``firstVersion = 1`` (the default) the context line says that
 the next add, move or remove creates the first draft; the action succeeds
 and the status adds *Draft created. Core renumbered the stored order values;
 the visible order is unchanged.* Titles are always editable. The visibility
 switch is too, except on a live entry with nested entries or media of its
 own under ``firstVersion = 0`` (see :ref:`collections-workspace`).
+
+.. _collections-duplicate-restore:
+
+Duplicate, undo removal, nested removal
+=======================================
+
+New in 1.7.0. All three are server intents under the same lock, revision,
+transaction and live-row checks as add, move and remove.
+
+.. _collections-duplicate:
+
+Duplicate
+---------
+
+``duplicate`` copies one listed entry with Core's ``copy`` command and places
+the copy directly after it (the page module's paste position), then
+registers it in the parent's inline list the way *Add* does, which renumbers
+the entries' sorting. In live, with ``createHidden = 1``, the copy starts
+hidden like a new entry; otherwise it keeps the source's visibility (and
+Core's ``hideAtCopy``/``prependAtCopy`` apply as usual). In a workspace the
+copy is a new draft. The copy is made in the entry's own language only:
+translations of the source are not copied, so the copy shows *Not translated
+here* and *Sync translations* adds them.
+
+Only leaf entries are duplicated: an entry with nested entries or media of
+its own is refused ``copyUnsupported`` (Core would copy them along), as is
+every entry below a connected translation (the copy would diverge from the
+source language's structure). The collection must have room (``max``) and the
+editor must be able to add entries (``rights``, ``language``, ``hidden``).
+``enabledControls.new = false``, ``showNewRecordLink = false`` or page
+TSconfig ``duplicate = 0`` refuse it with ``controls``.
+
+.. _collections-restore:
+
+Undo removal
+------------
+
+A removal in a workspace leaves a delete placeholder; the inspector lists it
+under the entry's live uid with ``state: deleted``, after the entry that
+precedes it in live order (the removal's list write renumbered the later
+entries' drafts, so the placeholder's own sorting value no longer tells its
+place). ``restore`` with that uid
+undoes the removal: the server looks up this workspace's delete placeholder
+itself, together with the placeholders Core's cascade left on the entry's
+translations, and runs Core's ``discard`` on them. Core discards the nested
+members' placeholders with it. A version uid is never accepted from the
+browser.
+
+Discarding a placeholder drops the entry's draft in this workspace, with any
+unpublished change it carried; the entry returns as it is in live, with its
+stored sorting value. Below an element that has a draft here, a leaf entry is
+drafted again right away (Core's ``version`` command) and the element's
+draft takes it back at the listed place, so it returns where it was and add,
+move and remove stay available. An entry with nested members is not drafted again
+(Core would version its members with live bookkeeping); the collection then
+reports ``workspace`` until the element is reopened in the backend
+workspace, exactly as after a discard in the Workspaces module.
+
+Removals in live are final (``restoreLive``): Core's ``undelete`` restores no
+relations reliably, and every removal asks first.
+
+.. _collections-cascade:
+
+Removing entries with nested entries or media
+---------------------------------------------
+
+Core deletes an entry together with the members of its inline and file
+relations (unless the relation sets ``behaviour.enableCascadingDelete =
+false``), their translations and, recursively, their own members; file
+relations lose their ``sys_file_reference`` rows while the files stay. Before
+offering *Remove*, the server walks exactly these records and checks each one
+as DataHandler will: the table in ``tables_modify``, edit access including the
+language, content-edit permission on its page within the editor's mounts, and
+the same database connection (one transaction). In a workspace Core marks the
+same records for deletion.
+
+The walk is bounded by page TSconfig ``cascade.maxDepth`` (default ``3``
+levels below the entry) and ``cascade.maxRecords`` (default ``50`` nested
+records and file references in one removal). The payload counts what goes
+with the entry (``cascade.children``, ``cascade.files``) so the confirmation
+can name it. A refusal keeps ``deleteReason = cascade`` and adds
+``cascadeReason``: ``depth``, ``records`` (``cascade.truncated`` is true: the
+counts are incomplete), ``rights`` (one dependent fails a check) or
+``disabled`` (``cascade.enabled = 0`` restores 1.6's refusal of every entry
+with dependents). Nested relations are not covered by the collection lock;
+concurrent edits of them are Core-level, as in the backend form.
 
 .. _collections-row-markers:
 
@@ -368,6 +462,52 @@ and the rendering that contains editable text is the one the editor uses.
 Nested collections work the same way; an entry belongs to the nearest
 enclosing marked entry, or to the content element.
 
+.. _collections-on-page:
+
+The on-page layer (row toolbar and add button)
+----------------------------------------------
+
+Marked entries can also be changed on the page, per user
+(:confval:`tx_visualeditor_collectionRows`, :ref:`usage-entries-on-page`;
+default ``panel``, since 1.7.0). Both controls are body-level elements of
+this extension - ``ve-row-actions`` (the toolbar, one for the page) and
+``ve-row-appender`` (the add buttons of the pointed element) - positioned
+over the page; nothing is inserted into the template or into the Visual
+Editor's element wrapper, and no Visual Editor code is patched.
+
+*   The toolbar belongs to the entry's primary rendering (the marker with
+    editable text). It opens on pointer hover and when the focus enters the
+    entry, closes 150 ms after both left (staying while the pointer or the
+    focus is inside it) and offers the inspector row's actions with the same
+    intents, reasons and confirmations. Nested entries get their own
+    toolbar; their collection is resolved through the same payload chain as
+    *Item settings*.
+*   The appender sits after the last entry unless the field sets
+    ``levelLinksPosition``: TCA ``appearance.levelLinksPosition = top`` puts
+    it before the first entry, ``both`` shows two, and a field without a
+    new-record link (``showNewRecordLink = false``; Core migrates
+    ``levelLinksPosition = none`` to that) shows none. The server publishes
+    ``levelLinksPosition`` only from the field's own TCA (or its record
+    type's ``columnsOverrides``), not FormEngine's default ``top``: an add
+    button above the first entry costs two writes (Core's append, then one
+    ``move`` to the first position), one after the last entry costs one. A
+    payload without the key means after the last entry. At the maximum the
+    button stays, refused with the reason. The button never straddles the
+    element's edge: it sits in the gap between the entries and the edge of
+    the content element when the gap holds it, otherwise just outside that
+    edge (nothing is inserted to make room).
+*   Keyboard: no :kbd:`Tab` handling at all. :kbd:`Escape` inside the
+    toolbar returns the focus to the entry, :kbd:`←`/:kbd:`→`,
+    :kbd:`Home`/:kbd:`End` move between its buttons. The inspector remains
+    the complete keyboard and screen-reader path.
+*   The toolbar is placed above the entry, right-aligned, inside its top
+    edge when there is no room above; it follows the entry every animation
+    frame while shown (scrolling, sliders and other transformed containers)
+    and steps aside while the entry is outside the viewport or clipped by a
+    slider's viewport.
+*   Hovering an inspector row still only outlines the page row (mirror
+    highlight); the toolbar answers the page alone.
+
 Without markers everything keeps working: hidden entries are dimmed through
 their editable texts once the panel has loaded them, and there is no row
 highlight. Markers add attributes only - the editor never inserts elements
@@ -378,8 +518,8 @@ into the page or guesses row boundaries from the layout.
 What it does not do
 ===================
 
-Honest limits of 1.6.1. Items marked 1.7 are planned; the rest follow from
-how TYPO3 or the Visual Editor work.
+Honest limits of 1.7.0. Items marked 1.7 are still planned for this
+release; the rest follow from how TYPO3 or the Visual Editor work.
 
 ..  list-table::
     :header-rows: 1
@@ -397,20 +537,28 @@ how TYPO3 or the Visual Editor work.
         -   not possible
         -   Entries have no wrapper of their own and Content Blocks has no hook
             to add one; guessing rows from the layout is not done.
-    *   -   On-page row toolbar and "add" ghost row, marker codemod for desiderio
-        -   1.7
-        -   ``f:mark.item`` ships now (:ref:`collections-row-markers`); the
-            on-page layer will be a per-user option.
-    *   -   Duplicate an entry
-        -   1.7
-        -   Core ``copy`` plus the parent's inline list, leaf entries only.
-    *   -   Removing entries with nested entries or media
-        -   1.7
-        -   Refused (``cascade``) until a bounded preflight checks rights on
-            every dependent record; use the backend form.
-    *   -   Undo removal of a workspace delete placeholder
-        -   1.7
-        -   Listed read-only in the inspector; the Workspaces module discards it.
+    *   -   On-page row toolbar and add button without ``f:mark.item``
+            markers, for nested collections' add buttons, or by keyboard
+        -   panel only
+        -   The layer (:ref:`collections-on-page`, since 1.7.0) reads markers
+            only, offers add buttons for top-level collections and is
+            pointer chrome; the entries panel covers the rest.
+    *   -   Duplicate an entry with nested entries or media, or below a
+            connected translation
+        -   backend form
+        -   Core's copy would copy the members along or diverge from the
+            source language (``copyUnsupported``); leaf entries are duplicated
+            since 1.7.0 (:ref:`collections-duplicate`).
+    *   -   Removing entries with deeper or larger nested structures than
+            ``cascade.maxDepth`` / ``cascade.maxRecords``
+        -   backend form
+        -   Bounded on purpose (``cascade`` with ``depth``/``records``);
+            within the bounds removal is offered since 1.7.0
+            (:ref:`collections-cascade`).
+    *   -   Undo removal keeps the entry's earlier draft changes
+        -   not possible
+        -   Core's discard drops the whole draft of the entry
+            (:ref:`collections-restore`).
     *   -   Undo after a removal in live
         -   not offered
         -   Core's undelete is live-only and does not restore relations
@@ -428,10 +576,10 @@ how TYPO3 or the Visual Editor work.
         -   backend form
         -   Named in the panel (``required``, ``requiredBackend``) with a link.
     *   -   First workspace draft by default
-        -   ``firstVersion = 0``
-        -   Opt-in per page TSconfig; the default flips only after the owner's
-            written decision. Under ``0`` the visibility switch of a live entry
-            with nested members is refused as well.
+        -   ``firstVersion = 1`` since 1.7.0
+        -   The owner's written decision (2026-11-08); ``firstVersion = 0``
+            restores the refusal. Under ``0`` the visibility switch of a live
+            entry with nested members is refused as well.
     *   -   Live ``tstamp`` writes under ``firstVersion = 1`` are harmless for
             every consumer
         -   cannot be proven
@@ -479,8 +627,17 @@ configuration can restrict it further:
         syncTranslations = 1
         # localize | synchronize: the inspector's default sync mode
         syncDefaultMode = localize
-        # 1: allow the first workspace draft (narrowed live-row invariant)
-        firstVersion = 0
+        # 1 (default since 1.7.0): allow the first workspace draft under the
+        # narrowed live-row invariant; 0 refuses it (reason firstVersion)
+        firstVersion = 1
+        # 0: no Duplicate (1.6)
+        duplicate = 1
+        cascade {
+            # 0: refuse every entry with nested entries or media (1.6)
+            enabled = 1
+            maxDepth = 3
+            maxRecords = 50
+        }
         tables.feature_cards_items.enabled = 1
     }
 
@@ -523,6 +680,12 @@ reason key (``frontend.inlineRecords.<reason>``).
             A column without ``maxitems`` resolves to Core's 99999, and any
             value of 99999 or more is published as ``0``; create's ``max``
             refusal and the sync preflight's ``max`` use the same rule.
+    *   -   ``levelLinksPosition``
+        -   Where the on-page add button sits: ``top``, ``bottom`` or ``both``
+            when the field (or its record type's ``columnsOverrides``) sets TCA
+            ``appearance.levelLinksPosition``, otherwise ``bottom`` (not
+            FormEngine's default ``top``); ``none`` when the field hides its
+            new-record link (``showNewRecordLink = false``). Since 1.7.0.
     *   -   ``canSort``, ``sortReason``
         -   Whether entries can be reordered: ``unsorted`` when the child table
             has no sorting column, ``controls`` when the field disables both
@@ -558,7 +721,8 @@ reason key (``frontend.inlineRecords.<reason>``).
     *   -   ``state``
         -   ``live``, ``new`` (created in this workspace), ``modified`` (has a
             draft here) or ``deleted`` (a delete placeholder of this workspace,
-            listed read-only under its live uid; not a member of ``uids``).
+            listed under its live uid; not a member of ``uids``; only
+            ``restore`` applies to it).
     *   -   ``label``, ``hidden``
         -   Record title and current visibility.
     *   -   ``canHide``, ``hideReason``
@@ -582,10 +746,24 @@ reason key (``frontend.inlineRecords.<reason>``).
             translation of this row.
     *   -   ``canMoveUp``, ``canMoveDown``
         -   Reordering is possible and the entry is not already first or last.
-    *   -   ``canDelete``, ``deleteReason``, ``verb``, ``cascade``
+    *   -   ``canDelete``, ``deleteReason``, ``verb``, ``cascade``,
+            ``cascadeReason``
         -   Removal capability, the Core verb — ``delete`` (live),
             ``markForDeletion`` (workspace) or ``discard`` (new in this
-            workspace) — and ``{translations, languages}`` removed with it.
+            workspace) — and what goes with it: ``{translations, languages,
+            children, files, truncated}`` (nested records, file references;
+            ``truncated``: the walk stopped at a bound). ``cascadeReason`` is
+            ``depth``, ``records``, ``rights`` or ``disabled`` when
+            ``deleteReason`` is ``cascade``, otherwise empty
+            (:ref:`collections-cascade`).
+    *   -   ``canDuplicate``, ``duplicateReason``
+        -   Whether ``duplicate`` applies (:ref:`collections-duplicate`);
+            ``deleted`` on delete placeholders.
+    *   -   ``canRestore``, ``restoreReason``
+        -   Delete placeholders only: whether ``restore`` applies
+            (:ref:`collections-restore`); ``rights`` when the editor may not
+            discard the placeholder or one of its translations', ``max`` when
+            the collection is full.
 
 Visibility and title are no intents. The inspector stages them in the vendor
 store and the ordinary Save persists them; the generic save guard authorizes
@@ -598,8 +776,9 @@ same refusal the payload shows. Text columns, the title included, are saved
 as always.
 
 The default-language delete check in the payload is the record-level part:
-refuse mode, nested children, and the delete access check of the entry and
-of every active translation. The full compile of each translation (owner
+refuse mode, the bounded cascade preflight of nested members and file
+references, and the delete access check of the entry and of every active
+translation. The full compile of each translation (owner
 chain, page) runs when the delete executes, under the lock, for the removed
 entry only. A Remove the payload offered can therefore be answered ``409
 translations``; the returned collection marks that entry.
@@ -647,7 +826,19 @@ unless noted.
     *   -   ``label``
         -   The title column is not plain text.
     *   -   ``cascade``
-        -   The entry has nested entries or media; removal uses the backend form.
+        -   Removing the entry would take nested entries or media along that
+            the preflight cannot prove: ``cascadeReason`` ``depth`` (deeper
+            than ``cascade.maxDepth``), ``records`` (more than
+            ``cascade.maxRecords``), ``rights`` (one dependent fails the
+            editor's checks) or ``disabled`` (``cascade.enabled = 0``). Each
+            has its own sentence, ``frontend.inlineRecords.cascadeDepth`` and
+            so on. New detail in 1.7.0; before, every such entry was refused.
+    *   -   ``copyUnsupported``
+        -   Duplicate of an entry with nested entries or media, or below a
+            connected translation. New in 1.7.0.
+    *   -   ``restoreLive``
+        -   ``restore`` outside a workspace: live removals are final. New in
+            1.7.0.
     *   -   ``translations``
         -   A translation that goes with the entry cannot be removed by this
             editor, or ``deleteTranslations = refuse``. Also returned at click
@@ -678,7 +869,8 @@ unless noted.
             relation across database connections; collection actions are
             disabled for the table by page TSconfig.
     *   -   ``deleted``
-        -   The entry is a delete placeholder of this workspace (read-only).
+        -   The entry is a delete placeholder of this workspace (only
+            ``restore`` applies).
     *   -   ``busy``, ``stale``, ``membership``, ``record``, ``token``
         -   Another entry operation holds the lock; the collection changed
             since it was loaded; the entry no longer belongs to it; the record
@@ -727,6 +919,17 @@ is rejected. Every intent carries ``action``, ``parentTable``, ``parentUid``,
         -   The parent list in the new order, as FormEngine posts after sorting;
             ``RelationHandler::writeForeignField`` renumbers the members' sorting.
             An unchanged order is a successful no-op without writes.
+    *   -   ``duplicate``
+        -   ``childUid`` (a listed entry)
+        -   Core ``copy`` to ``-uid`` with ``ignoreLocalization``, then the
+            parent list with the copy after its source (and the copy hidden in
+            live under ``createHidden``). Response ``created {uid, table,
+            hidden, hiddenField}`` and ``duplicated {uid}``. New in 1.7.0.
+    *   -   ``restore``
+        -   ``childUid`` (the live uid a ``deleted`` row shows)
+        -   Core ``discard`` of the delete placeholders the server finds, then
+            Core ``version`` of a leaf entry below a drafted element. Response
+            ``restored {uid, translations}``. New in 1.7.0.
 
 The browser never sends a child table, PID, sorting, language, workspace
 fields, live uids or a DataHandler map. A ``childUid``, ``afterUid`` or ``ids``

@@ -44,6 +44,14 @@ ve-editable-rich-text[data-ve-inline-toolbar] .ck-editor__top {
   outline-offset: 2px;
 }
 
+/* The entry the on-page row toolbar belongs to (collectionRows = rows,
+   Frontend/components/ve-row-actions.js): a quiet outline, so the toolbar
+   reads as this entry's. */
+[data-ve-item-current] {
+  outline: 1px solid color-mix(in srgb, var(--ve-t3-primary-text, LinkText) 55%, transparent);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   [data-ve-entry-hidden],
   [data-ve-item-hidden] {

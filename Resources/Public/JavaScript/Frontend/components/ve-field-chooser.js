@@ -7,7 +7,7 @@ import {clamp, translate, viewportSize, ViewportTracker} from '@webconsulting/vi
 import {clearFieldOptionsCache, fetchFieldOptions} from '@webconsulting/visual-editor-enhancements/Shared/field-options-cache.js';
 import {documentSynchronizeIconSvg, linkIconSvg, listIconSvg, workspaceIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import {requestLinkEdit} from '@webconsulting/visual-editor-enhancements/Shared/link-edit-request.js';
-import {collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {collectionMessage, collectionReason, inlineLabel} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
 import {changeCollection, collectionBlockReason, elementHasStagedData, rowBlockReason} from '@webconsulting/visual-editor-enhancements/Frontend/inline-records.js';
 import {deferElementRefresh, refreshElement} from '@webconsulting/visual-editor-enhancements/Frontend/element-refresh.js';
@@ -932,26 +932,11 @@ export class VeFieldChooser extends LitElement {
       const result = await changeCollection(field, action, child, intentOptions);
       if (!result) { return; }
       completed = true;
-      const messages = [];
-      if (action === 'sync') {
-        const language = this.#languageTitles(field).get(Number(result.synced?.language ?? intentOptions.language)) ?? String(intentOptions.language);
-        messages.push(inlineLabel('synced').replace('{language}', language)
-          .replace('{localized}', String(result.synced?.localized ?? 0)).replace('{removed}', String(result.synced?.removed ?? 0)));
-      } else if (action === 'move') {
-        const uids = activeChildren(field).map((entry) => entry.uid);
-        const from = uids.indexOf(child.uid);
-        const position = Number(result.moved?.position ?? (from + (direction === 'up' ? -1 : 1) + 1));
-        messages.push(inlineLabel('movedTo').replace('{position}', String(position)));
-      } else if (field.workspaceId) {
-        messages.push(inlineLabel('savedWorkspace'));
-      } else if (field.createHidden && action === 'create') {
-        messages.push(inlineLabel('savedHidden'));
-      } else {
-        messages.push(inlineLabel('savedLive'));
-      }
-      if (result.workspace?.firstVersion) {
-        messages.push(inlineLabel('draftCreated'));
-      }
+      const from = child ? activeChildren(field).map((entry) => entry.uid).indexOf(child.uid) : -1;
+      const messages = [collectionMessage(action, field, result, {
+        position: from + (direction === 'up' ? -1 : 1) + 1,
+        languageTitle: action === 'sync' ? this.#languageTitles(field).get(Number(result.synced?.language ?? intentOptions.language)) ?? String(intentOptions.language) : '',
+      })];
       // The element shows the change at once unless its own entries have
       // staged text or visibility: then after the next Save (Save now) -
       // refreshElement() remembers it for that save, as it does here while
@@ -965,9 +950,13 @@ export class VeFieldChooser extends LitElement {
       this.message = messages.join(' ');
       await this.refresh();
       this.#rebindTrigger();
-      if (action === 'create') {
+      if (action === 'create' || action === 'duplicate') {
         createdUid = Number(result.created?.uid ?? result.uid ?? 0) || null;
         this.createdUid = createdUid;
+      } else if (action === 'restore' && child) {
+        // The restored entry is listed again under its own uid: keep the
+        // keyboard there (its title, else its first row control).
+        createdUid = child.uid;
       }
     } catch (error) {
       this.message = error.definitive ? error.message : `${error.message} ${inlineLabel('refreshRequired')}`;
@@ -977,7 +966,7 @@ export class VeFieldChooser extends LitElement {
       await this.updateComplete;
       if (createdUid !== null) {
         const row = this.renderRoot.querySelector(`[data-ve-row="${createdUid}"]`);
-        const target = row?.querySelector('.entryTitle, [data-child-edit]');
+        const target = row?.querySelector('.entryTitle, [data-child-edit], .entryActions button');
         target?.focus({preventScroll: true});
         row?.scrollIntoView({block: 'nearest'});
       } else if (completed && action === 'move' && child) {

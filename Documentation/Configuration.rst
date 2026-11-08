@@ -85,6 +85,18 @@ On the *Visual editor* tab of :guilabel:`User settings`:
         the element's action bar, scrolling with it). Unknown values mean
         ``inspector``. See :ref:`usage-entries-layout`.
 
+    ..  confval:: tx_visualeditor_collectionRows
+        :type: string
+        :default: panel
+
+        Whether entries can also be changed on the page (since 1.7.0):
+        ``panel`` (only in the entries panel), ``appender`` (plus an add
+        button after the last entry of each collection) or ``rows`` (plus
+        a row toolbar on the pointed or focused entry). Works for templates
+        that mark their entries with ``f:mark.item``; the entries panel stays
+        the keyboard path. Unknown values mean ``panel``. See
+        :ref:`usage-entries-on-page`.
+
 ..  _configuration-user-install-wide:
 
 Setting a value for a whole group
@@ -99,6 +111,7 @@ logged in before, use Core's User TSconfig ``setup.override``:
     setup.override.tx_visualeditor_actionLabels = inline
     setup.override.tx_visualeditor_inlineRecords = 1
     setup.override.tx_visualeditor_entriesLayout = tray
+    setup.override.tx_visualeditor_collectionRows = rows
 
 Core merges ``setup.override.*`` into the user's stored settings on every
 backend request, and this extension reads those stored settings. The value
@@ -109,11 +122,73 @@ user's choice.
 ``setup.default.*`` does **not** do this. Core applies it only while a
 user's stored settings are empty - a user who has never logged in, or who
 reset their settings. For everyone else Core fills a missing setting with
-its default from the field definition (``0``, ``caption``, ``inspector``
-above), so a ``setup.default`` line added later never reaches them.
+its default from the field definition (``0``, ``caption``, ``inspector``,
+``panel`` above), so a ``setup.default`` line added later never reaches them.
 1.6.0 documented ``setup.default`` here; that recipe did not work for
 existing users. The behaviour is pinned by
 :file:`Tests/Functional/Service/UserSettingsOverrideTest.php`.
+
+..  _configuration-collections:
+
+Collection entries
+==================
+
+The page TSconfig of collection editing lives under
+``tx_visualeditorenhancements.inlineRecords``; the full block and every
+refusal reason are in :ref:`collections-configuration`. The keys whose
+defaults changed or that are new in 1.7.0:
+
+..  confval-menu::
+    :name: configuration-collections-tsconfig
+    :display: table
+    :type:
+    :default:
+
+    ..  confval:: inlineRecords.firstVersion
+        :name: inline-records-first-version
+        :type: boolean
+        :default: 1
+
+        Allow an add, move or remove that creates the element's first
+        workspace draft through Core's auto-versioning, under the narrowed
+        live-row invariant (:ref:`collections-workspace`). Core renumbers the
+        live entries' ``sorting`` (same order) and stamps their ``tstamp``.
+        ``0`` restores the refusal of 1.6 (reason ``firstVersion``). The
+        default changed from ``0`` to ``1`` in 1.7.0.
+
+    ..  confval:: inlineRecords.duplicate
+        :name: inline-records-duplicate
+        :type: boolean
+        :default: 1
+
+        Offer *Duplicate* for leaf entries (:ref:`collections-duplicate`).
+        ``0`` refuses it with ``controls``. New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.enabled
+        :name: inline-records-cascade-enabled
+        :type: boolean
+        :default: 1
+
+        Offer *Remove* for entries with nested entries or media when every
+        record Core deletes with them passes the editor's checks
+        (:ref:`collections-cascade`). ``0`` refuses every such entry
+        (``cascade`` / ``disabled``), as 1.6 did. New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.maxDepth
+        :name: inline-records-cascade-max-depth
+        :type: integer
+        :default: 3
+
+        Nested levels below the entry a removal may reach; deeper structures
+        are refused (``cascade`` / ``depth``). New in 1.7.0.
+
+    ..  confval:: inlineRecords.cascade.maxRecords
+        :name: inline-records-cascade-max-records
+        :type: integer
+        :default: 50
+
+        Nested records and file references one removal may take along; more
+        are refused (``cascade`` / ``records``). New in 1.7.0.
 
 ..  _configuration-field-chooser:
 

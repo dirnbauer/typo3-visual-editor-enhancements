@@ -189,6 +189,31 @@ function applyShortLabels(bar, mode) {
 }
 
 /**
+ * The same labels for a bar of our own (the on-page row toolbar,
+ * Frontend/components/ve-row-actions.js): adopts the shared sheet of the
+ * user's label mode into `root`, scopes it with data-ve-labels and wires the
+ * caption state. The bar needs the `.action-bar` class, its buttons `.button`
+ * and an `aria-label` (or a contained `data-ve-label`).
+ * @param {ShadowRoot} root
+ * @param {Element} bar
+ * @return {'caption'|'inline'|'stacked'|'icons'} the mode applied
+ */
+export function installOwnLabelBar(root, bar) {
+  const mode = actionLabelMode();
+  const labelSheet = sheet(mode);
+  if (!root.adoptedStyleSheets.includes(labelSheet)) {
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, labelSheet];
+  }
+  if (bar.getAttribute('data-ve-labels') !== mode) {
+    bar.setAttribute('data-ve-labels', mode);
+  }
+  if (mode === 'caption') {
+    wireBar(bar);
+  }
+  return mode;
+}
+
+/**
  * Idempotent; called from the shared injection pass (Frontend/index.js) for
  * every content element, after our own buttons were injected.
  * @param {Element} element a ve-content-element

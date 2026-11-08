@@ -6,6 +6,125 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-11-08
+
+Entries on the page, Duplicate, Undo removal, a bounded delete cascade and
+first workspace drafts by default. Collection editing itself stays off by
+default (`tx_visualeditor_inlineRecords = 0`); the on-page layer is a per-user
+opt-in (default `panel`). Each behaviour change below names the key that
+restores 1.6.x.
+
+### Behaviour changes
+
+| Change | Before (1.6.x) | 1.7.0 | Restore |
+|---|---|---|---|
+| First workspace draft of a collection (owner decision D1, 2026-11-08) | page TSconfig `inlineRecords.firstVersion` defaulted to `0`: add, move and remove on an element without a draft in the current workspace were refused (`firstVersion`), as was the eye of a live entry with nested members | defaults to `1`: Core's stock auto-versioning creates the first draft under the narrowed live-row invariant (live content byte-identical; only the sorting of the affected live members is renumbered in the same order and their `tstamp` stamped; anything else rolls back with 409 `workspaceLiveChange`) | `tx_visualeditorenhancements.inlineRecords.firstVersion = 0` |
+| Removing an entry with nested entries or media | refused (`cascade`), backend form | offered when the bounded preflight proves every record Core deletes with it (nested members, their translations, file references; per record `tables_modify`, edit access with language, page content-edit, same connection; within `cascade.maxDepth = 3` and `cascade.maxRecords = 50`); otherwise `cascade` with `cascadeReason` `depth`, `records`, `rights` or `disabled` | `tx_visualeditorenhancements.inlineRecords.cascade.enabled = 0` |
+| Duplicate an entry | not offered (backend form) | *Duplicate* in the row menu and the on-page toolbar for leaf entries (`canDuplicate`/`duplicateReason`) | `tx_visualeditorenhancements.inlineRecords.duplicate = 0` |
+| Entries on the page | entries panel only | User settings > Visual editor > *Entries on the page* (`tx_visualeditor_collectionRows`) offers `appender` and `rows`; the default stays `panel`, so nothing changes until a user opts in | default `panel`; install-wide `setup.override.tx_visualeditor_collectionRows = panel` |
+| Payload key `levelLinksPosition` | not published | `top`, `bottom` or `both` when the field (or its record type's `columnsOverrides`) sets TCA `appearance.levelLinksPosition`, otherwise `bottom` - the appender sits after the last entry unless the field sets `levelLinksPosition` (FormEngine's default `top` would make each add two writes: create + move); `none` when the field hides its new-record link | set `appearance.levelLinksPosition` on the field |
+
+The live `tstamp` and `sorting` writes of a first draft are real writes:
+caches, the reference index or integrations watching child tables (a Solr
+index queue, webhooks) may react to them, exactly as they react to the same
+bookkeeping of a FormEngine save of the element. Set `firstVersion = 0` where
+that is not acceptable.
+
+### Added
+
+- Server intent `duplicate {childUid}`: Core's copy of a leaf entry directly
+  after itself, in its own language only (translations follow by *Sync
+  translations*), registered in the parent's list like *Add*; hidden in live
+  under `createHidden`. Refused `copyUnsupported` for entries with nested
+  entries or media and below connected translations; `max`, `controls`
+  (`enabledControls.new`, `showNewRecordLink`, page TSconfig
+  `inlineRecords.duplicate = 0`) and the add reasons. Response `created {uid,
+  table, hidden, hiddenField}`, `duplicated {uid}`.
+- Server intent `restore {childUid}` for a listed delete placeholder (its live
+  uid): Core's discard of the placeholder the server finds in the current
+  workspace and of those the delete cascade left on the entry's translations;
+  a leaf entry below a drafted element is drafted again (Core `version`) and
+  put back at its place in the element's draft list, so the collection stays
+  editable. A placeholder is listed after the entry that precedes it in live
+  order. Version uids are never accepted. Refused
+  `restoreLive` outside a workspace, `stale`, `rights`, `max`. Discarding drops
+  the entry's earlier draft changes (Core).
+- `InlineCascadePreflight` and the payload keys `cascade.children`,
+  `cascade.files`, `cascade.truncated`, `cascadeReason`, `canDuplicate`,
+  `duplicateReason` and, on delete placeholders, `canRestore`, `restoreReason`;
+  the delete response adds `children` and `files`.
+- Page TSconfig `inlineRecords.duplicate`, `inlineRecords.cascade.enabled`,
+  `.maxDepth`, `.maxRecords`.
+- Reasons `copyUnsupported`, `restoreLive`, `cascadeDepth`, `cascadeRecords`,
+  `cascadeRights`, `cascadeDisabled` in English and German.
+- `collectionIntent(field, 'duplicate' | 'restore', {childUid})` in
+  `Shared/inline-record-actions.js`.
+
+### Added (UI)
+
+- Entries on the page: User settings > Visual editor > *Entries on the page*
+  (`tx_visualeditor_collectionRows` = `panel` | `appender` | `rows`, default
+  `panel`, edit-frame key `collectionRows`). For templates with `f:mark.item`
+  markers, `rows` shows the row toolbar `ve-row-actions` (a body-level
+  singleton) on the pointed or focused entry - move up/down, the staged eye,
+  add after, remove, duplicate, item settings - with the inspector's intents,
+  reasons and confirmations and the action-bar label modes; `appender` (and
+  `rows`) adds a dashed *Add <entry>* button after the last entry of each
+  collection, following `levelLinksPosition` (read from the payload; missing
+  means after the last entry), refused with its reason at the maximum.
+  Nothing is inserted into the template or the Visual Editor's wrapper, Tab is
+  never intercepted, Escape returns the focus to the entry; the toolbar
+  follows sliders and other transformed containers and steps aside off-screen.
+  Unmarked templates get nothing; the entries panel stays the keyboard path.
+- Inspector: *Duplicate* in the row menu (when the payload has
+  `canDuplicate`; refused items stay focusable with `duplicateReason`), *Undo
+  removal* on workspace delete placeholders (`canRestore`/`restoreReason`),
+  focus on the copy or the restored entry afterwards.
+- Remove confirmation counts nested entries and image references besides
+  translations ("Also removes 2 nested entries, 1 image reference. The files
+  stay in the file list."; "Also marks … for deletion" in a workspace; a
+  truncated count says so). A refused removal names its bound
+  (`cascadeReason` `depth`, `records`, `rights`, `disabled`).
+- `Shared/row-actions.js`: the per-entry reasons, move targets, add-button
+  plan and placements shared by the inspector and the on-page layer (pure,
+  node-tested); `collectionMessage()` and `deleteRefusal()` in
+  `Shared/inline-record-actions.js`.
+- Labels for all of it in English and German.
+
+### Fixed (integration)
+
+- The on-page add button never straddles the content element's edge: it sits
+  in the gap between the entries and the element's edge when the gap holds
+  it, otherwise just outside that edge (still no DOM insertion).
+- Nor does it cover the element's other content beyond the entries: a table
+  body below its header cells, a caption below the rows, a tab panel below the
+  tab buttons (lab runtime QA: a click on the first data row of a data table
+  hit *Add column* and created a record). The gap up to that content counts;
+  too small, and the button goes outside the element.
+- Undo removal puts the entry back where it was (see restore above).
+
+### Tests (UI)
+
+- `CollectionRowsModeTest`, `FrontendConfigurationTest` (`collectionRows`),
+  node `row-actions.test.js` and `config.test.js`, component spec
+  `collection-rows-component.spec.js` (toolbar on hover and focus, Escape,
+  add after, duplicate, move, counted remove, staged eye and Reset, appender
+  per `levelLinksPosition` and at the maximum, unmarked templates, panel mode,
+  mirror highlight, transformed containers, nested collections, label modes,
+  axe WCAG 2.2 AA light and dark, screenshots 1280/390 px) and three new
+  field-chooser cases. The CI components job installs axe-core.
+
+### Tests (integration)
+
+- Functional: `levelLinksPosition` publication (unset, explicit, unknown,
+  `showNewRecordLink = false`, `columnsOverrides`); duplicate of an entry
+  created in the current workspace (a new draft of its own after its source,
+  live rows byte-identical) on SQLite and MariaDB.
+- Component specs answer duplicate with the server's real response (`uid`,
+  `created`, `duplicated`, `workspace`); the inspector spec checks the focus
+  lands on the copy; the appender spec checks it never crosses the element's
+  edge; node cases for the placement.
+
 ## [1.6.1] — 2026-11-07
 
 Fixes from the adversarial review of 1.6.0 (23 confirmed findings). Collection

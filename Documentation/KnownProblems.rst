@@ -112,14 +112,14 @@ Add, move or remove is refused in a workspace
 =============================================
 
 The element has no draft in this workspace yet, and page TSconfig
-``firstVersion`` is ``0`` (the default). The context line says so, and
+``firstVersion`` is ``0`` (the default is ``1`` since 1.7.0). The context line says so, and
 **Add**, **Move** and **Remove** are all refused up front: the capability
 payload carries ``createReason``, ``sortReason`` and ``deleteReason``
 ``firstVersion``, so the controls are ``aria-disabled`` with the reason and
 no request is sent. An intent sent anyway (an old tab, a script) is answered
 ``409 firstVersion``; nothing is written either way. Change a text of the
 element first (the Visual Editor versions it), use the backend workspace, or
-allow first drafts with ``firstVersion = 1``
+allow first drafts again with ``firstVersion = 1`` (the default)
 (:ref:`collections-configuration`).
 
 The visibility switch of an entry that has nested entries or media of its
@@ -183,8 +183,9 @@ Remove is disabled for an entry
 ===============================
 
 Its reason is on the row. Common ones: the collection is at its minimum
-(``min``); the entry has nested entries or media (``cascade``, backend form
-until 1.7); a translation of it cannot be removed by this editor
+(``min``); the entry has nested entries or media that cannot all be removed
+here (``cascade``: deeper or more than the TSconfig bounds, or one of them is
+outside your rights); a translation of it cannot be removed by this editor
 (``translations``); the list of this translation follows another language
 (``synchronized``); or this entry's title or visibility is staged (save
 first). With ``deleteTranslations = refuse`` every translated entry is refused

@@ -172,6 +172,27 @@ final class InlineFirstVersionTest extends InlineRecordTestCase
     }
 
     #[Test]
+    public function firstVersionIsAllowedByDefaultUnderTheNarrowedInvariant(): void
+    {
+        // 1.7.0 (D1): no TSconfig at all allows the first draft.
+        $this->setPageTsConfig('');
+        $parent = $this->row(1, 'tt_content');
+        $live = $this->liveItems();
+        $field = $this->field();
+        self::assertSame([true, '', ''], [$field['workspace']['firstVersion'], $field['createReason'], $field['sortReason']]);
+        self::assertSame(['', ''], array_column($field['children'], 'deleteReason'));
+        $created = $this->act($field, 'create');
+        self::assertSame(200, $created[0], json_encode($created, JSON_THROW_ON_ERROR));
+        self::assertSame(['id' => 1, 'firstVersion' => true], $created[1]['workspace']);
+        self::assertSame($parent, $this->row(1, 'tt_content'), 'Live parent byte-identical');
+        $after = $this->liveItems();
+        self::assertSame(['1' => 1, '3' => 2], array_map(static fn(array $row): int => (int)$row['sorting'], $after));
+        foreach ($live as $uid => $row) {
+            self::assertSame(self::withoutBookkeeping($row), self::withoutBookkeeping($after[$uid]), 'Live content of ' . $uid);
+        }
+    }
+
+    #[Test]
     public function firstVersionRefusedWhenTsconfigDisablesIt(): void
     {
         $this->setPageTsConfig('tx_visualeditorenhancements.inlineRecords.firstVersion = 0');

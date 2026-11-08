@@ -64,7 +64,9 @@ Per backend user, on the *Visual editor* tab of User settings:
 `tx_visualeditor_showLibrary`, `tx_visualeditor_showContextButtons`,
 `tx_visualeditor_fieldChooserMode` (`tabs` | `sections` | `disabled`),
 `tx_visualeditor_panelColumns`, `tx_visualeditor_inlineRecords` (off by
-default), `tx_visualeditor_actionLabels`, `tx_visualeditor_entriesLayout`.
+default), `tx_visualeditor_actionLabels`, `tx_visualeditor_entriesLayout`,
+`tx_visualeditor_collectionRows` (`panel` | `appender` | `rows`, entries on
+the page, since 1.7.0).
 To set one for a whole editor group, existing users included, use User
 TSconfig `setup.override.<setting>` (it then wins over the user's choice);
 `setup.default.<setting>` only seeds users who have never logged in.
@@ -119,7 +121,10 @@ a menu (item settings, Core's form, translations); titles and visibility are
 staged and saved with the page, while add, move and remove save at once.
 Translations follow FormEngine (translation-only entries, counted removal of
 translations, *Sync translations*), workspaces work on existing drafts, and a
-first workspace draft is a page-TSconfig opt-in (`firstVersion`, off by default).
+first workspace draft is allowed under a narrowed live-row invariant since 1.7.0
+(page TSconfig `firstVersion = 0` restores the refusal). Since 1.7.0 the server
+also duplicates leaf entries, undoes removals staged in a workspace and removes
+entries with nested entries or media within checked bounds.
 Three panel layouts (inspector, tray, anchored) are a user setting. Details,
 limits and every TSconfig key: [Collection entries](Documentation/Collections.rst).
 

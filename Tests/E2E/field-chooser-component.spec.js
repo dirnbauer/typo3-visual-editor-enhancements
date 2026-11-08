@@ -19,7 +19,7 @@ const collection = {name: 'cards', label: 'Cards', type: 'inline', parentTable: 
   translationLanguages: [], canSync: false, syncReason: 'syncNone',
   children: [entry(2, '<script>Entry</script>', {canMoveUp: false}), entry(3, 'Second', {hidden: true}), entry(4, 'Third', {canMoveDown: false})]};
 
-async function fixture(page, {mode = 'tabs', slow = false, fail = false, view = 'settings', field = {}, response = {}} = {}) {
+async function fixture(page, {mode = 'tabs', slow = false, fail = false, view = 'settings', field = {}, response = {}, afterSave = null} = {}) {
   const imports = {'lit': '/core/lit/index.js', 'lit/': '/core/lit/', 'lit-element/': '/core/lit-element/', 'lit-html': '/core/lit-html/lit-html.js',
     'lit-html/': '/core/lit-html/', '@lit/reactive-element': '/core/@lit/reactive-element/reactive-element.js', '@lit/reactive-element/': '/core/@lit/reactive-element/',
     '@webconsulting/visual-editor-enhancements/': '/extension/', '@typo3/visual-editor/Frontend/stores/data-handler-store': '/vendor/Frontend/stores/data-handler-store.js',
@@ -41,7 +41,7 @@ async function fixture(page, {mode = 'tabs', slow = false, fail = false, view = 
     }
     if (url.searchParams.has('veFieldOptions')) {
       if (slow && url.searchParams.get('uid') === '1') { await new Promise(resolve => setTimeout(resolve, 150)); }
-      const fields = url.searchParams.get('table') === 'items' ? [choice('Child choice', 0)] : [choice('First', 1), {...collection, ...field}];
+      const fields = url.searchParams.get('table') === 'items' ? [choice('Child choice', 0)] : [choice('First', 1), {...collection, ...field, ...(afterSave && posts.length ? afterSave : {})}];
       await route.fulfill({json: {fields}}); return;
     }
     if (url.pathname === '/messaging.js') {
@@ -821,4 +821,81 @@ test('screenshots: workspace strip and a translated parent', async ({page}) => {
     await page.screenshot({path: `${screenshotDir}/entries-sync-menu-tray-1280-${scheme}.png`});
     await page.unrouteAll({behavior: 'wait'});
   }
+});
+
+/* ------------------------------------------------------------------------
+ * 1.7: Duplicate, Undo removal, counted cascade (WP-Q, UI part).
+ * --------------------------------------------------------------------- */
+
+test('Duplicate in the row menu posts the entry and focuses the copy; a refusal stays explained', async ({page}) => {
+  const children = [
+    entry(2, 'Add a card', {canMoveUp: false, canDuplicate: true}),
+    entry(3, 'Second', {canDuplicate: false, duplicateReason: 'copyUnsupported'}),
+    entry(4, 'Third', {canMoveDown: false})];
+  // The server's real success shape (InlineDuplicateTest): created + duplicated.
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: {children},
+    response: {uid: 9, created: {uid: 9, table: 'items', hidden: true, hiddenField: 'hidden'}, duplicated: {uid: 2},
+      workspace: {id: 0, firstVersion: false}},
+    afterSave: {revision: 'r2', uids: [2, 9, 3, 4], children: [children[0], entry(9, 'Add a card', {hidden: true, canDuplicate: true}), ...children.slice(1)]}});
+  // An older server publishes no canDuplicate: no Duplicate item at all.
+  await row(page, 4).getByRole('button', {name: /^More actions/}).click();
+  await expect(page.getByRole('menuitem', {name: 'Duplicate'})).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // Refused: aria-disabled with the reason, never a write.
+  await row(page, 3).getByRole('button', {name: /^More actions/}).click();
+  const refused = page.getByRole('menuitem', {name: /^Duplicate/});
+  await expect(refused).toHaveAttribute('aria-disabled', 'true');
+  await expect(refused).toContainText('Only entries without nested entries or media can be duplicated here');
+  await refused.click({force: true});
+  expect(posts).toHaveLength(0);
+  await page.keyboard.press('Escape');
+  // Allowed: one duplicate intent; the message is status text, not a button.
+  await row(page, 2).getByRole('button', {name: /^More actions/}).click();
+  await page.getByRole('menuitem', {name: 'Duplicate'}).click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].inlineRecord).toEqual({action: 'duplicate', parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1', childUid: 2});
+  const status = page.locator('ve-field-chooser .notice[role="status"]');
+  // (This fixture renders no element on the page, hence the refresh hint after it.)
+  await expect(status).toHaveText(/^Copy added below the original\. It starts hidden: show it with the eye, then Save\./);
+  expect(await status.evaluate((node) => node.closest('button') === null && node.querySelector('button') === null)).toBe(true);
+  // The copy (created.uid) is listed after its original and has the keyboard.
+  await expect.poll(() => page.evaluate(() => document.querySelector('ve-field-chooser').shadowRoot.activeElement?.closest('[data-ve-row]')?.dataset.veRow)).toBe('9');
+  await expect(page.locator('ve-field-chooser [data-ve-row]')).toHaveCount(4);
+});
+
+test('Undo removal on a workspace placeholder posts restore; refused placeholders explain why', async ({page}) => {
+  const placeholder = (uid, label, overrides) => entry(uid, label, {state: 'deleted', canDelete: false, deleteReason: 'deleted', canHide: false,
+    hideReason: 'deleted', canEditLabel: false, labelReason: 'deleted', canMoveUp: false, canMoveDown: false, ...overrides});
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: {workspaceId: 4, workspace: {id: 4, title: 'Staging', firstVersion: false},
+    uids: [2], children: [entry(2, 'Kept', {canMoveUp: false, canMoveDown: false}), placeholder(3, 'Gone', {canRestore: true}),
+      placeholder(5, 'Gone in live', {canRestore: false, restoreReason: 'restoreLive'})]}});
+  const undo = row(page, 3).getByRole('button', {name: 'Undo removal'});
+  await expect(undo).toBeVisible();
+  await expect(row(page, 3).getByText('Marked for deletion', {exact: true})).toBeVisible();
+  const refused = row(page, 5).getByRole('button', {name: 'Undo removal'});
+  await expect(refused).toHaveAttribute('aria-disabled', 'true');
+  await expect(refused).toHaveAttribute('title', /Removals on the live site are final/);
+  await refused.click({force: true});
+  expect(posts).toHaveLength(0);
+  await undo.click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].inlineRecord).toEqual({action: 'restore', parentTable: 'tt_content', parentUid: 1, field: 'cards', revision: 'r1', childUid: 3});
+  await expect(page.locator('ve-field-chooser .notice[role="status"]')).toHaveText(/^Removal undone\. The entry is back in this workspace draft\./);
+});
+
+test('a cascading remove names translations, nested entries and image references in the Core modal', async ({page}) => {
+  const posts = await fixture(page, {view: 'entries', mode: 'sections', field: {
+    translationLanguages: [{id: 1, title: 'Deutsch'}, {id: 2, title: 'Magyar'}],
+    children: [entry(2, 'Pro plan', {canMoveUp: false, cascade: {translations: 2, languages: [1, 2], children: 4, files: 1, truncated: false}}),
+      entry(3, 'Too deep', {canDelete: false, deleteReason: 'cascade', cascadeReason: 'depth'}), entry(4, 'Third', {canMoveDown: false})]}});
+  const messages = [];
+  page.on('dialog', (dialog) => { messages.push(dialog.message()); dialog.accept(); });
+  const refused = row(page, 3).getByRole('button', {name: 'Remove'});
+  await expect(refused).toHaveAttribute('aria-disabled', 'true');
+  await expect(refused).toHaveAttribute('title', 'This entry\'s nested entries go deeper than this site allows for a removal here. Use the backend form.');
+  await row(page, 2).getByRole('button', {name: 'Remove'}).click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(messages[0]).toBe('Remove “Pro plan”? Also removes 2 translations (Deutsch, Magyar). Also removes 4 nested entries, 1 image reference. '
+    + 'The files stay in the file list. It disappears from the live site immediately. Reset does not undo this operation.');
+  expect(posts[0].inlineRecord).toMatchObject({action: 'delete', childUid: 2});
 });

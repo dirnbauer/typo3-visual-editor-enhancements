@@ -164,6 +164,59 @@ Working with the rows
 *   If the entries cannot be loaded - usually because the editing session
     expired - :guilabel:`Entries` opens the panel with "Could not load
     entries. Open the backend form."; reload the page.
+*   :guilabel:`More actions` > :guilabel:`Duplicate` copies an entry right
+    below itself (since 1.7.0). On the live site the copy starts hidden like
+    a new entry. Entries with nested entries or media, and entries of a
+    connected translation, keep the item unavailable with the reason.
+*   In a workspace, an entry you removed stays listed as *Marked for
+    deletion* with :guilabel:`Undo removal` (since 1.7.0). Undoing drops the
+    entry's draft in this workspace: it returns as it is on the live site.
+*   :guilabel:`Remove` asks first and counts what goes with the entry:
+    translations, nested entries and image references ("Also removes 2
+    nested entries, 1 image reference. The files stay in the file list.").
+    When the site's limits refuse it, the button stays unavailable and says
+    which limit (too deep, too many records, no right to remove a nested
+    entry, or switched off).
+
+..  _usage-entries-on-page:
+
+Entries on the page
+===================
+
+:confval:`tx_visualeditor_collectionRows` (User settings > Visual editor >
+Entries on the page, since 1.7.0) adds controls right on the page, for
+templates that mark their entries (:ref:`collections-row-markers`):
+
+``panel`` (default)
+    Nothing on the page; entries are changed in the entries panel.
+
+``appender``
+    While you point at an element or work in it, a dashed
+    :guilabel:`Add feature card` button sits after the last entry of each
+    collection (before the first, :guilabel:`Add feature card at the start`,
+    when the collection's backend form puts its "Create new" link at the
+    top). It adds an entry and puts the cursor into it. At the maximum it
+    stays visible, marked unavailable with the reason.
+
+``rows``
+    The add button, plus a small toolbar above the entry you point at or
+    type in: :guilabel:`Move up`, :guilabel:`Move down`, :guilabel:`Visible
+    on the live site`, :guilabel:`Add after`, :guilabel:`Remove`,
+    :guilabel:`Duplicate` and :guilabel:`Item settings` - the same actions,
+    reasons and confirmations as in the panel. Its buttons show their names
+    the way the action bar does (:ref:`usage-action-bar-labels`). A short
+    note under it says what an action did.
+
+The toolbar is for the pointer. The keyboard never lands in it by
+:kbd:`Tab` - :kbd:`Tab` moves on through the page as before - and
+:kbd:`Escape` inside it returns the cursor to the entry. Every action stays
+available in the entries panel, which is the way for the keyboard and for
+screen readers.
+
+Entries of templates without markers get neither the toolbar nor the add
+button. The toolbar follows its entry when the page scrolls or a slider
+moves, and steps aside while the entry is outside the window or hidden by
+the slider.
 
 ..  _usage-links:
 

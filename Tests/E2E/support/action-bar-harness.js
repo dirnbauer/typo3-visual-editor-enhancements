@@ -97,25 +97,29 @@ export const collectionField = (overrides = {}) => ({name: 'cards', label: 'Feat
   translationLanguages: [], canSync: false, syncReason: 'syncNone', hiddenPerLanguage: false,
   children: [entry(2, 'Add a card', {canMoveUp: false}), entry(3, 'Export anywhere', {canMoveDown: false})], ...overrides});
 
-function element(uid, cType, name, inner) {
+export function element(uid, cType, name, inner) {
   return `<ve-content-element id="tt_content:${uid}" table="tt_content" uid="${uid}" pid="1" colPos="0" CType="${cType}" elementName="${name}"
     canModifyRecord hiddenFieldName="hidden"><div class="ce"><h2>${name}</h2>${inner}</div></ve-content-element>`;
 }
 
 /**
  * @param {import('@playwright/test').Page} page
- * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean, layout?: 'inspector'|'tray'|'anchored', htmlLang?: string|null, veInfo?: object}} options
+ * @param {{mode?: string, collectionTypes?: object|null, lang?: 'en'|'de', scheme?: 'light'|'dark', field?: object, inlineRecords?: boolean, markers?: boolean, layout?: 'inspector'|'tray'|'anchored', htmlLang?: string|null, veInfo?: object, collectionRows?: string, body?: ((state: object) => string)|null, payload?: ((url: URL, state: object) => object[]|null)|null, save?: ((body: object, state: object) => object|null)|null, css?: string}} options
  *   veInfo: extra window.veInfo keys (e.g. actionBarLabels: true for a vendor that renders its own labels)
+ *   collectionRows: the user's on-page row layer mode (panel | appender | rows)
+ *   body/payload/save: replace the page content, the ?veFieldOptions fields or the /save answer (null = the default)
  * @return {Promise<{posts: object[], state: {created: boolean}}>}
  */
 export async function actionBarHarness(page, {mode = 'caption', collectionTypes = {tt_content: {feature_cards: ['cards']}}, lang = 'en',
-  scheme = 'light', field = {}, inlineRecords = true, markers = false, layout = 'inspector', htmlLang = null, veInfo = {}} = {}) {
+  scheme = 'light', field = {}, inlineRecords = true, markers = false, layout = 'inspector', htmlLang = null, veInfo = {},
+  collectionRows = 'panel', body = null, payload = null, save = null, css = ''} = {}) {
   const imports = await importMap();
   const lang_ = await labels(lang);
   const posts = [];
   const state = {created: false};
   const config = {actionLabelMode: mode, inlineRecordsEnabled: inlineRecords, fieldChooserMode: 'tabs', fieldChooserTables: ['tt_content'],
-    elementLibraryEnabled: false, contextButtonsEnabled: false, editableLinksEnabled: false, elementRefreshEnabled: true, workspaceId: 0, colorScheme: scheme, entriesLayout: layout};
+    elementLibraryEnabled: false, contextButtonsEnabled: false, editableLinksEnabled: false, elementRefreshEnabled: true, workspaceId: 0, colorScheme: scheme, entriesLayout: layout,
+    collectionRows};
   if (collectionTypes !== null) { config.collectionTypes = collectionTypes; }
   const html = () => `<!doctype html><html lang="${htmlLang ?? lang}"><head><meta charset="utf-8"><title>Action bar harness</title>
     <script type="importmap">${JSON.stringify({imports})}</script>
@@ -131,15 +135,16 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
       .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
       .cards > div { padding: 16px; border: 1px solid ${scheme === 'dark' ? '#2e333b' : '#e3e5e8'}; border-radius: 6px; }
       ve-content-element { margin-bottom: 96px; }
+      ${css}
     </style></head><body>
     <ve-backend-save-button aria-busy="false"></ve-backend-save-button>
-    <main>
+    <main>${body ? body(state) : `
       ${element(1, 'feature_cards', 'Feature Cards Grid', `<div class="cards">
         <div${markers ? ' data-ve-item="items:2" data-ve-item-live="2" data-ve-collection="cards"' : ''}><ve-editable-text table="items" uid="2" field="title"><span contenteditable="plaintext-only">Add a card</span></ve-editable-text></div>
         <div${markers ? ' data-ve-item="items:3" data-ve-item-live="3" data-ve-collection="cards" data-ve-item-hidden=""' : ''}><ve-editable-text table="items" uid="3" field="title"><span contenteditable="plaintext-only">Export anywhere</span></ve-editable-text></div>
         ${state.created ? '<div><ve-editable-text table="items" uid="8" field="title"><span contenteditable="plaintext-only">New entry</span></ve-editable-text></div>' : ''}
       </div>`)}
-      ${element(5, 'text', 'Text', '<p>A plain text element without collections.</p>')}
+      ${element(5, 'text', 'Text', '<p>A plain text element without collections.</p>')}`}
     </main>
     <script type="module">
       const backend = document.querySelector('ve-backend-save-button'); Object.assign(backend, {count: 0, invalidCount: 0, saving: false});
@@ -157,6 +162,11 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
     if (url.pathname === '/save') {
       const body = route.request().postDataJSON();
       posts.push(body);
+      const answer = save?.(body, state);
+      if (answer) {
+        await route.fulfill(answer.status ? {status: answer.status, json: answer.json} : {json: answer});
+        return;
+      }
       if (body?.inlineRecord?.action !== 'create') {
         await route.fulfill({json: {success: true}});
         return;
@@ -166,6 +176,11 @@ export async function actionBarHarness(page, {mode = 'caption', collectionTypes 
       return;
     }
     if (url.searchParams.has('veFieldOptions')) {
+      const custom = payload?.(url, state);
+      if (custom) {
+        await route.fulfill({json: {fields: custom}});
+        return;
+      }
       const base = collectionField(field);
       const fields = url.searchParams.get('uid') === '1'
         ? [state.created ? {...base, uids: [2, 3, 8], children: [...base.children.map((child) => ({...child, canMoveDown: true})),

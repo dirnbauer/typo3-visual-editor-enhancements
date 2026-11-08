@@ -163,5 +163,35 @@
         <target>Unter der Werkzeugleiste des Elements, scrollt mit</target>
       </segment>
     </unit>
+    <unit id="collectionRows">
+      <segment state="final">
+        <source>Entries on the page</source>
+        <target>Einträge auf der Seite</target>
+      </segment>
+    </unit>
+    <unit id="collectionRows.description">
+      <segment state="final">
+        <source>Whether entries (feature cards, FAQ items, …) can also be changed right on the page. Works for templates that mark their entries; the entries panel always offers every action and is the keyboard path.</source>
+        <target>Ob Einträge (Feature-Karten, FAQ-Einträge, …) auch direkt auf der Seite geändert werden können. Wirkt bei Templates, die ihre Einträge markieren; das Einträge-Panel bietet immer alle Aktionen und ist der Weg für die Tastatur.</target>
+      </segment>
+    </unit>
+    <unit id="collectionRows.panel">
+      <segment state="final">
+        <source>In the entries panel only</source>
+        <target>Nur im Einträge-Panel</target>
+      </segment>
+    </unit>
+    <unit id="collectionRows.appender">
+      <segment state="final">
+        <source>Panel, plus an add button after the last entry</source>
+        <target>Panel und ein Hinzufügen-Button nach dem letzten Eintrag</target>
+      </segment>
+    </unit>
+    <unit id="collectionRows.rows">
+      <segment state="final">
+        <source>Panel, add button and a small toolbar on each entry</source>
+        <target>Panel, Hinzufügen-Button und eine kleine Leiste an jedem Eintrag</target>
+      </segment>
+    </unit>
 </file>
 </xliff>

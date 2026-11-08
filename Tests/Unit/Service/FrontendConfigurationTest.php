@@ -75,6 +75,7 @@ final class FrontendConfigurationTest extends TestCase
             'colorScheme' => 'auto',
             'actionLabelMode' => 'caption',
             'entriesLayout' => 'inspector',
+            'collectionRows' => 'panel',
         ], $configuration);
     }
 
@@ -183,6 +184,29 @@ final class FrontendConfigurationTest extends TestCase
 
         self::assertSame($expected, $this->build($settings, 666)['entriesLayout']);
         self::assertSame($expected, $this->build($settings, null)['entriesLayout']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function collectionRowsProvider(): iterable
+    {
+        yield 'panel' => ['panel', 'panel'];
+        yield 'appender' => ['appender', 'appender'];
+        yield 'rows' => ['rows', 'rows'];
+        yield 'not set' => [null, 'panel'];
+        yield 'unknown value' => ['rail', 'panel'];
+        yield 'not a string' => [2, 'panel'];
+    }
+
+    #[Test]
+    #[DataProvider('collectionRowsProvider')]
+    public function theCollectionRowsModeIsTheUsersSettingWithPanelAsDefault(mixed $setting, string $expected): void
+    {
+        $settings = $setting === null ? [] : ['tx_visualeditor_collectionRows' => $setting];
+
+        self::assertSame($expected, $this->build($settings, 666)['collectionRows']);
+        self::assertSame($expected, $this->build($settings, null)['collectionRows']);
     }
 
     /**

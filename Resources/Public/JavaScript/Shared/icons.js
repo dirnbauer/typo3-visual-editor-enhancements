@@ -63,6 +63,9 @@ export const documentLocalizeIconSvg = coreIcon('<path d="M3 3h10v2H3zM3 6h1v1H3
 /** actions-form-insert-after: "Add after" on an entry. */
 export const formInsertAfterIconSvg = coreIcon('<path d="M14 1h-4v1h4v5H2V2h1V1H1v7h14V1z"/><path d="M13 3H3v3h10V3zM4 1h5v1H4zM11 11H9V9H7v2H5v2h2v2h2v-2h2z"/>');
 
+/** actions-duplicate: "Duplicate" on an entry. */
+export const duplicateIconSvg = coreIcon('<path d="M14 4h-2V1H1v11h3v3h11V4h-1zM4 4v7H2V2h9v2H4zm10 10H5V5h9v9z"/>');
+
 /** actions-workspace: the workspace context strip. */
 export const workspaceIconSvg = coreIcon('<path d="M14.5 4H13V1.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5V3H1.5a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5H4v1.5a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-10a.5.5 0 0 0-.5-.5zM4 2h8v8h-1V3.5a.5.5 0 0 0-.5-.5H4V2zM2 4h8v8H2V4zm12 10H5v-1h5.5a.5.5 0 0 0 .5-.5V11h1.5a.5.5 0 0 0 .5-.5V5h1v9z"/>');
 
