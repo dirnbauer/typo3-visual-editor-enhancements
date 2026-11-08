@@ -2,6 +2,7 @@ import {html, nothing} from 'lit';
 import {live} from 'lit/directives/live.js';
 import {unsafeHTML} from 'lit/directives/unsafe-html.js';
 import {collectionLimit, collectionReason, fromTextControl, inlineLabel, titleKeyAction} from '@webconsulting/visual-editor-enhancements/Shared/inline-record-actions.js';
+import {activeChildren, createRefusal, duplicateOffered, moveTarget, restoreControl, rowReasons} from '@webconsulting/visual-editor-enhancements/Shared/row-actions.js';
 import {addEntryIconSvg, caretDownIconSvg, caretUpIconSvg, eyeSlashIconSvg, formInsertAfterIconSvg} from '@webconsulting/visual-editor-enhancements/Shared/icons.js';
 import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-chooser/row-menu.js';
 
@@ -36,47 +37,11 @@ import '@webconsulting/visual-editor-enhancements/Frontend/components/ve-field-c
 const plain = (text) => text ?? '';
 const fill = (text, values) => Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), text);
 
-/** The rows that still exist as entries (placeholders of a workspace deletion are listed read-only). */
-export const activeChildren = (field) => (field.children ?? []).filter((child) => child.state !== 'deleted');
-
-/**
- * Ordered uids the server compiled (field.uids) - the identities of a move.
- * @return {number[]}
- */
-function orderedUids(field) {
-  const active = activeChildren(field).map((child) => child.uid);
-  const uids = Array.isArray(field.uids) ? field.uids.filter((uid) => active.includes(uid)) : [];
-  return uids.length === active.length ? uids : active;
-}
-
-/**
- * The `afterUid` of moving one step: up = after the row two above (null =
- * first position), down = after the next row.
- * @return {{afterUid: number|null}|null} null when the row cannot move that way
- */
-export function moveTarget(field, child, direction) {
-  const uids = orderedUids(field);
-  const index = uids.indexOf(child.uid);
-  if (index < 0) { return null; }
-  if (direction === 'up') {
-    return index === 0 ? null : {afterUid: index >= 2 ? uids[index - 2] : null};
-  }
-  return index >= uids.length - 1 ? null : {afterUid: uids[index + 1]};
-}
+export {activeChildren, moveTarget};
 
 /** The reason one control is refused, '' when it is allowed. */
 function reasons(field, child, ctx) {
-  const structural = ctx.blocked;
-  const sort = field.sortReason ? collectionReason(field.sortReason) : '';
-  const createReason = field.createReason ? collectionReason(field.createReason) : (field.canCreate === false ? inlineLabel('controls') : '');
-  return {
-    up: structural || sort,
-    down: structural || sort,
-    eye: child.canHide === false ? collectionReason(child.hideReason) || inlineLabel('controls') : '',
-    after: structural || createReason,
-    remove: structural || (child.canDelete ? '' : collectionReason(child.deleteReason) || inlineLabel('controls')) || ctx.rowBlocked(child),
-    title: child.canEditLabel === false ? collectionReason(child.labelReason) : '',
-  };
+  return rowReasons(field, child, ctx.blocked, ctx.rowBlocked(child));
 }
 
 function iconButton({control, uid, label, icon, reason, endDisabled = false, onClick, extra = {}}) {
@@ -144,8 +109,12 @@ function badges(field, child, ctx) {
   return list;
 }
 
-function rowMenuItems(field, child, ctx) {
-  const items = [{label: inlineLabel('settings'), run: () => ctx.settings(child)}];
+function rowMenuItems(field, child, ctx, reason) {
+  const items = [];
+  if (duplicateOffered(child)) {
+    items.push({label: inlineLabel('duplicate'), reason: reason.duplicate, run: () => ctx.action('duplicate', child)});
+  }
+  items.push({label: inlineLabel('settings'), run: () => ctx.settings(child)});
   if (child.contextualUrl && customElements.get('typo3-backend-contextual-record-edit-trigger')) {
     items.push({element: (index) => html`<typo3-backend-contextual-record-edit-trigger role="menuitem" tabindex="-1" class="item" data-index=${index}
       url=${child.contextualUrl} edit-url=${child.backendUrl}>${inlineLabel('editInForm')}</typo3-backend-contextual-record-edit-trigger>`});
@@ -210,13 +179,33 @@ export function setRoving(toolbar, index) {
   toolbar.dataset.roving = String(index);
 }
 
+/**
+ * A workspace delete placeholder: read-only, with "Undo removal" when the
+ * server offers it (Core discards the staged deletion; the live entry was
+ * never touched).
+ */
+function renderPlaceholder(child, ctx) {
+  const restore = restoreControl(child, ctx.blocked);
+  if (!restore.offered) {
+    return html`<p class="entryReadOnly">${collectionReason('deleted')}</p>`;
+  }
+  return html`<div class="entryActions isPlaceholder">
+    <button type="button" class="undoRemoval" data-control="restore" aria-disabled=${restore.reason ? 'true' : nothing}
+      title=${restore.reason || nothing} aria-describedby=${restore.reason ? `reason-${child.uid}-restore` : nothing}
+      @click=${(event) => { if (event.currentTarget.getAttribute('aria-disabled') !== 'true') { ctx.action('restore', child); } }}>
+      <ve-icon name="actions-undo" width="14px"></ve-icon><span>${inlineLabel('undoRemoval')}</span>
+    </button>
+  </div>
+  ${restore.reason ? html`<p class="actionReason"><span id="reason-${child.uid}-restore">${restore.reason}</span></p>` : ''}`;
+}
+
 function renderRow(field, child, index, ctx) {
   const position = index + 1;
   const label = plain(child.label);
   const reason = reasons(field, child, ctx);
   const deleted = child.state === 'deleted';
   const hidden = ctx.hidden(child);
-  const refusals = deleted ? [] : Object.entries(reason).filter(([control, text]) => text && control !== 'title'
+  const refusals = deleted ? [] : Object.entries(reason).filter(([control, text]) => text && control !== 'title' && control !== 'duplicate'
     && !(control === 'remove' && !child.canDelete && child.deleteReason === 'deleted'));
   const up = moveTarget(field, child, 'up');
   const down = moveTarget(field, child, 'down');
@@ -230,7 +219,7 @@ function renderRow(field, child, index, ctx) {
       ${titleControl(field, child, ctx, position, reason.title)}
       <div class="entryMeta">${badges(field, child, ctx)}</div>
     </div>
-    ${deleted ? html`<p class="entryReadOnly">${collectionReason('deleted')}</p>` : html`
+    ${deleted ? renderPlaceholder(child, ctx) : html`
       <div class="entryActions" role="toolbar" aria-label=${fill(inlineLabel('rowActions'), {label: label || position})}
         @keydown=${toolbarKeydown}>
         ${iconButton({control: 'up', uid: child.uid, label: inlineLabel('moveUp'), icon: unsafeHTML(caretUpIconSvg(14)),
@@ -245,7 +234,7 @@ function renderRow(field, child, index, ctx) {
         ${iconButton({control: 'remove', uid: child.uid, label: inlineLabel('remove'), reason: reason.remove,
           icon: html`<ve-icon name="actions-delete" width="16px"></ve-icon>`, onClick: () => ctx.action('delete', child)})}
         <ve-row-menu class="rowAction" .label=${`${inlineLabel('moreActions')}: ${label || position}`}
-          .icon=${'<ve-icon name="actions-menu-alternative" width="16px"></ve-icon>'} .items=${rowMenuItems(field, child, ctx)}></ve-row-menu>
+          .icon=${'<ve-icon name="actions-menu-alternative" width="16px"></ve-icon>'} .items=${rowMenuItems(field, child, ctx, reason)}></ve-row-menu>
       </div>`}
     ${showHint ? html`<p class="entryHint">${inlineLabel('hiddenHint')}</p>` : ''}
     ${refusals.length ? html`<p class="actionReason">${refusals.map(([control, text]) => html`<span id="reason-${child.uid}-${control}">${text}</span>`)}</p>` : ''}
@@ -261,7 +250,7 @@ export function renderCollection(field, ctx) {
   const count = activeChildren(field).length;
   const max = collectionLimit(field.maxItems);
   const min = Number(field.minItems ?? 0);
-  const createReason = ctx.blocked || (field.createReason ? collectionReason(field.createReason) : (field.canCreate === false ? inlineLabel('controls') : ''));
+  const createReason = createRefusal(field, ctx.blocked);
   const addText = field.childTitle ? fill(inlineLabel('addEntry'), {title: field.childTitle}) : inlineLabel('add');
   return html`<section class="collection" aria-label=${field.label} data-collection=${field.name}>
     <header class="collectionHeader">
