@@ -154,16 +154,27 @@ export function railPlacement(rect, size, viewport, {gap = 4, edge = 8} = {}) {
 /**
  * Places an add button: full width of the collection's box (at least
  * `minWidth`), directly below its last entry (`bottom`) or above its first
- * (`top`). Null when that edge is outside the viewport.
+ * (`top`). Given the content element's own box (`frame`), the button never
+ * straddles the element's edge: it sits inside the gap between the entries
+ * and that edge when the gap holds it (at most `gap` from the entries, at
+ * least `inset` from the edge), otherwise just outside the edge. Null when
+ * that position is outside the viewport.
  * @param {{top: number, right: number, bottom: number, left: number}} rect the box of the collection's entries
  * @param {'top'|'bottom'} side
  * @param {number} height the button's height
  * @param {{width: number, height: number}} viewport
- * @param {{gap?: number, minWidth?: number}} options
+ * @param {{gap?: number, minWidth?: number, inset?: number, frame?: {top: number, bottom: number}|null}} options
  * @return {{left: number, top: number, width: number}|null}
  */
-export function appenderPlacement(rect, side, height, viewport, {gap = 6, minWidth = 160} = {}) {
-  const top = side === 'top' ? rect.top - gap - height : rect.bottom + gap;
+export function appenderPlacement(rect, side, height, viewport, {gap = 6, minWidth = 160, inset = 2, frame = null} = {}) {
+  let top = side === 'top' ? rect.top - gap - height : rect.bottom + gap;
+  const room = frame ? (side === 'top' ? rect.top - frame.top : frame.bottom - rect.bottom) : -1;
+  if (room >= height + 2 * inset) {
+    const offset = Math.min(gap, (room - height) / 2);
+    top = side === 'top' ? rect.top - offset - height : rect.bottom + offset;
+  } else if (room >= 0) {
+    top = side === 'top' ? frame.top - gap - height : frame.bottom + gap;
+  }
   if (top + height <= 0 || top >= viewport.height || rect.right <= 0 || rect.left >= viewport.width) {
     return null;
   }

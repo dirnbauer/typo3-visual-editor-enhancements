@@ -152,6 +152,20 @@ describe('placement', () => {
     assert.equal(appenderPlacement({top: 10, bottom: 50, left: 40, right: 100}, 'bottom', 32, viewport).width, 160, 'minimum width');
   });
 
+  it('never straddles the element edge: inside the gap when it fits, else just outside', () => {
+    const rect = {top: 100, bottom: 400, left: 40, right: 1000};
+    // The gap below the entries holds the button: 6 px below them, as without a frame.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 460}}).top, 406);
+    // A tight gap (36 px): centred, 2 px from the edge.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 436}}).top, 402);
+    // Too small (24 px, a card's padding): just outside the element, 6 px below its edge.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 424}}).top, 430);
+    assert.equal(appenderPlacement(rect, 'top', 32, viewport, {frame: {top: 90, bottom: 460}}).top, 52, 'top side: above the element');
+    assert.equal(appenderPlacement(rect, 'top', 32, viewport, {frame: {top: 0, bottom: 460}}).top, 62, 'top side: inside the gap');
+    // Entries spilling over the frame: placed against the entries.
+    assert.equal(appenderPlacement(rect, 'bottom', 32, viewport, {frame: {top: 0, bottom: 380}}).top, 406);
+  });
+
   it('unions the boxes of the primary renderings', () => {
     assert.deepEqual(unionRect([{top: 10, bottom: 50, left: 0, right: 100}, {top: 60, bottom: 90, left: 120, right: 200}, null,
       {top: 0, bottom: 0, left: 0, right: 0}]), {top: 10, left: 0, bottom: 90, right: 200});

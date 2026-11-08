@@ -10,8 +10,9 @@ import {themeTokens} from '@webconsulting/visual-editor-enhancements/Shared/them
  * dashed ghost button after the collection's last marked entry (or before its
  * first, as TCA levelLinksPosition says). A body-level singleton like the row
  * toolbar - nothing is inserted into the page or the Visual Editor's wrapper:
- * the buttons float over the gap below (above) the entries while the element
- * is hovered or holds the focus, at 60 % strength, full strength on their own
+ * the buttons float in the gap below (above) the entries - or just outside
+ * the element when that gap is too small, never across its edge - while the
+ * element is hovered or holds the focus, at 60 % strength, full strength on their own
  * hover or focus. At the collection's maximum a button stays, refused
  * (aria-disabled) with the reason.
  *
@@ -117,14 +118,17 @@ export class VeRowAppender extends LitElement {
     const viewport = viewportSize(0);
     const buttons = [...this.renderRoot.querySelectorAll('.appender')];
     const layout = this.items.map((item) => item.rect());
-    const key = JSON.stringify(layout.map((rect) => rect && [rect.top, rect.left, rect.bottom, rect.right])) + viewport.width + viewport.height;
+    const frame = this.owner?.getBoundingClientRect() ?? null;
+    const key = JSON.stringify([frame && [frame.top, frame.bottom], ...layout.map((rect) => rect && [rect.top, rect.left, rect.bottom, rect.right])]) + viewport.width + viewport.height;
     if (key === this.lastLayout) { return; }
     this.lastLayout = key;
     this.items.forEach((item, index) => {
       const button = buttons[index];
       const rect = layout[index];
       if (!button) { return; }
-      const place = rect ? appenderPlacement(rect, item.side, button.offsetHeight || 32, viewport) : null;
+      // The element's own box: the button sits inside the gap below (above)
+      // the entries when it fits there, else just outside - never across the edge.
+      const place = rect ? appenderPlacement(rect, item.side, button.offsetHeight || 32, viewport, {frame: frame && frame.height > 0 ? frame : null}) : null;
       button.toggleAttribute('data-offscreen', place === null);
       if (place) {
         button.style.left = `${place.left}px`;

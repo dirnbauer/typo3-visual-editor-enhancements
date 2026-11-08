@@ -74,7 +74,9 @@ async function rowsPage(page, {collectionRows = 'rows', scheme = 'light', mode =
       }
       if (intent.action === 'duplicate') {
         order.splice(order.indexOf(intent.childUid) + 1, 0, 9);
-        return {success: true, created: {uid: 9, table: 'items', hidden: true, hiddenField: 'hidden'}};
+        // The server's real success shape (InlineDuplicateTest).
+        return {success: true, uid: 9, created: {uid: 9, table: 'items', hidden: true, hiddenField: 'hidden'}, duplicated: {uid: intent.childUid},
+          workspace: {id: 0, firstVersion: false}};
       }
       if (intent.action === 'move') {
         order.splice(order.indexOf(intent.childUid), 1);
@@ -260,10 +262,15 @@ test('appender: one add button after the last entry, follows levelLinksPosition,
     await expect(appenders(page)).toHaveCount(sides.length);
     await expect.poll(() => appenders(page).evaluateAll((buttons) => buttons.map((button) => button.dataset.side))).toEqual(sides);
     const grid = await page.locator('ve-content-element[uid="1"] .cards').boundingBox();
+    const element = await page.locator('ve-content-element[uid="1"]').boundingBox();
     for (const side of sides) {
       const box = await page.locator(`ve-row-appender .appender[data-side="${side}"]`).boundingBox();
       if (side === 'bottom') { expect(box.y).toBeGreaterThanOrEqual(grid.y + grid.height); } else { expect(box.y + box.height).toBeLessThanOrEqual(grid.y); }
       expect(Math.round(box.width)).toBe(Math.round(grid.width));
+      // Never across the element's edge: inside the gap when it fits (the
+      // heading's room above), else just outside (the 24 px padding below).
+      const edge = side === 'bottom' ? element.y + element.height : element.y;
+      expect(box.y >= edge - 0.5 || box.y + box.height <= edge + 0.5).toBe(true);
     }
     const first = page.locator('ve-row-appender .appender').first();
     await expect(first).toHaveText(sides[0] === 'top' ? 'Add feature card at the start' : 'Add feature card');
